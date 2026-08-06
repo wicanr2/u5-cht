@@ -174,7 +174,14 @@ IDA Pro 反組譯 ──┬─ ★ FM Towns WORRIORS.EXP(32-bit P3,可能可反�
 ### 3.1 Ebiten 的已知注意事項
 
 - **CGO**:Linux/macOS build 需 CGO(Linux 要 `libgl1-mesa-dev`、`libxrandr/xinerama/xcursor/xi/xxf86vm-dev`);**Windows 目標可純 Go 交叉編譯**。macOS 需原生 runner(比照 u4-cht 走 GitHub Actions)。
-- **headless 截圖是第一個要打通的風險**:Ebiten 需要 GL context。做法(依序試):① Xvfb + Mesa 軟體 GL;② 引擎加 `-headless` 模式,把 offscreen `*ebiten.Image` 直接編碼 PNG 後退出。**P1 就要驗,不要等到後期才發現測不了**。
+- **[HARD] 畫面繪製不綁 GPU(2026-08-07 實測結論)**:`internal/render` 全部畫在 `image.NRGBA` 上,
+  ebiten 只負責「把成品上傳成紋理 + 整數倍放大 + 收鍵盤」。
+  ⚠ 這條是用五小時換來的:一開始把繪製綁在 ebiten,headless 截圖就得起 xvfb + 軟體 GL,
+  結果**死鎖五小時、零輸出、最後只能砍容器**(u4-cht 也踩過「軟體 GL 死鎖」)。
+  加逾時或換 GL 後端都只是治標 —— 根因是「驗證畫面」不該需要 GPU。
+  改成單一 CPU 繪製路徑後:headless 是秒級純函式呼叫、CI 不需顯示環境、
+  **截圖與實機畫面共用同一份 `render.Scene` 所以保證一致**。
+  headless 驗收指令:`u5dump scene <gamedata> <U5_E> out.png`。
 - 中文不用 `text/v2` 的 TTF 渲染:倚天 atlas 烘成一張 `*ebiten.Image`,取字用 `SubImage`。
 - 邏輯畫布用固定 offscreen image → 最後一次 `DrawImage` 放大到視窗,縮放濾鏡設 nearest。
 

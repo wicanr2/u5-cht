@@ -1,11 +1,24 @@
-// Package render 是 Ebiten 繪圖層:tile 地圖、HUD、混合 ASCII/CJK 的文字。
+// Package render 是畫面組裝層:tile 地圖、HUD、混合 ASCII/CJK 的文字。
+//
+// [架構決策 2026-08-07] 本套件**不依賴 ebiten**,全部畫在 image.NRGBA 上。
+//
+// 原因是踩到的坑:一開始把繪製綁在 ebiten 上,結果 headless 截圖必須起 xvfb + 軟體 GL,
+// 而那個組合會死鎖 —— 實測卡了五小時、沒有任何輸出,最後只能砍掉容器
+// (u4-cht 也踩過同一類問題:「F2 圖形熱切換在軟體 GL 死鎖」)。
+// 加逾時或換 GL 後端都只是治標;根因是「驗證畫面」本來就不該需要 GPU。
+//
+// 改成單一 CPU 繪製路徑之後:
+//   - headless 驗證是秒級的純函式呼叫,CI 不需要顯示環境
+//   - 只有一份繪製實作 ⇒ 截圖與實機畫面保證一致,不會漂移
+//   - ebiten 那層只剩「把 640×400 的成品上傳成紋理 + 整數倍放大 + 收鍵盤」
+//
+// 每幀重畫 640×400(約 256K 像素)對回合制 retro 遊戲綽綽有餘,
+// 而且畫面只在狀態改變時才需要重畫。
 package render
 
 import (
 	"image"
 	"image/color"
-
-	"github.com/hajimehoshi/ebiten/v2"
 
 	"github.com/wicanr2/u5-cht/internal/cjk"
 	"github.com/wicanr2/u5-cht/internal/textlayout"
@@ -27,53 +40,32 @@ func Wrap(s string, w int) []string { return textlayout.Wrap(s, w) }
 
 // TextRenderer 畫混合 ASCII 與 CJK 的文字。
 type TextRenderer struct {
-	asciiTex *ebiten.Image // 原版 8×8 字型烘成的 atlas(128 glyph 橫排)
-	cjkTex   *ebiten.Image // 倚天 atlas
-	cjkFont  *cjk.Font
+	charset *u5data.Charset
+	cjkFont *cjk.Font
+	fg      color.NRGBA
 
-	// cjkOffsetY 讓 15 px 高的字模在 16 px 行高裡垂直居中。
-	cjkOffsetY int
+	// 字模比行高矮時垂直居中用的位移。
+	cjkOffsetY   int
+	asciiOffsetY int
 }
 
-// NewTextRenderer 建立文字繪製器。cjkFont 可為 nil(那時 CJK 會畫成缺字框)。
+// NewTextRenderer 建立文字繪製器。任一字型可為 nil(缺 CJK 時中文會畫成紅框)。
 func NewTextRenderer(charset *u5data.Charset, cjkFont *cjk.Font, fg color.NRGBA) *TextRenderer {
-	t := &TextRenderer{cjkFont: cjkFont}
-
-	if charset != nil {
-		w := len(charset.Glyphs) * u5data.GlyphWidth
-		img := image.NewNRGBA(image.Rect(0, 0, w, u5data.GlyphHeight))
-		for i, g := range charset.Glyphs {
-			for y := 0; y < u5data.GlyphHeight; y++ {
-				for x := 0; x < u5data.GlyphWidth; x++ {
-					if g.At(x, y) {
-						img.SetNRGBA(i*u5data.GlyphWidth+x, y, fg)
-					}
-				}
-			}
-		}
-		t.asciiTex = ebiten.NewImageFromImage(img)
+	t := &TextRenderer{
+		charset:      charset,
+		cjkFont:      cjkFont,
+		fg:           fg,
+		asciiOffsetY: (LineHeight - u5data.GlyphHeight) / 2,
 	}
-
 	if cjkFont != nil {
 		_, gh := cjkFont.GlyphSize()
 		t.cjkOffsetY = (LineHeight - gh) / 2
-		// atlas 是單色遮罩:把亮點染成前景色。
-		b := cjkFont.Mask.Bounds()
-		img := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
-		for y := b.Min.Y; y < b.Max.Y; y++ {
-			for x := b.Min.X; x < b.Max.X; x++ {
-				if r, _, _, _ := cjkFont.Mask.At(x, y).RGBA(); r > 0x7FFF {
-					img.SetNRGBA(x-b.Min.X, y-b.Min.Y, fg)
-				}
-			}
-		}
-		t.cjkTex = ebiten.NewImageFromImage(img)
 	}
 	return t
 }
 
 // Draw 從 (x, y) 畫一行字,回傳畫完後的 x。
-func (t *TextRenderer) Draw(dst *ebiten.Image, x, y int, s string) int {
+func (t *TextRenderer) Draw(dst *image.NRGBA, x, y int, s string) int {
 	for _, r := range s {
 		if r < 0x80 {
 			t.drawASCII(dst, x, y, byte(r))
@@ -85,45 +77,84 @@ func (t *TextRenderer) Draw(dst *ebiten.Image, x, y int, s string) int {
 	return x
 }
 
-func (t *TextRenderer) drawASCII(dst *ebiten.Image, x, y int, c byte) {
-	if t.asciiTex == nil || c >= 128 {
-		return
+// DrawLines 從 (x, y) 逐行畫,回傳畫完後的 y。
+func (t *TextRenderer) DrawLines(dst *image.NRGBA, x, y int, lines []string) int {
+	for _, ln := range lines {
+		t.Draw(dst, x, y, ln)
+		y += LineHeight
 	}
-	// ASCII 字模只有 8 px 高,在 16 px 行高裡垂直居中。
-	sub := t.asciiTex.SubImage(image.Rect(
-		int(c)*u5data.GlyphWidth, 0,
-		(int(c)+1)*u5data.GlyphWidth, u5data.GlyphHeight,
-	)).(*ebiten.Image)
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
-	op.GeoM.Translate(float64(x), float64(y+(LineHeight-u5data.GlyphHeight)/2))
-	dst.DrawImage(sub, op)
+	return y
 }
 
-func (t *TextRenderer) drawCJK(dst *ebiten.Image, x, y int, r rune) {
-	if t.cjkTex == nil || t.cjkFont == nil {
+func (t *TextRenderer) drawASCII(dst *image.NRGBA, x, y int, c byte) {
+	if t.charset == nil {
+		return
+	}
+	g, ok := t.charset.Glyph(c)
+	if !ok {
+		return
+	}
+	oy := y + t.asciiOffsetY
+	for gy := 0; gy < u5data.GlyphHeight; gy++ {
+		for gx := 0; gx < u5data.GlyphWidth; gx++ {
+			if g.At(gx, gy) {
+				SetPixel(dst, x+gx, oy+gy, t.fg)
+			}
+		}
+	}
+}
+
+func (t *TextRenderer) drawCJK(dst *image.NRGBA, x, y int, r rune) {
+	if t.cjkFont == nil {
+		t.drawMissingBox(dst, x, y)
 		return
 	}
 	rect, ok := t.cjkFont.Glyph(r)
 	if !ok {
-		// 缺字畫成空框而不是靜默跳過 —— 畫面上看得見才會有人去修。
+		// 缺字畫成紅框而不是靜默跳過 —— 畫面上看得見才會有人去修。
 		t.drawMissingBox(dst, x, y)
 		return
 	}
-	sub := t.cjkTex.SubImage(rect).(*ebiten.Image)
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
-	op.GeoM.Translate(float64(x), float64(y+t.cjkOffsetY))
-	dst.DrawImage(sub, op)
+	oy := y + t.cjkOffsetY
+	mask := t.cjkFont.Mask
+	for my := rect.Min.Y; my < rect.Max.Y; my++ {
+		for mx := rect.Min.X; mx < rect.Max.X; mx++ {
+			if v, _, _, _ := mask.At(mx, my).RGBA(); v > 0x7FFF {
+				SetPixel(dst, x+(mx-rect.Min.X), oy+(my-rect.Min.Y), t.fg)
+			}
+		}
+	}
 }
 
-func (t *TextRenderer) drawMissingBox(dst *ebiten.Image, x, y int) {
-	gw, gh := CJKAdvance, LineHeight-2
+func (t *TextRenderer) drawMissingBox(dst *image.NRGBA, x, y int) {
 	c := color.NRGBA{R: 0xAA, G: 0x00, B: 0x00, A: 0xFF}
-	for i := 0; i < gw; i++ {
-		dst.Set(x+i, y+1, c)
-		dst.Set(x+i, y+gh, c)
+	w, h := CJKAdvance, LineHeight-2
+	for i := 0; i < w; i++ {
+		SetPixel(dst, x+i, y+1, c)
+		SetPixel(dst, x+i, y+h, c)
 	}
-	for j := 1; j <= gh; j++ {
-		dst.Set(x, y+j, c)
-		dst.Set(x+gw-1, y+j, c)
+	for j := 1; j <= h; j++ {
+		SetPixel(dst, x, y+j, c)
+		SetPixel(dst, x+w-1, y+j, c)
+	}
+}
+
+// SetPixel 是帶邊界檢查的畫點。
+func SetPixel(dst *image.NRGBA, x, y int, c color.NRGBA) {
+	if !(image.Point{X: x, Y: y}).In(dst.Bounds()) {
+		return
+	}
+	dst.SetNRGBA(x, y, c)
+}
+
+// DrawFrame 畫一個空心矩形(玩家位置標記等)。
+func DrawFrame(dst *image.NRGBA, x, y, w, h int, c color.NRGBA) {
+	for i := 0; i < w; i++ {
+		SetPixel(dst, x+i, y, c)
+		SetPixel(dst, x+i, y+h-1, c)
+	}
+	for j := 0; j < h; j++ {
+		SetPixel(dst, x, y+j, c)
+		SetPixel(dst, x+w-1, y+j, c)
 	}
 }

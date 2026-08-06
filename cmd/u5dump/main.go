@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/wicanr2/u5-cht/internal/assets"
+	"github.com/wicanr2/u5-cht/internal/render"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -41,6 +43,8 @@ func main() {
 		err = cmdWorld(os.Args[2:])
 	case "text":
 		err = cmdText(os.Args[2:])
+	case "scene":
+		err = cmdScene(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -60,6 +64,8 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump map           <地圖檔> <U5_E 目錄> <out.png> [--side N] [--cols N] [--max N]
   u5dump world         <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]
   u5dump text          <檔案> [--n N]          明文訊息檔 → 前 N 筆(預設 5)
+  u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y]
+                                               遊戲畫面 headless 截圖(純 CPU,不需 GPU)
 `
 
 func fmTownsTilePaths(dir string) []string {
@@ -305,5 +311,70 @@ func cmdText(args []string) error {
 		}
 		fmt.Printf("\n[%3d]%s %s\n", r.Index, mark, text)
 	}
+	return nil
+}
+
+// cmdScene 用純 CPU 畫出遊戲畫面。
+//
+// 這是本專案的 headless 驗收路徑:與實機顯示共用同一個 render.Scene,
+// 所以截圖就是實機畫面。不需要 X11、不需要 GL —— 之前綁 ebiten 的版本在
+// xvfb + 軟體 GL 下死鎖了五小時,那正是改成 CPU 繪製的原因。
+func cmdScene(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("用法:u5dump scene <gamedata> <U5_E 目錄> <out.png> [--font 前綴] [--at X Y]")
+	}
+	fontPrefix := "assets/fonts/eten-15"
+	atX, atY := -1, -1
+	for i := 3; i < len(args); i++ {
+		switch args[i] {
+		case "--font":
+			if i+1 < len(args) {
+				fontPrefix = args[i+1]
+			}
+		case "--at":
+			if i+2 < len(args) {
+				atX, _ = strconv.Atoi(args[i+1])
+				atY, _ = strconv.Atoi(args[i+2])
+			}
+		}
+	}
+
+	bundle, warns := assets.Load(assets.Options{
+		GameData: args[0], FMTowns: args[1], FontPrefix: fontPrefix,
+	})
+	for _, w := range warns {
+		fmt.Fprintf(os.Stderr, "⚠ %s\n", w)
+	}
+
+	sc := &render.Scene{
+		World: bundle.World,
+		Tiles: bundle.Tiles,
+		Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+		Messages: []string{
+			"汝已抵達不列顛尼亞。此地由不列顛王治理,然其人已然失蹤。",
+			"往北方前行。",
+		},
+	}
+	if atX >= 0 && atY >= 0 {
+		sc.PX, sc.PY = atX, atY
+	} else {
+		sc.PX, sc.PY = assets.FindLandStart(bundle.World, 1)
+	}
+
+	if err := writePNG(args[2], sc.Render()); err != nil {
+		return err
+	}
+	fmt.Printf("✓ 畫面 %d×%d → %s(玩家 %d,%d)\n",
+		render.CanvasWidth, render.CanvasHeight, args[2], sc.PX, sc.PY)
+	if bundle.CJK != nil {
+		var miss []rune
+		for _, m := range sc.Messages {
+			miss = append(miss, bundle.CJK.MissingRunes(m)...)
+		}
+		if len(miss) > 0 {
+			fmt.Printf("⚠ 訊息裡有 %d 個缺字:%s\n", len(miss), string(miss))
+		}
+	}
+	_ = u5data.TileSize
 	return nil
 }

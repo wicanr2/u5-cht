@@ -107,7 +107,8 @@ u5-cht/
 2. ✅ 文字層 `internal/render`:ASCII 走原版 8×8、CJK 走倚天 16×15,缺字畫紅框(不靜默跳過)
 3. ✅ **量測與繪製同一個 gate**:度量與斷行抽成 `internal/textlayout`(純邏輯、不依賴 ebiten),
    `render` 只 re-export 不自己另算。property test 固定住「Wrap 出來的每一行寬度都 ≤ 上限」
-4. ✅ **headless 截圖**:`u5cht -headless -shot out.png`(xvfb + llvmpipe;ReadPixels → PNG)
+4. ✅ **headless 截圖**:`u5dump scene`(純 CPU,秒級,不需 GPU)。
+   ⚠ 原本走 ebiten + xvfb + 軟體 GL 的版本**死鎖五小時**,已改成 CPU 繪製路徑(見 CLAUDE.md §3.1)
 5. ⬜ 24×24 版本與尺寸決策實測 → `docs/localization-notes.md`
 
 **驗收**:容器內截出中英混排畫面,字清晰、不溢框(已達成);24×24 選項待做。
@@ -178,7 +179,7 @@ README 三層 voice + 手冊引用章節 + 譯名政策 + 逆向手記;`docs/man
 |---|---|
 | 🟠 **引擎規模**:全遊戲邏輯自己寫,是三個姊妹專案中最大的 | 垂直切片優先(P2 先能走能看),逐系統補;deep modules 讓各系統可獨立驗 |
 | 🟠 **`TILES.16` 壓縮未破** | 已有兩個未壓縮 oracle(FM Towns `.TIL`、PC-98 `TILES.CH`);先用它們把畫面跑起來,不擋進度 |
-| 🟡 **headless 截圖**(Ebiten 要 GL context) | 容器已裝 xvfb + llvmpipe;P1.5 就驗,不留到後期 |
+| ~~🟡 headless 截圖(Ebiten 要 GL context)~~ | ✅ **已解**:繪製改成純 CPU(`internal/render` 不依賴 ebiten),headless 秒級且與實機畫面共用同一份 Scene。踩坑紀錄見 `docs/engineering-notes.md` |
 | 🟡 **24×24 在窄文字欄破版** | 先實測再決定,退路是 16×15;決定與量測寫進文件 |
 | 🟡 **玩家輸入比對**(Yes/No、符文、對話關鍵字)中文化後打不出來 | canonical 值維持英文,顯示「中文(英文)」(u4-cht 踩過的坑) |
 | 🟡 **手冊版權**(掃描 + OCR 入庫是使用者決定) | README 與 `docs/manual/README.md` 標明來源、僅供研究對照、權利人要求即撤 |
