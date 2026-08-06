@@ -264,7 +264,22 @@ docker run --rm -v "$WORK:/work" -v "$ROOT/tools:/work/tools:ro" -w /work \
    - **Hex-Rays 批次反編譯成功**:`idat -Ohexrays:/work/out.c:ALL -A <db>.i64` → **61,364 行 C、1,225 函式**。
    ⇒ **FM Towns 這條路讀 C,不讀組語。** 這是 §4.2 把它列為主目標的最主要理由。
 
-### 4.4 鐵則(全部來自 kb 的踩坑,違反就是重蹈)
+### 4.4 [HARD] Hex-Rays 的輸出不是真值(2026-08-07 實測)
+
+反編譯輸出裡到處是這行警告:
+
+```
+// write access to const memory has been detected, the output may be wrong!
+```
+
+Hex-Rays 把某些**可寫的全域當成唯讀常數**,常數傳播就把整段邏輯摺掉。實例:
+`sub_31CB8` 被反編譯成 `return 0;`,而組語其實是
+`return dword_65334 == -1 ? 0 : dword_65334;` —— 它回傳當前場景索引,差很多。
+
+⇒ **看到「常數回傳」「條件恆真/恆假」「函式被摺成一行」,一律回去讀 `.asm` 再下結論。**
+Hex-Rays 是加速器,不是真值來源;真值是組語與 xref 圖(同 `rulebook/62`)。
+
+### 4.5 鐵則(全部來自 kb 的踩坑,違反就是重蹈)
 
 - **寫 IDC,不要寫 IDAPython**(本機實測 IDAPython 無輸出)。
 - IDC **必須** `#include <idc.idc>`,少了會**安靜 exit 1**、無任何訊息。
@@ -277,7 +292,7 @@ docker run --rm -v "$WORK:/work" -v "$ROOT/tools:/work/tools:ro" -w /work \
 - `.i64` / `.asm` / 解包後 binary **全部 gitignore**。
 - 只做靜態分析與互通性研究;license 唯讀掛載、不出現在 log/截圖;**不在 container 內跑遊戲**。
 
-### 4.5 什麼時候才離開 IDA
+### 4.6 什麼時候才離開 IDA
 
 靜態追到「該值來自某個間接跳表 / 執行期計算」而三次嘗試都無法收斂時,才依 `rulebook/64` 換路:
 用**已破解的解碼器 + 已知輸出(DOSBox 實機截圖)反推**位置。**不要**一撞牆就跳去動態 dump。

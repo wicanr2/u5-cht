@@ -57,8 +57,8 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 地表世界地圖 256×256 | `BRIT.DAT` 205 chunk + `DATA.OVL` 0x3886 索引表 | ✅ 完整組出 |
 | 地底世界 | `UNDER.DAT` 65,536 B(256 chunk,不省略) | ⬜ 解碼未做 |
 | 場景地圖 | `TOWNE/CASTLE/KEEP/DWELLING.DAT` 各 16,384 B;**`sub_86C` 的 `byte_3F789[32*dy+dx]` 證實列寬 32** ⇒ 16 張 32×32/檔 | ✅ **四個檔共 64 張全解出**(建築/石牆/道路/家具/水池/田地/墓園可辨);⬜ 哪張對應哪個地名未知 |
-| 地點類型 9 種 | `DATA.OVL` 0x2AB3:`keep village towne castle cave mine dungeon ruins lighthouse` | ⬜ |
-| 進出場景(portal) | 同上 + `TOWN.OVL`;`sub_86C` 內有 `"Dost thou wish to leave? "` → `"Exit to Britannia!"` | ⬜ **缺「世界座標 → 場景索引」對照表**,這是下一個要找的 |
+| 地點類型 | `DATA.OVL` 0x2AB3 列 9 種;**`sub_2D72C` 實際分派 12 種**(多了 hut、法典聖壇、八德聖壇、兩座宮殿/城堡) | 🔶 已知 tile 對應 |
+| 進出場景(portal) | **`sub_2D72C` 依腳下 tile 分派**(見 `docs/re/03`):tile 16=hut、17=法典聖壇、18=keep、19=village、20=towne、21=castle、22=cave、23=mine、24=dungeon、25=八德聖壇、61=Blackthorn 宮殿、62=LB 城堡 | 🔶 入口 tile 已確認;⬜ **地點表未找到** —— 下一步查 `dword_65334` 的寫入 xref |
 | 地形通行規則 | **已從原版執行檔取得**:`byte_5FF6C` 64 B bitmap(阻擋 195/512)+ `sub_2A610`/`sub_2A674` 判定式,見 `docs/re/02` | ✅ 已接進引擎(走進海裡會顯示「受阻!」) |
 | 移動成本分級 | `"Slow progress!"` / `"Very slow!"` @ `sub_2D0BC` | ⬜ 訊息已定位,規則未讀 |
 | 移動者→模式表 | `byte_5FF8C[mover>>2]`,11 種模式(一般/水上/兩棲/陸上/方向性…) | ⬜ |
