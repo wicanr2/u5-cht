@@ -68,10 +68,17 @@
   中文必須另開點陣路徑。
 - **對話 `.TLK`**:DOS/英文版每 byte **bit7 被設為 1**(清掉即明文);FM Towns 日文版 `.JPN` 是
   Shift-JIS 原樣;兩者檔頭都是 `(u16 offset, u16 index)` 交錯索引表,**可靠 index 逐筆英日對齊**。
-- **明文文字檔**(`STORY` `QUESTION` `KARMA` `MISCMSG` `ENDMSG` `SHOPPE` `LOOK2`.DAT):
-  `|` 分隔記錄、`{` 起始、**`_` 是斷字提示**(譯成中文要移除)。
-- **`TILES.16` 檔頭前 4 byte 是解壓後長度**(65,536),壓縮演算法待破;
-  **FM Towns `EGA0–3.TIL` 各 65,536 B 未壓縮**,是破解時的對答案 oracle。
+- **明文文字檔**:記錄用 **NUL(0x00)分隔**(⚠ 不是 `|`,此前記載有誤,見 `CLAUDE.md §2.1` 的更正);
+  `{` 是段落起始、**`_` 是英文斷字提示**(譯成中文要移除)。
+  `STORY`/`QUESTION`/`KARMA`/`MISCMSG`/`ENDMSG` 共 114 筆、**0 個 token,可直接翻**;
+  `SHOPPE.DAT` 194 筆但有 **862 個詞典 token**(字典在 `DATA.OVL` 0x104C,118 個常用詞),
+  **映射未定前不得翻譯**;`LOOK2`/`SIGNS` 格式各自不同,另案。
+- **tileset 已破解**:FM Towns `EGA0–3.TIL` = 128 tile/檔 × 512 B,是原版 16×16 機械放大 2× 的
+  32×32 4bpp packed;還原後 512 tile × 128 B = 65,536 B,等於 DOS `TILES.16` 宣稱的解壓後長度。
+  ⚠ **色號用 IGRB 不是 EGA 的 IRGB**(bit1↔bit2 對調),算繪一律用 `u5data.TilePalette`。
+  `TILES.16` 的壓縮本身仍未破(不是標準 LZW),但不擋進度。
+- **世界地圖已組出**:`BRIT.DAT` = 205 個 16×16 chunk;**chunk 索引表在 `DATA.OVL` 0x3886**
+  (256 B,`0xFF` = 該位置全水,51 + 205 = 256)。`BRIT.OOL` **不是**索引表(已推翻)。
 - **逆向入口**:FM Towns `WORRIORS.EXP` → `tools/ida.sh analyze` → Hex-Rays 出 61K 行 C;
   檔案讀取常式錨點 `sub_2C740(?, 檔名, 緩衝區, 長度, ?)`、對話緩衝 `byte_54700`
   (見 `docs/re/00-hexrays-p3-verified.md`)。

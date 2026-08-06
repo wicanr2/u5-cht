@@ -84,13 +84,18 @@ u5-cht/
 
 ### P1 — 資料解碼(順序刻意這樣排)
 
-1. **`EGA0–3.TIL`(FM Towns,未壓縮 65,536 B)→ PNG** ← 最快看到正確 tile
-2. **破 `TILES.16` 壓縮**,拿 1 當 oracle 逐位元組對答案(檔頭前 4 B 宣稱解壓後 65,536)
-3. 字型:`IBM.CH` ✅ 已完成;`U5.FNT`(FM Towns,佈局未知)、`FONT98.CH`(PC-98)待驗
-4. `BRIT.DAT` / `UNDER.DAT`(各 64K)→ 地圖圖;`TOWNE/CASTLE/KEEP/DWELLING.DAT`(各 16K)
+1. ✅ **`EGA0–3.TIL` → 512 tile**(格式完全破解 + 色號 IGRB 校正)
+2. 🔶 **破 `TILES.16` 壓縮** —— 確認不是標準 LZW;已定位載入鏈但解壓函式未找到,**移交 P3**
+   (引擎先用 FM Towns 未壓縮版,不擋進度)
+3. 字型:`IBM.CH` ✅;`U5.FNT`(FM Towns「ULTIMA FONT」16,384 B)、`TOWNS.FNT`(「IBM FONT」
+   17,280 B)、`FONT98.CH`(PC-98)佈局待驗
+4. ✅ **`BRIT.DAT` → 完整 256×256 世界地圖**(205 chunk + `DATA.OVL` 0x3886 索引表);
+   `UNDER.DAT` 與場景地圖(`TOWNE`/`CASTLE`/`KEEP`/`DWELLING`)待做
 5. `.TLK` 三版 → JSON,**用 NPCIndex 產英日對照表**(`tlk.go` 已可解,欄位切分待 P3)
-6. 七個明文 `.DAT`(`STORY` `QUESTION` `KARMA` `MISCMSG` `ENDMSG` `SHOPPE` `LOOK2`)→ JSON,
-   處理 `|` 分隔與 `_` 斷字標記
+6. ✅ 明文 `.DAT` → 記錄(**NUL 分隔**,不是 `|`;`_` 斷字提示已處理)。
+   `STORY`/`QUESTION`/`KARMA`/`MISCMSG`/`ENDMSG` 共 114 筆可直接翻;
+   `SHOPPE.DAT` 194 筆含 862 個詞典 token,**待 token 映射定案**(字典已定位在 `DATA.OVL` 0x104C);
+   `LOOK2`/`SIGNS` 格式不同,另案
 7. `DATA.OVL` 物品/武器/防具/法術名表
 
 **驗收**:tileset PNG 與原版截圖逐格對得上;`TILES.16` 解壓結果與 `.TIL` 逐位元組相同;

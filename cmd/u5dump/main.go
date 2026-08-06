@@ -39,6 +39,8 @@ func main() {
 		err = cmdMap(os.Args[2:])
 	case "world":
 		err = cmdWorld(os.Args[2:])
+	case "text":
+		err = cmdText(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -57,6 +59,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump tlk           <檔案> [--sjis] [--n N] 對話檔 → 前 N 筆欄位(預設 3)
   u5dump map           <地圖檔> <U5_E 目錄> <out.png> [--side N] [--cols N] [--max N]
   u5dump world         <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]
+  u5dump text          <檔案> [--n N]          明文訊息檔 → 前 N 筆(預設 5)
 `
 
 func fmTownsTilePaths(dir string) []string {
@@ -269,5 +272,38 @@ func cmdWorld(args []string) error {
 	fmt.Printf("✓ 完整世界地圖 %d×%d tile → %s(%d×%d px)\n",
 		u5data.WorldSide, u5data.WorldSide, args[2], img.Bounds().Dx(), img.Bounds().Dy())
 	fmt.Println("  驗收方式:與已知的 Britannia 世界地圖比對輪廓")
+	return nil
+}
+
+// cmdText 印明文訊息檔的前幾筆(驗收解碼是否正確)。
+func cmdText(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("用法:u5dump text <檔案> [--n N]")
+	}
+	n := 5
+	for i := 1; i+1 < len(args); i++ {
+		if args[i] == "--n" {
+			n, _ = strconv.Atoi(args[i+1])
+		}
+	}
+	tf, err := u5data.LoadText(args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s:%d 筆記錄,斷字提示 %d 個\n", args[0], len(tf.Records), tf.HyphenHintCount())
+	for i, r := range tf.Records {
+		if i >= n {
+			break
+		}
+		mark := " "
+		if r.Page {
+			mark = "{"
+		}
+		text := r.Text()
+		if len(text) > 200 {
+			text = text[:200] + "…"
+		}
+		fmt.Printf("\n[%3d]%s %s\n", r.Index, mark, text)
+	}
 	return nil
 }
