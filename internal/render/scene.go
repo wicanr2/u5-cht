@@ -110,6 +110,11 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 	if s.World != nil {
 		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("地形 %3d", s.World.At(s.PX, s.PY)))
 	}
+	y += LineHeight
+	// 地點名取自原版執行檔的地點表(u5data.Locations),不是自己打的清單。
+	if loc, ok := u5data.LocationAt(s.PX, s.PY); ok {
+		s.Text.Draw(dst, PanelX, y, "★ "+loc.DisplayName())
+	}
 	y += LineHeight * 2
 	s.Text.DrawLines(dst, PanelX, y, []string{"方向鍵移動", "F10 離開"})
 }

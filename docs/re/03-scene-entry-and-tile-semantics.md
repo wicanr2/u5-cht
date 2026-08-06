@@ -154,3 +154,62 @@ loc_3197C:
 
 其他確認到的訊息:`"Entering room...\n"`、`"Thou art under arrest!"`(Blackthorn 暴政下
 守衛會逮捕玩家)、`"Thou art subdued and blindfolded!"`。
+
+## 5. 地點表 ✅ 已找到並實作
+
+`sub_10928(地名字串)` 裡有一段線性搜尋:
+
+```c
+for (i = 0; i < 32 && (byte_410F4[i] != 0 || byte_4111C[i] != 0); ++i);
+```
+
+那兩個 `!= 0` **又是 §1 的 const 誤判**(玩家 X/Y 座標被當成常數 0)——
+實際語意是「掃 32 筆,找座標與玩家相符的那一筆」。於是三張平行表現形:
+
+| 符號 | 內容 |
+|---|---|
+| `off_41054[32]` | 地點名稱指標 |
+| `byte_410F4[32]` | 地點 X 座標 |
+| `byte_4111C[32]` | 地點 Y 座標 |
+
+dump 出來就是完整的 32 個地點(實作在 `internal/u5data/locations.go`):
+
+```
+ 0 MOONGLOW(232,135)   1 BRITAIN(81,106)      2 JHELOM(36,222)     3 YEW(58,43)
+ 4 MINOC(159,20)       5 TRINSIC(106,184)     6 SKARA BRAE(22,128) 7 NEW MAGINCIA(187,169)
+ 8 FOGSBANE(88,120)    9 STORMCROW(152,24)   10 GREYHAVEN(104,216) 11 WAVEGUIDE(216,120)
+12 IOLO'S HUT(45,62)  13–17 (無名)           18 WEST BRITANNY      19 NORTH BRITANNY
+20 EAST BRITANNY      21 PAWS(98,145)        22 COVE(136,90)       23 BUCCANEER'S DEN
+24 ARARAT(49,58)      25 BORDERMARCH(15,160) 26 FARTHING(64,240)   27 WINDEMERE(248,8)
+28 STONEGATE(148,74)  29 THE LYCAEUM(218,107) 30 EMPATH ABBEY(28,50) 31 SERPENT'S HOLD(146,241)
+```
+
+### 交叉驗證:26/32 的座標落在已知入口 tile 上
+
+把每個座標拿去查已組好的世界地圖:
+
+- 七大城市 → **tile 20 (towne)** ✓
+- New Magincia / 三個 Britanny / Paws / Cove → **19 (village)** ✓
+- Iolo's Hut 與三個無名點 → **16 (hut)** ✓
+- Bordermarch / Farthing / Windemere / Stonegate → **18 (keep)** ✓
+- Lycaeum / Empath Abbey / Serpent's Hold → **21 (castle)** ✓
+- Buccaneer's Den → **20 (towne)** ✓
+
+**不命中的 6 筆反而更有價值**:
+
+1. **四座燈塔**(Fogsbane / Stormcrow / Greyhaven / Waveguide)全落在 **tile 27**
+   ⇒ **tile 27 = lighthouse** —— 正好補上 `DATA.OVL` 0x2AB3 地點類型表裡一直對不上的 `lighthouse`。
+2. **#16 (86,107) = tile 62 = Lord British 城堡**。它無名,是因為落在
+   `if (i < 13 || i > 17)` 那個「不印名字」的範圍 —— 程式另外處理它。**與程式碼完全吻合。**
+3. `ARARAT (49,58)` 落在 tile 8(一般地形)、`#17 (196,245)` 落在 tile 57 —— 待查。
+
+這種「大部分命中、不命中的能解釋成新事實」的形狀,比 100% 命中更可信 ——
+若三張表有錯位,不會出現這麼整齊的類型對應。
+
+### 中文地名的處理
+
+`Location` 同時存 `Name`(英文 canonical)與 `NameZH`。
+**只填已定案的八德城市**(對齊 `CONTEXT.md` glossary 與聖者之書體系),
+其餘留空、顯示時退回英文 —— 憑印象硬翻會變成二手轉譯,等《軟體世界》手冊 OCR 定案。
+
+⚠ 玩家輸入比對一律用 `Name`(英文):玩家在遊戲中打不出中文(u4-cht 踩過的坑)。

@@ -71,7 +71,11 @@ func (g *game) Update() error {
 			continue
 		}
 		g.scene.PX, g.scene.PY = nx, ny
-		g.log("往%s方前行。", m.name)
+		if loc, ok := u5data.LocationAt(nx, ny); ok {
+			g.log("往%s方前行 —— 此處是%s。", m.name, loc.DisplayName())
+		} else {
+			g.log("往%s方前行。", m.name)
+		}
 	}
 	return nil
 }
