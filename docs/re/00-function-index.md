@@ -3,13 +3,14 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **37** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **39** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
 | `sub_86C` | `sub_86C` 裡的 `(v2 & 0xFE) == 0x10`(tile 16–17)都落在這個範圍。 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md` |
 | `sub_6730` | 2. 或查 `byte_41C18` 的 xref(`sub_6730` 開頭有 `for(i=0;i<256;i++) byte_41C18[i]=i`, | `01-tileset-and-dot16-loader.md` |
 | `sub_C778` | 寫  0xC790   sub_C778    mov dword_65334, 1 | `03-scene-entry-and-tile-semantics.md` |
+| `sub_10928` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md` |
 | `sub_1DA10` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md` |
 | `sub_24A50` | push off_41BE0 → call sub_24A50    ← 載 .16(off_41BE0 = 表的第 16 項 "CREATE.16") | `01-tileset-and-dot16-loader.md` |
 | `sub_24BC0` | push off_41BA0 → call sub_24BC0    ← 載 PROPORT.PCS | `01-tileset-and-dot16-loader.md` |
@@ -19,11 +20,10 @@
 | `sub_2B360` | v2 = sub_2B360(...); | `02-movement-and-tile-flags.md` |
 | `sub_2C740` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md` |
-| `sub_2D564` | `0x18`(24)  /  dungeon(地牢)  /  `sub_2D564`  / | `03-scene-entry-and-tile-semantics.md` |
-| `sub_2D72C` | 所以 `sub_2D72C` 傳的 6 / 7 / 8 / 11 就是場景編號本身,範圍 0–14(`<= 0xE`)。 | `03-scene-entry-and-tile-semantics.md` |
-| `sub_3181C` | `0x3E`(62)  /  **the Castle of Lord British!**  /  `sub_3181C(7)`  / | `03-scene-entry-and-tile-semantics.md` |
-| `sub_31CB8` | `sub_3181C` 內用 `sub_31CB8()` 取場景索引(且檢查 `<= 0xE`,即 0–14)。 | `03-scene-entry-and-tile-semantics.md` |
-| `sub_31CCC` | 存在別的變數裡(`dword_65338` 是候選,由 `sub_31CCC` 讀取)。 | `03-scene-entry-and-tile-semantics.md` |
+| `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md` |
+| `sub_2D72C` | (其餘地點的編號要把 `sub_2D72C` 的每個 case 讀完才齊。) | `03-scene-entry-and-tile-semantics.md` |
+| `sub_3181C` | ⇒ **`sub_3181C(n)` = 播第 n 首 BGM**;`dword_65334` = 當前曲目、`dword_65338` = 前一首。 | `03-scene-entry-and-tile-semantics.md` |
+| `sub_31CB8` | 原本以為 `sub_3181C` → `sub_31CB8` → `dword_65334` 這條鏈通往地點表。 | `03-scene-entry-and-tile-semantics.md` |
 | `off_411BC` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md` |
 | `off_41BA0` | ⚠ 這一步 **grep 反編譯輸出會回零命中** —— 存取是 `off_41BA0[edi*4]` 這種間接形式, | `01-tileset-and-dot16-loader.md` |
 | `off_41BB4` | `off_41BB4[0..2]`(3 檔)  /  `0xD6D8` = 55,000 B  /  55,000  / | `01-tileset-and-dot16-loader.md` |
@@ -40,7 +40,9 @@
 | `dword_41D28` | │    └─ 啟動初始化:載 towns.fnt(17,280 B → dword_41D28)與 u5.fnt(0x4000 B → dword_4FFB8); | `01-tileset-and-dot16-loader.md` |
 | `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md` |
 | `dword_5AC30` | 1. 查 `dword_5AC30`(handle 表)的 xref → 找取用 handle 的函式 → 那裡才有解壓。 | `01-tileset-and-dot16-loader.md` |
-| `dword_65334` | 實際語意是 **`return dword_65334 == -1 ? 0 : dword_65334;`** —— 它回傳當前場景索引, | `03-scene-entry-and-tile-semantics.md` |
-| `dword_65338` | 存在別的變數裡(`dword_65338` 是候選,由 `sub_31CCC` 讀取)。 | `03-scene-entry-and-tile-semantics.md` |
+| `dword_5FFF4` | 為什麼會讀錯**:`"BGM SONG %d"` 那段被 `dword_5FFF4 == 1` 的 debug 分支包著, | `03-scene-entry-and-tile-semantics.md` |
+| `dword_65334` | ⇒ **`sub_3181C(n)` = 播第 n 首 BGM**;`dword_65334` = 當前曲目、`dword_65338` = 前一首。 | `03-scene-entry-and-tile-semantics.md` |
+| `dword_65338` | ⇒ **`sub_3181C(n)` = 播第 n 首 BGM**;`dword_65334` = 當前曲目、`dword_65338` = 前一首。 | `03-scene-entry-and-tile-semantics.md` |
+| `loc_3185B` | jnz     short loc_3185B | `03-scene-entry-and-tile-semantics.md` |
 | `loc_3197C` | loc_3197C: | `03-scene-entry-and-tile-semantics.md` |
 | `loc_31CC5` | loc_31CC5:  mov     eax, dword_65334      ; return dword_65334 | `03-scene-entry-and-tile-semantics.md` |

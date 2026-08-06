@@ -58,7 +58,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 地底世界 | `UNDER.DAT` 65,536 B(256 chunk,不省略) | ⬜ 解碼未做 |
 | 場景地圖 | `TOWNE/CASTLE/KEEP/DWELLING.DAT` 各 16,384 B;**`sub_86C` 的 `byte_3F789[32*dy+dx]` 證實列寬 32** ⇒ 16 張 32×32/檔 | ✅ **四個檔共 64 張全解出**(建築/石牆/道路/家具/水池/田地/墓園可辨);⬜ 哪張對應哪個地名未知 |
 | 地點類型 | `DATA.OVL` 0x2AB3 列 9 種;**`sub_2D72C` 實際分派 12 種**(多了 hut、法典聖壇、八德聖壇、兩座宮殿/城堡) | 🔶 已知 tile 對應 |
-| 進出場景(portal) | **`sub_2D72C` 依腳下 tile 分派**(見 `docs/re/03`):tile 16=hut、17=法典聖壇、18=keep、19=village、20=towne、21=castle、22=cave、23=mine、24=dungeon、25=八德聖壇、61=Blackthorn 宮殿、62=LB 城堡 | 🔶 入口 tile 已確認;⬜ **地點表未找到** —— 下一步查 `dword_65334` 的寫入 xref |
+| 進出場景(portal) | **`sub_2D72C` 依腳下 tile 分派**(見 `docs/re/03`):tile 16=hut、17=法典聖壇、18=keep、19=village、20=towne、21=castle、22=cave、23=mine、24=dungeon、25=八德聖壇、61=Blackthorn 宮殿、62=LB 城堡 | 🔶 入口 tile 已確認;⬜ **地點表未找到** —— `sub_3181C` 那條線索是誤判(那是播 BGM),下一步讀 `sub_10928` |
 | 地形通行規則 | **已從原版執行檔取得**:`byte_5FF6C` 64 B bitmap(阻擋 195/512)+ `sub_2A610`/`sub_2A674` 判定式,見 `docs/re/02` | ✅ 已接進引擎(走進海裡會顯示「受阻!」) |
 | 移動成本分級 | `"Slow progress!"` / `"Very slow!"` @ `sub_2D0BC` | ⬜ 訊息已定位,規則未讀 |
 | 移動者→模式表 | `byte_5FF8C[mover>>2]`,11 種模式(一般/水上/兩棲/陸上/方向性…) | ⬜ |
@@ -178,7 +178,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 存讀檔 | `SAVED.GAM` 4,192 B / `INIT.GAM`;`SAVED.OOL` | ⬜ 格式未解;可做「匯入原版存檔」 |
 | 指令系統 | `CMDS.OVL` 7,440 B | ⬜ U5 是動詞驅動(Talk/Look/Get/Open/Board…) |
 | 四種顯示模式 | `EGA.DRV / CGA.DRV / HER.DRV / T1K.DRV` | ⬜ 素材已有(`.16`/`.4`/`.HCS`) |
-| 音樂 | upgrade 19 首 `.XMI`;FM Towns 15 首 `.EUP` + 2 條 CDDA;PC-98 `UL01–15.BIN` | ⬜ |
+| 音樂 | upgrade 19 首 `.XMI`;FM Towns 15 首 `.EUP` + 2 條 CDDA;PC-98 `UL01–15.BIN`;**播放函式 `sub_3181C(曲目)`,曲目 0–14**;已知 castle=6、LB 城堡=7、village/hut=8、Blackthorn 宮殿=11(`docs/re/03`) | 🔶 場景→BGM 對應部分已知 |
 | 音效 | FM Towns 25 個 `.SND` | ⬜ |
 
 ## 3. 目前完成度(誠實版)
