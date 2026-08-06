@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libgl1-mesa-dri \
       mesa-utils \
       x11-utils \
+      xauth \
       imagemagick \
       python3 \
       python3-pil \

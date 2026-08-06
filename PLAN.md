@@ -103,17 +103,25 @@ u5-cht/
 
 ### P1.5 — 中文顯示管線
 
-1. 倚天 atlas 烘製(16×15 與 24×24 兩種,`--size`)→ `internal/cjk` 載入
-2. 文字層:UTF-8 解碼分流(ASCII 走原版 8×8、CJK 走倚天)、CJK 寬度與斷行
-3. **量測與繪製同一個 gate**(`CharWidth` / `Draw` / `LineHeight` 由同一條件式決定)
-4. **headless 截圖 loop**:xvfb + 軟體 GL,或 `-headless` 直接輸出 PNG
-5. 尺寸決策實測:24×24 在 U5 窄文字欄是否破版 → 記錄到 `docs/localization-notes.md`
+1. ✅ 倚天 atlas 烘製(16×15,13,461 字)→ `internal/cjk` 載入(png/json 同步檢查)
+2. ✅ 文字層 `internal/render`:ASCII 走原版 8×8、CJK 走倚天 16×15,缺字畫紅框(不靜默跳過)
+3. ✅ **量測與繪製同一個 gate**:度量與斷行抽成 `internal/textlayout`(純邏輯、不依賴 ebiten),
+   `render` 只 re-export 不自己另算。property test 固定住「Wrap 出來的每一行寬度都 ≤ 上限」
+4. ✅ **headless 截圖**:`u5cht -headless -shot out.png`(xvfb + llvmpipe;ReadPixels → PNG)
+5. ⬜ 24×24 版本與尺寸決策實測 → `docs/localization-notes.md`
 
-**驗收**:容器內截出「一句中文 + 一句英文」同畫面,字清晰、不溢框;oracle 三字驗證通過。
+**驗收**:容器內截出中英混排畫面,字清晰、不溢框(已達成);24×24 選項待做。
 
 ### P2 — 垂直切片(可走的 Britannia)
 
-地表地圖繪製 + 隊伍移動 + 狀態列 + 中文訊息欄 + 時間推進。**驗收**:截圖比對基準;鍵盤移動正確。
+1. ✅ 11×11 tile 地圖視窗(tile 2× nearest 放大成 32 px,佔畫面比例與原版一致)
+2. ✅ 方向鍵移動 + 世界環繞(wrap-around)+ 落點自動找陸地(避免開場泡在海裡)
+3. ✅ 中文狀態欄與訊息欄(全繁中,走倚天點陣字)
+4. ⬜ 碰撞與地形效果(屬遊戲邏輯,P4)
+5. ⬜ Avatar tile(索引待 P3 從反編譯碼確認,目前用白框標記中心)
+6. ⬜ 時間推進與日夜
+
+**驗收**:headless 截圖為基準;鍵盤移動正確。
 
 ### P3 — 逆向 oracle 主攻
 
