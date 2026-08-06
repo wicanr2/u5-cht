@@ -45,6 +45,8 @@ func main() {
 		err = cmdText(os.Args[2:])
 	case "scene":
 		err = cmdScene(os.Args[2:])
+	case "scenemaps":
+		err = cmdSceneMaps(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -65,6 +67,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump world         <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]
   u5dump text          <檔案> [--n N]          明文訊息檔 → 前 N 筆(預設 5)
   u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y]
+  u5dump scenemaps     <場景檔.DAT> <U5_E> <out.png>  16 張 32×32 場景地圖
                                                遊戲畫面 headless 截圖(純 CPU,不需 GPU)
 `
 
@@ -376,5 +379,32 @@ func cmdScene(args []string) error {
 		}
 	}
 	_ = u5data.TileSize
+	return nil
+}
+
+// cmdSceneMaps 把一個場景檔(TOWNE/CASTLE/KEEP/DWELLING.DAT)的 16 張地圖畫出來。
+func cmdSceneMaps(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("用法:u5dump scenemaps <場景檔.DAT> <U5_E 目錄> <out.png>")
+	}
+	tiles, err := u5data.LoadFMTownsTileSet(fmTownsTilePaths(args[1]))
+	if err != nil {
+		return err
+	}
+	scenes, err := u5data.LoadSceneMaps(args[0])
+	if err != nil {
+		return err
+	}
+	img, err := u5data.RenderSceneMaps(scenes, tiles, 4)
+	if err != nil {
+		return err
+	}
+	if err := writePNG(args[2], img); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %d 張 %d×%d 場景地圖 → %s(%d×%d px)\n",
+		len(scenes), u5data.SceneSide, u5data.SceneSide, args[2],
+		img.Bounds().Dx(), img.Bounds().Dy())
+	fmt.Println("  驗收方式:切對了會看到建築、道路、城牆;切錯了是雜訊")
 	return nil
 }

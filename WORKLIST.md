@@ -56,9 +56,9 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 |---|---|---|
 | 地表世界地圖 256×256 | `BRIT.DAT` 205 chunk + `DATA.OVL` 0x3886 索引表 | ✅ 完整組出 |
 | 地底世界 | `UNDER.DAT` 65,536 B(256 chunk,不省略) | ⬜ 解碼未做 |
-| 場景地圖 | `TOWNE/CASTLE/KEEP/DWELLING.DAT` 各 16,384 B;**`sub_86C` 的 `byte_3F789[32*dy+dx]` 證實列寬 32** ⇒ 16 個 32×32 地圖/檔 | ⬜ 尺寸已確認,解碼未做 |
+| 場景地圖 | `TOWNE/CASTLE/KEEP/DWELLING.DAT` 各 16,384 B;**`sub_86C` 的 `byte_3F789[32*dy+dx]` 證實列寬 32** ⇒ 16 張 32×32/檔 | ✅ **四個檔共 64 張全解出**(建築/石牆/道路/家具/水池/田地/墓園可辨);⬜ 哪張對應哪個地名未知 |
 | 地點類型 9 種 | `DATA.OVL` 0x2AB3:`keep village towne castle cave mine dungeon ruins lighthouse` | ⬜ |
-| 進出場景(portal) | 同上 + `TOWN.OVL` | ⬜ |
+| 進出場景(portal) | 同上 + `TOWN.OVL`;`sub_86C` 內有 `"Dost thou wish to leave? "` → `"Exit to Britannia!"` | ⬜ **缺「世界座標 → 場景索引」對照表**,這是下一個要找的 |
 | 地形通行規則 | **已從原版執行檔取得**:`byte_5FF6C` 64 B bitmap(阻擋 195/512)+ `sub_2A610`/`sub_2A674` 判定式,見 `docs/re/02` | ✅ 已接進引擎(走進海裡會顯示「受阻!」) |
 | 移動成本分級 | `"Slow progress!"` / `"Very slow!"` @ `sub_2D0BC` | ⬜ 訊息已定位,規則未讀 |
 | 移動者→模式表 | `byte_5FF8C[mover>>2]`,11 種模式(一般/水上/兩棲/陸上/方向性…) | ⬜ |
@@ -198,7 +198,8 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 
 1. ~~tile 通行規則~~ ✅ **已完成**(`docs/re/02`):不在 `DATA.OVL`(掃過 48 KB 沒命中),
    而在執行檔內的 64 B bitmap。用 `"Blocked!"` 字串當錨找到 `sub_86C` → `sub_2A694` → `sub_2A610`。
-2. **場景地圖**(`TOWNE/CASTLE/KEEP/DWELLING.DAT`)+ 進出場景 → 能進城鎮。
+2. ~~場景地圖解碼~~ ✅ **已完成**(64 張 32×32)。剩下的是**地點表**:世界地圖上哪個座標
+   對應哪一張場景。⚠ 不要用「城鎮順序大概是這樣」硬對 —— 那會讓玩家走進 Britain 卻進到 Yew。
 3. **`.NPC` 格式 + `TALK.OVL` 對話流程** → 能跟人說話(對話文字已解好)。
 4. **`WORRIORJ ⊖ WORRIORS` diff** → DBCS 排版先例(中文化)+ 順帶熟悉反編譯碼結構。
 5. **存檔格式** → 能存讀進度。
