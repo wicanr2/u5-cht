@@ -70,3 +70,72 @@ func TestEightVirtueCitiesHaveChineseNames(t *testing.T) {
 		t.Errorf("八德城市只找到 %d 個,預期 %d", len(got), len(want))
 	}
 }
+
+// TestSceneMapping 驗證「地點 → 場景檔 + 索引」的對應(原版 sub_5C8 的規則)。
+func TestSceneMapping(t *testing.T) {
+	for i := range Locations {
+		num := i + 1
+		// 檔案 = (地點編號-1)/8
+		if want := (num - 1) / 8; Locations[i].SceneFile != want {
+			t.Errorf("地點 %d(%s)的檔案索引是 %d,依 (編號-1)/8 應為 %d",
+				num, Locations[i].Name, Locations[i].SceneFile, want)
+		}
+		// 起始索引 + 層數不可超出每檔 16 張
+		if end := Locations[i].SceneIndex + Locations[i].Floors; end > ScenesPerFile {
+			t.Errorf("地點 %d(%s)的索引 %d + %d 層 = %d,超出每檔 %d 張",
+				num, Locations[i].Name, Locations[i].SceneIndex, Locations[i].Floors, end, ScenesPerFile)
+		}
+		if Locations[i].Floors < 1 {
+			t.Errorf("地點 %d(%s)的層數是 %d", num, Locations[i].Name, Locations[i].Floors)
+		}
+	}
+}
+
+// TestKnownSceneTargets 固定幾個已用畫面驗收過的對應。
+func TestKnownSceneTargets(t *testing.T) {
+	cases := []struct {
+		name   string
+		file   int
+		index  int
+		floors int
+		why    string
+	}{
+		{"BRITAIN", 0, 2, 2, "TOWNE.DAT 索引 2,兩層"},
+		{"MOONGLOW", 0, 0, 2, "TOWNE.DAT 第一個"},
+		{"FOGSBANE", 1, 0, 3, "燈塔三層 —— 畫面驗收過:底層有家具、二層剩塔身、頂層是圓形燈室"},
+		{"STORMCROW", 1, 3, 3, "第二座燈塔,同樣三層"},
+		{"IOLO'S HUT", 1, 12, 1, "小屋只有一層"},
+	}
+	for _, c := range cases {
+		var loc *Location
+		for i := range Locations {
+			if Locations[i].Name == c.name {
+				loc = &Locations[i]
+				break
+			}
+		}
+		if loc == nil {
+			t.Errorf("地點表裡沒有 %s", c.name)
+			continue
+		}
+		if loc.SceneFile != c.file || loc.SceneIndex != c.index || loc.Floors != c.floors {
+			t.Errorf("%s → 檔案 %d 索引 %d %d 層,預期 %d/%d/%d(%s)",
+				c.name, loc.SceneFile, loc.SceneIndex, loc.Floors, c.file, c.index, c.floors, c.why)
+		}
+	}
+}
+
+// TestSceneOffset:原版是 (索引 + 樓層) << 10,且樓層 > 0x7F 視為負(地下層)。
+func TestSceneOffset(t *testing.T) {
+	l := Location{SceneIndex: 2}
+	if got := l.SceneOffset(0); got != 2*SceneTiles {
+		t.Errorf("地面層位移 %d,預期 %d", got, 2*SceneTiles)
+	}
+	if got := l.SceneOffset(1); got != 3*SceneTiles {
+		t.Errorf("第二層位移 %d,預期 %d", got, 3*SceneTiles)
+	}
+	// 0xFF 代表 -1(地下一層)
+	if got := l.SceneOffset(0xFF); got != 1*SceneTiles {
+		t.Errorf("地下一層位移 %d,預期 %d —— 樓層 >0x7F 要當負數", got, 1*SceneTiles)
+	}
+}

@@ -213,3 +213,55 @@ dump 出來就是完整的 32 個地點(實作在 `internal/u5data/locations.go`
 其餘留空、顯示時退回英文 —— 憑印象硬翻會變成二手轉譯,等《軟體世界》手冊 OCR 定案。
 
 ⚠ 玩家輸入比對一律用 `Name`(英文):玩家在遊戲中打不出中文(u4-cht 踩過的坑)。
+
+## 6. 地點 → 場景地圖:完整規則 ✅
+
+`sub_5C8` 就是載入場景地圖的函式。組語三行講完:
+
+```asm
+movzx   eax, byte_3E0A3          ; 當前地點編號(1-based)
+dec     eax
+sar     eax, 3                   ; ÷ 8
+mov     eax, off_4FC44[eax*4]    ; 檔案 = {TOWNE,DWELLING,CASTLE,KEEP}[(編號-1)/8]
+
+movzx   eax, byte_41033[編號]    ; 該地點的起始地圖索引
+movzx   ebx, byte_3E0A5          ; 樓層
+add     ebx, eax
+cmp     byte_3E0A5, 7Fh
+jbe     short loc_630
+sub     ebx, 100h                ; 樓層 > 0x7F → 減 0x100(**地下層用負數**)
+
+loc_630:
+shl     eax, 0Ah                 ; × 1024
+push    400h                     ; 讀 1024 B(32×32,印證解碼)
+push    offset byte_400F4
+call    sub_2C740                ; 先前已知的讀檔常式
+```
+
+dump `byte_41033[1..32]` 得到起始索引,再用「同檔下一個地點的起始索引 − 自己」算出層數:
+
+| 檔案 | 地點與樓層 |
+|---|---|
+| `TOWNE.DAT` | MOONGLOW 0-1、BRITAIN 2-3、JHELOM 4-6、YEW 7、MINOC 8-9、TRINSIC 10-11、SKARA BRAE 12-13、NEW MAGINCIA 14-15 |
+| `DWELLING.DAT` | **四座燈塔各 3 層**(0-2 / 3-5 / 6-8 / 9-11)、IOLO'S HUT 12、三間無名小屋 13/14/15 |
+| `CASTLE.DAT` | (無名 #17,**Lord British 城堡**)**1-5 共 5 層**、#18 6-9、WEST/NORTH/EAST BRITANNY 10/11/12、PAWS 13、COVE 14、BUCCANEER'S DEN 15 |
+| `KEEP.DAT` | ARARAT 0-1、BORDERMARCH 2-3、FARTHING 4、WINDEMERE 5、STONEGATE 6、THE LYCAEUM 7-9、EMPATH ABBEY 10-13、SERPENT'S HOLD 14-15 |
+
+### 畫面驗收:燈塔三層
+
+`u5dump town gamedata <U5_E> FOGSBANE out.png` 畫出 `DWELLING.DAT` 索引 0–2:
+
+1. **底層** —— 完整建築,有房間、桌椅、床、書櫃、樓梯
+2. **二層** —— 只剩塔身與樓梯
+3. **頂層** —— 圓形塔室,中央是**發光的燈**
+
+逐層收窄、頂層是燈室 —— 這正是燈塔該有的樣子。三張圖若對應錯了,不會這麼連貫。
+
+### 進入場景時的初始狀態(`sub_10928` 結尾)
+
+```c
+byte_3E0A3 = i + 1;   // 當前地點編號(0 = 在世界地圖)
+byte_3E0A5 = 0;       // 樓層(0 = 地面層)
+byte_3E0A6 = 15;      // 場景內 X(32 格的中央)
+byte_3E0A7 = 30;      // 場景內 Y(靠底部 → 城鎮南方入口)
+```

@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/wicanr2/u5-cht/internal/assets"
 	"github.com/wicanr2/u5-cht/internal/render"
@@ -47,6 +48,8 @@ func main() {
 		err = cmdScene(os.Args[2:])
 	case "scenemaps":
 		err = cmdSceneMaps(os.Args[2:])
+	case "town":
+		err = cmdTown(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -68,6 +71,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump text          <檔案> [--n N]          明文訊息檔 → 前 N 筆(預設 5)
   u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y]
   u5dump scenemaps     <場景檔.DAT> <U5_E> <out.png>  16 張 32×32 場景地圖
+  u5dump town          <gamedata> <U5_E> <地名> <out.png>  依原版地點表進城,畫出每一層
                                                遊戲畫面 headless 截圖(純 CPU,不需 GPU)
 `
 
@@ -406,5 +410,52 @@ func cmdSceneMaps(args []string) error {
 		len(scenes), u5data.SceneSide, u5data.SceneSide, args[2],
 		img.Bounds().Dx(), img.Bounds().Dy())
 	fmt.Println("  驗收方式:切對了會看到建築、道路、城牆;切錯了是雜訊")
+	return nil
+}
+
+// cmdTown 用原版地點表把某個地點的所有樓層畫出來。
+//
+// 對應規則完全照 sub_5C8:檔案 = SceneFiles[(編號-1)/8]、索引 = 起始索引 + 樓層。
+func cmdTown(args []string) error {
+	if len(args) < 4 {
+		return fmt.Errorf("用法:u5dump town <gamedata> <U5_E 目錄> <地名> <out.png>")
+	}
+	want := strings.ToUpper(args[2])
+	var loc *u5data.Location
+	for i := range u5data.Locations {
+		if strings.ToUpper(u5data.Locations[i].Name) == want {
+			loc = &u5data.Locations[i]
+			break
+		}
+	}
+	if loc == nil {
+		return fmt.Errorf("地點表裡沒有 %q(試試 BRITAIN / MOONGLOW / FOGSBANE / IOLO'S HUT)", args[2])
+	}
+	tiles, err := u5data.LoadFMTownsTileSet(fmTownsTilePaths(args[1]))
+	if err != nil {
+		return err
+	}
+	scenes, err := u5data.LoadSceneMaps(filepath.Join(args[0], u5data.SceneFiles[loc.SceneFile]))
+	if err != nil {
+		return err
+	}
+	var floors []u5data.SceneMap
+	for f := 0; f < loc.Floors; f++ {
+		idx := loc.SceneIndex + f
+		if idx >= len(scenes) {
+			break
+		}
+		floors = append(floors, scenes[idx])
+	}
+	img, err := u5data.RenderSceneMaps(floors, tiles, len(floors))
+	if err != nil {
+		return err
+	}
+	if err := writePNG(args[3], img); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %s(%s)世界座標 (%d,%d) → %s 索引 %d,共 %d 層 → %s\n",
+		loc.Name, loc.DisplayName(), loc.X, loc.Y,
+		u5data.SceneFiles[loc.SceneFile], loc.SceneIndex, loc.Floors, args[3])
 	return nil
 }
