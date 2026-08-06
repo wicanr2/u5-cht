@@ -71,6 +71,7 @@ docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | 專案憲章:硬規則、素材盤點(已驗證事實)、IDA 使用紀律、中文化設計、階段與驗收 |
 | [`PLAN.md`](PLAN.md) | 執行計畫與 backlog |
+| [`WORKLIST.md`](WORKLIST.md) | **遊戲機制還原盤點**:原版有什麼(依 24 個 OVL + DATA.OVL 的 43 個明文表)、做到哪、缺什麼 |
 | [`CONTEXT.md`](CONTEXT.md) | 語彙(glossary)、與姊妹專案的關係、技術關鍵事實 |
 | [`docs/re/00-hexrays-p3-verified.md`](docs/re/00-hexrays-p3-verified.md) | FM Towns `.EXP`(Phar Lap P3)可反編譯的驗證紀錄 |
 
