@@ -32,8 +32,9 @@ func (t *Tile) At(x, y int) byte {
 	return t.Pix[y*TileSize+x]
 }
 
-// EGAPalette 是標準 EGA 16 色(0–15)。
-// FM Towns 版的 tile 位元組值就是「色號 × 0x11」,所以色號取高 nibble 即得。
+// EGAPalette 是標準 EGA 16 色(IRGB 位元順序:bit3=I, bit2=R, bit1=G, bit0=B)。
+//
+// ⚠ **tile 資料的色號不是這個順序** —— 請用 TilePalette 算繪 tile,見其說明。
 var EGAPalette = [16]color.NRGBA{
 	{0x00, 0x00, 0x00, 0xFF}, // 0  黑
 	{0x00, 0x00, 0xAA, 0xFF}, // 1  藍
@@ -52,6 +53,40 @@ var EGAPalette = [16]color.NRGBA{
 	{0xFF, 0xFF, 0x55, 0xFF}, // 14 黃
 	{0xFF, 0xFF, 0xFF, 0xFF}, // 15 白
 }
+
+// tileColorRemap 把 tile 資料裡的色號換成標準 EGA 色號。
+//
+// 原版 tile 資料的 4-bit 色號用的是 **IGRB** 順序(bit2 = G、bit1 = R),
+// 與標準 EGA 的 **IRGB** 差在 R 與 G 對調。所以 remap = 「把 bit1 與 bit2 互換」。
+//
+// 怎麼確定的(2026-08-07,單一變換同時修正多處 → 這種一致性就是證據):
+// 先用標準 EGA palette 畫出 tileset 與世界地圖,再逐 tile 對照語意 ——
+//
+//	tile 1–3   黑底 + 藍波紋   水    色號 1/9   → 互換後不變 ✓(本來就對)
+//	tile 11–13 灰色山脈        山    色號 7/8   → 互換後不變 ✓(本來就對)
+//	tile 16+   黃屋頂、白城堡  建築  色號 14/15 → 互換後不變 ✓(本來就對)
+//	tile 5–10  草地與森林      應綠  色號 4/12  → 互換後 4→綠、12→亮綠 ✓(修正)
+//
+// 也就是說:凡「本來就對」的顏色在此變換下都不動,而唯一錯的那一類正好被修好。
+// 若改的是 palette 值本身(例如硬把紅改成綠),就會同時弄壞洋紅、棕、亮紅等其他色。
+//
+// ⚠ 這仍是**語意推導**,不是對原版截圖比對過的結論。P1 收尾要用 DOSBox 跑原版
+// 截圖做最終核實(`rulebook/65`:對 reference 實測才算驗過)。
+var tileColorRemap = [16]byte{
+	0, 1, 4, 5, // 0000→0000, 0001→0001, 0010→0100, 0011→0101
+	2, 3, 6, 7, // 0100→0010, 0101→0011, 0110→0110, 0111→0111
+	8, 9, 12, 13, // 1000→1000, 1001→1001, 1010→1100, 1011→1101
+	10, 11, 14, 15, // 1100→1010, 1101→1011, 1110→1110, 1111→1111
+}
+
+// TilePalette 是算繪 tile 時該用的表:索引 = tile 資料裡的色號,值 = 真實顏色。
+var TilePalette = func() [16]color.NRGBA {
+	var p [16]color.NRGBA
+	for i := range p {
+		p[i] = EGAPalette[tileColorRemap[i]]
+	}
+	return p
+}()
 
 // FM Towns 版 EGA*.TIL 的格式(靜態推導 + 降採樣一致性驗證,2026-08-07)
 //
@@ -161,7 +196,7 @@ func TileSheet(tiles []Tile, cols int) *image.NRGBA {
 		ox, oy := (i%cols)*TileSize, (i/cols)*TileSize
 		for y := 0; y < TileSize; y++ {
 			for x := 0; x < TileSize; x++ {
-				img.SetNRGBA(ox+x, oy+y, EGAPalette[tiles[i].At(x, y)&0x0F])
+				img.SetNRGBA(ox+x, oy+y, TilePalette[tiles[i].At(x, y)&0x0F])
 			}
 		}
 	}

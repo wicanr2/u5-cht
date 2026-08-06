@@ -35,6 +35,10 @@ func main() {
 		err = cmdCharset(os.Args[2:])
 	case "tlk":
 		err = cmdTLK(os.Args[2:])
+	case "map":
+		err = cmdMap(os.Args[2:])
+	case "world":
+		err = cmdWorld(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -51,6 +55,8 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump tiles-raw     <U5_E 目錄> <out.bin>   同上但輸出 DOS 4bpp 佈局(65,536 B)
   u5dump charset       <IBM.CH>    <out.png>   原版 8×8 字型 → 字元表
   u5dump tlk           <檔案> [--sjis] [--n N] 對話檔 → 前 N 筆欄位(預設 3)
+  u5dump map           <地圖檔> <U5_E 目錄> <out.png> [--side N] [--cols N] [--max N]
+  u5dump world         <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]
 `
 
 func fmTownsTilePaths(dir string) []string {
@@ -176,4 +182,92 @@ func writePNG(path string, img image.Image) error {
 	}
 	defer f.Close()
 	return png.Encode(f, img)
+}
+
+// --- map 子命令(附加於此以保持單檔;若再長就拆檔)---
+
+func cmdMap(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("用法:u5dump map <地圖檔> <U5_E 目錄> <out.png> [--side 16] [--cols 16] [--max N]")
+	}
+	side, cols, max := 16, 16, 0
+	for i := 3; i < len(args); i++ {
+		if i+1 >= len(args) {
+			break
+		}
+		switch args[i] {
+		case "--side":
+			side, _ = strconv.Atoi(args[i+1])
+		case "--cols":
+			cols, _ = strconv.Atoi(args[i+1])
+		case "--max":
+			max, _ = strconv.Atoi(args[i+1])
+		}
+	}
+	tiles, err := u5data.LoadFMTownsTileSet(fmTownsTilePaths(args[1]))
+	if err != nil {
+		return err
+	}
+	chunks, err := u5data.LoadChunks(args[0], side)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s → %d 個 %d×%d chunk\n", args[0], len(chunks), side, side)
+	if max > 0 && max < len(chunks) {
+		chunks = chunks[:max]
+	}
+	img, err := u5data.RenderChunks(chunks, tiles, cols, side)
+	if err != nil {
+		return err
+	}
+	if err := writePNG(args[2], img); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %s(%d×%d px)\n", args[2], img.Bounds().Dx(), img.Bounds().Dy())
+	fmt.Println("  驗收方式:切對了會看到海岸線與地形;切錯了是雜訊")
+	return nil
+}
+
+// cmdWorld 組出完整 256×256 世界地圖(chunk 資料 + DATA.OVL 的索引表)。
+func cmdWorld(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("用法:u5dump world <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]")
+	}
+	water := 1
+	for i := 3; i+1 < len(args); i++ {
+		if args[i] == "--water" {
+			water, _ = strconv.Atoi(args[i+1])
+		}
+	}
+	tiles, err := u5data.LoadFMTownsTileSet(fmTownsTilePaths(args[1]))
+	if err != nil {
+		return err
+	}
+	chunks, err := u5data.LoadChunks(filepath.Join(args[0], "BRIT.DAT"), u5data.ChunkSide)
+	if err != nil {
+		return err
+	}
+	ovl, err := os.ReadFile(filepath.Join(args[0], "DATA.OVL"))
+	if err != nil {
+		return err
+	}
+	index, err := u5data.ReadWorldChunkIndex(ovl)
+	if err != nil {
+		return err
+	}
+	world, err := u5data.BuildWorldMap(chunks, index, byte(water))
+	if err != nil {
+		return err
+	}
+	img, err := world.Render(tiles)
+	if err != nil {
+		return err
+	}
+	if err := writePNG(args[2], img); err != nil {
+		return err
+	}
+	fmt.Printf("✓ 完整世界地圖 %d×%d tile → %s(%d×%d px)\n",
+		u5data.WorldSide, u5data.WorldSide, args[2], img.Bounds().Dx(), img.Bounds().Dy())
+	fmt.Println("  驗收方式:與已知的 Britannia 世界地圖比對輪廓")
+	return nil
 }
