@@ -68,7 +68,7 @@ u5-cht/
 
 ## 4. 階段 backlog
 
-### P0 — 框架(本階段,已完成)
+### P0 — 框架 ✅ 已完成(2026-08-07,commit 51b754e)
 
 - [x] `CLAUDE.md` 專案憲章(含 IDA 優先、素材鐵則、README 手冊引用要求)
 - [x] 素材三版一手驗證,結論寫進 `CLAUDE.md §2`
@@ -78,7 +78,9 @@ u5-cht/
 - [x] `docker/Dockerfile`、`go.mod`、`.gitignore`、`CONTEXT.md`、`PLAN.md`
 - [x] `internal/u5data`:`font.go`(IBM.CH 8×8)、`tlk.go`(對話檔)+ 單元/整合測試
 - [x] `cmd/u5cht`:640×400 邏輯畫布 + nearest 整數放大 + 原版字型字元表 + F10/Ctrl+Q 離開
-- [ ] Docker 內 `go build` / `go vet` / `go test` 全綠(Go 1.24 容器重建中)
+- [x] Docker 內 `go build` / `go vet` / `go test` **全綠**;整合測試對真素材通過
+      (`'A'` 逐位元組相符、`TOWNE.TLK` 48 筆首筆 Zachariah、`TOWNE.JPN` 同 48 筆且 NPCIndex 逐筆一致)
+- [x] `tools/dev.sh` 開發包裝(module cache 持久化)、`LICENSE`(MIT)、GitHub repo 建立並推送
 
 ### P1 — 資料解碼(順序刻意這樣排)
 
@@ -173,6 +175,5 @@ README 三層 voice + 手冊引用章節 + 譯名政策 + 逆向手記;`docs/man
 
 ## 7. 下一步
 
-1. 補完 P0 最後一項:Go 1.24 容器內 `build` / `vet` / `test` 全綠 → commit + push。
-2. 進 P1 第 1–2 項:`EGA0–3.TIL` → PNG,再以它當 oracle 破 `TILES.16` 壓縮。
+1. 進 P1 第 1–2 項:`EGA0–3.TIL` → PNG,再以它當 oracle 破 `TILES.16` 壓縮。
 3. 並行:反編譯 `WORRIORJ.EXP` 並與 `WORRIORS.EXP` diff(P3 第 1 項,結果會餵回 P1.5 的字型管線設計)。
