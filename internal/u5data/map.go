@@ -9,10 +9,11 @@ import (
 // 地圖資料的已驗證事實與待確認項(2026-08-07)
 //
 // 已知(檔案大小,一手觀察):
-//   DOS / FM Towns  BRIT.DAT   52,480 B      地表世界
-//   DOS / FM Towns  UNDER.DAT  65,536 B      地底世界
-//   PC-98           BRIT.DAT   65,536 B      ← 與 DOS 不同,PC-98 版不省略
-//   TOWNE/CASTLE/KEEP/DWELLING.DAT  各 16,384 B
+//
+//	DOS / FM Towns  BRIT.DAT   52,480 B      地表世界
+//	DOS / FM Towns  UNDER.DAT  65,536 B      地底世界
+//	PC-98           BRIT.DAT   65,536 B      ← 與 DOS 不同,PC-98 版不省略
+//	TOWNE/CASTLE/KEEP/DWELLING.DAT  各 16,384 B
 //
 // 推導:65,536 = 256×256 tile(每 tile 1 byte)= 完整世界地圖。
 // 而 52,480 = 205 × 256,恰好是「256 個 16×16 chunk 裡只存了 205 個」——

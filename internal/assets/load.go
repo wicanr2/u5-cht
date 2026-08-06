@@ -91,16 +91,6 @@ func loadWorld(gameData string, water byte) (*u5data.WorldMap, error) {
 	return u5data.BuildWorldMap(chunks, index, water)
 }
 
-// WaterTiles 是不可當落點的 tile。
-//
-// 實測(2026-08-07):tile 1 / 2 / 3 都是水 —— 三者的色號分布都是「黑底 + 亮藍點」
-// 的 EGA 抖色圖案,只是密度不同(深水 / 中水 / 淺水);tile 1 單獨就占世界地圖 37.6%。
-// tile 0 在 tile sheet 上是綠色星芒(特效,不是地形),同樣不該當落點。
-//
-// ⚠ 完整的 tile 語意表(哪個索引是森林、沼澤、山…)要等 P3 從反編譯碼取,
-// 這裡只固定「已用畫面確認過」的這四個。
-var WaterTiles = map[byte]bool{0: true, 1: true, 2: true, 3: true}
-
 // FindLandStart 從地圖中央往外找一個非水的落點。
 //
 // 這是「正常玩家路徑」的最小版本:玩家不該開場就泡在海裡。
@@ -118,7 +108,8 @@ func FindLandStart(w *u5data.WorldMap, waterTile byte) (int, int) {
 					continue // 只掃這一圈的邊
 				}
 				x, y := wrapCoord(c+dx), wrapCoord(c+dy)
-				if t := w.At(x, y); !WaterTiles[t] && t != waterTile {
+				// 用原版執行檔取出的通行表判斷,不是自己列的清單(docs/re/02)。
+				if t := int(w.At(x, y)); !u5data.TileBlocksWalking(t) && !u5data.TileIsWater(t) {
 					return x, y
 				}
 			}

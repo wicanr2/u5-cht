@@ -18,6 +18,7 @@ import (
 
 	"github.com/wicanr2/u5-cht/internal/assets"
 	"github.com/wicanr2/u5-cht/internal/render"
+	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
 const maxMessages = 2
@@ -58,11 +59,19 @@ func (g *game) Update() error {
 		{ebiten.KeyArrowLeft, -1, 0, "西"},
 		{ebiten.KeyArrowRight, 1, 0, "東"},
 	} {
-		if inpututil.IsKeyJustPressed(m.key) {
-			g.scene.PX = render.WrapCoord(g.scene.PX + m.dx)
-			g.scene.PY = render.WrapCoord(g.scene.PY + m.dy)
-			g.log("往%s方前行。", m.name)
+		if !inpututil.IsKeyJustPressed(m.key) {
+			continue
 		}
+		nx := render.WrapCoord(g.scene.PX + m.dx)
+		ny := render.WrapCoord(g.scene.PY + m.dy)
+		// 通行規則取自原版執行檔的 tile bitmap(u5data.TileBlocksWalking),
+		// 不是自己定的 —— 見 docs/re/02。
+		if g.scene.World != nil && u5data.TileBlocksWalking(int(g.scene.World.At(nx, ny))) {
+			g.log("受阻!")
+			continue
+		}
+		g.scene.PX, g.scene.PY = nx, ny
+		g.log("往%s方前行。", m.name)
 	}
 	return nil
 }
