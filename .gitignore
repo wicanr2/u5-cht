@@ -1,0 +1,41 @@
+# === 版權素材:一律不入庫(玩家自備合法副本,見 CLAUDE.md §3.0 / §7.3)===
+/org_game/
+/gamedata/
+# 手冊掃描與 OCR 例外:使用者明示入庫,置於 docs/manual/(不在此排除)
+
+# === 由版權字庫烘出的字型 atlas:各自從自備的倚天字庫重跑 tools/build_eten_font.py ===
+/assets/fonts/*.png
+/assets/fonts/*.json
+/assets/fonts/*.fnt
+
+# === 逆向工作區與 IDA 產物 ===
+/re_work/
+*.i64
+*.asm
+*.idb
+*.til
+*.nam
+*.id0
+*.id1
+*.id2
+
+# === 從原版抽出的中間產物(可重生,不入庫)===
+/dumps/extracted/
+*.iso
+*.bin.iso
+
+# === 建置產物 ===
+/build/
+/dist/out/
+/u5cht
+/u5cht.exe
+
+# === Go ===
+/vendor/
+
+# === 雜項 ===
+.DS_Store
+*.swp
+
+# Go build/module cache(docker 共用,見 tools/dev.sh)
+/.gocache/
