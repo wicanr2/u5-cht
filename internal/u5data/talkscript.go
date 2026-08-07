@@ -196,8 +196,18 @@ func hasByte(b []byte, v byte) bool {
 // 依記錄裡的順序找第一個命中的關鍵字(原版 `sub_1BD8C` 就是從 index 0 往上掃)。
 // 找不到回傳 ok=false —— 原版那時說「I cannot help thee with that.」。
 func (c *Conversation) Respond(input string) (text string, fx Effects, ok bool) {
+	_, text, fx, ok = c.RespondAt(input)
+	return text, fx, ok
+}
+
+// RespondAt 與 Respond 相同,另外回傳**真正出文字的那一則**的索引。
+//
+// 索引是譯文覆蓋層的 key(`i18n.TalkEntryField`)。回傳的是 j 不是 i ——
+// 「同下一則」會把好幾個關鍵字導到同一則文字上,譯文當然要掛在那一則,
+// 不然同一句話得翻好幾次而且改一處另幾處不會跟著動。
+func (c *Conversation) RespondAt(input string) (idx int, text string, fx Effects, ok bool) {
 	if strings.TrimSpace(input) == "" {
-		return "", Effects{}, false
+		return -1, "", Effects{}, false
 	}
 	for i := range c.Entries {
 		if !MatchKeyword(c.Entries[i].Keyword, input) {
@@ -207,12 +217,12 @@ func (c *Conversation) Respond(input string) (text string, fx Effects, ok bool) 
 		for j := i; j < len(c.Entries); j++ {
 			t, f := c.render(c.Entries[j].Raw)
 			if !f.SameAsNext {
-				return t, f, true
+				return j, t, f, true
 			}
 		}
-		return "", Effects{}, true
+		return -1, "", Effects{}, true
 	}
-	return "", Effects{}, false
+	return -1, "", Effects{}, false
 }
 
 // render 展開一則回應,並收集它造成的影響。
@@ -435,12 +445,18 @@ func (c *Conversation) parseQuestions(segs [][]byte, from int) {
 
 // Question 依碼取提問區塊。
 func (c *Conversation) Question(code byte) (*Question, bool) {
+	_, q, ok := c.QuestionAt(code)
+	return q, ok
+}
+
+// QuestionAt 與 Question 相同,另外回傳索引(譯文覆蓋層的 key 用)。
+func (c *Conversation) QuestionAt(code byte) (int, *Question, bool) {
 	for i := range c.Questions {
 		if c.Questions[i].Code == code {
-			return &c.Questions[i], true
+			return i, &c.Questions[i], true
 		}
 	}
-	return nil, false
+	return -1, nil, false
 }
 
 // Render 展開一段原始位元組(問題、分支回答都走這裡)。
@@ -452,8 +468,13 @@ func (c *Conversation) Render(raw []byte) (string, Effects) {
 //
 // 原版的判斷:輸入裡含「是」的觸發字就走 Yes,否則走 No —— 沒有第三種結果。
 func (q *Question) AnswerQuestion(input string) []byte {
-	if q.YesWord != "" && MatchKeyword(q.YesWord, input) {
+	if q.IsYes(input) {
 		return q.Yes
 	}
 	return q.No
+}
+
+// IsYes 回報這句輸入算不算「是」。譯文覆蓋層要靠它分辨掛在哪一支。
+func (q *Question) IsYes(input string) bool {
+	return q.YesWord != "" && MatchKeyword(q.YesWord, input)
 }

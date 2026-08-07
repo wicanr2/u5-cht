@@ -330,6 +330,11 @@ type State struct {
 	// talkingTo 是正在交談的 NPC 槽號;-1 代表沒有。入隊之後要靠它把人移出場景。
 	talkingTo int
 
+	// convFile 是目前這段對話出自哪個 `.TLK` —— 譯文覆蓋層的 key 要用。
+	convFile string
+	// pendingIdx 是 pending 那個提問區塊的索引(譯文覆蓋層的 key 要用)。
+	pendingIdx int
+
 	// removed 記錄已經離場的 NPC(入隊之後原版會把他從場景移除)。
 	// key 是 地點編號<<8 | 槽號 —— 換地點回來時他不該又站在原地。
 	removed map[int]bool

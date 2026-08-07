@@ -110,9 +110,13 @@ func ParseDictionary(dataOVL []byte) (*Dictionary, error) {
 	return d, nil
 }
 
-// Word 回傳 token 對應的字;空槽或超出範圍回傳空字串。
+// Word 回傳 token 對應的字;空槽、超出範圍、或**沒有詞典**都回空字串。
+//
+// ⚠ nil 接收者要能用:`Expand` 的註解早就承諾「d 可為 nil」,但 `Word`
+// 少了那道檢查 —— 日文 `.JPN` 走 `ParseConversation(r, nil)` 時
+// 每個 Shift-JIS 高位元組都會被當成 token,直接 nil 解參考當掉。
 func (d *Dictionary) Word(tok byte) string {
-	if int(tok) > DictTokenMax {
+	if d == nil || int(tok) > DictTokenMax {
 		return ""
 	}
 	return d.words[tok]

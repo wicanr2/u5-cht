@@ -255,3 +255,53 @@ func talkAround(s *State) {
 		}
 	}
 }
+
+// 對話本文的譯文覆蓋層:有譯文就換掉,而且**只換顯示的字**。
+//
+// 用真的原版資料跑 —— 這一條同時在驗 key 對得上:
+// 譯文掛在 `CASTLE.TLK#1#job`,而地點 17 的對話正好出自 `CASTLE.TLK`。
+// 檔名算錯的話譯文查不到,測試會退回英文而失敗。
+func TestTalkUsesTheChineseOverlay(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	s := realState(t, dir)
+	if err := s.SetScene(17, 0, 15, 15); err != nil {
+		t.Fatal(err)
+	}
+	s.beginConversation(1) // Alistair the Bard
+	if s.Conv == nil {
+		t.Fatal("開不了對話")
+	}
+	if s.convFile != "CASTLE.TLK" {
+		t.Fatalf("對話檔算成 %q,應該是 CASTLE.TLK", s.convFile)
+	}
+	s.Input = "job"
+	s.Submit()
+	if !strings.Contains(allLogs(s), "樂音") {
+		t.Errorf("job 沒走中文譯文:%q", allLogs(s))
+	}
+}
+
+// 沒翻的段落照樣出英文 —— 半套中文比整段消失好。
+func TestUntranslatedTalkStaysEnglish(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	s := realState(t, dir)
+	if err := s.SetScene(17, 0, 15, 15); err != nil {
+		t.Fatal(err)
+	}
+	s.beginConversation(3) // 還沒翻的一筆
+	if s.Conv == nil {
+		t.Skip("這一筆讀不到")
+	}
+	if strings.TrimSpace(s.Conv.Description) == "" {
+		t.Skip("這一筆沒有外觀敘述")
+	}
+	if !strings.Contains(allLogs(s), s.Conv.Description) {
+		t.Errorf("沒翻的段落應該原樣出英文:%q", allLogs(s))
+	}
+}

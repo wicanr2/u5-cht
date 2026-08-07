@@ -111,15 +111,16 @@ func (s *State) beginConversation(dialogue byte) {
 	// 對話裡的 opcode 0x81 要插入聖者的名字 —— 從名冊拿真名,不要留佔位符。
 	c.AvatarName = s.AvatarName()
 	s.Conv = c
+	s.convFile = s.talkFileOf(s.Location)
 	s.Prompt = PromptTalk
 	s.Input = ""
 	// ⚠ 這裡說的還是英文原文。對話中譯要等譯名對過《軟體世界》手冊之後才做,
 	// 現在硬翻會變成之後要整批重來的二手轉譯。
 	if c.Description != "" {
-		s.Log("汝見到" + c.Description)
+		s.Log("汝見到" + s.trTalk(i18n.TalkFieldDesc, c.Description))
 	}
 	if c.Greeting != "" {
-		s.Log("「" + oneLine(c.Greeting) + "」")
+		s.Log("「" + oneLine(s.trTalk(i18n.TalkFieldGreet, c.Greeting)) + "」")
 	}
 }
 
@@ -192,9 +193,13 @@ func (s *State) Submit() {
 		if q == nil {
 			return
 		}
+		field := i18n.TalkQuestionNoField(s.pendingIdx)
+		if q.IsYes(word) {
+			field = i18n.TalkQuestionYesField(s.pendingIdx)
+		}
 		text, fx := s.Conv.Render(q.AnswerQuestion(word))
 		if text != "" {
-			s.Log("「" + oneLine(text) + "」")
+			s.Log("「" + oneLine(s.trTalk(field, text)) + "」")
 		}
 		s.applyEffects(fx)
 		return
@@ -206,7 +211,7 @@ func (s *State) Submit() {
 	if word == "" {
 		// 原版:空輸入等同 BYE,印道別後結束。
 		if s.Conv.Bye != "" {
-			s.Log("「" + oneLine(s.Conv.Bye) + "」")
+			s.Log("「" + oneLine(s.trTalk(i18n.TalkFieldBye, s.Conv.Bye)) + "」")
 		}
 		s.EndConversation()
 		return
@@ -232,11 +237,11 @@ func (s *State) answer(word string) {
 		s.Log("「" + MsgMyNameIs + nonEmpty(i18n.Name(c.Name), "?") + "」")
 		return
 	case b == u5data.BuiltinJob || b == u5data.BuiltinWork:
-		s.Log("「" + oneLine(nonEmpty(c.Job, MsgNoResponse)) + "」")
+		s.Log("「" + oneLine(nonEmpty(s.trTalk(i18n.TalkFieldJob, c.Job), MsgNoResponse)) + "」")
 		return
 	case b == u5data.BuiltinBye || b == u5data.BuiltinThank:
 		if c.Bye != "" {
-			s.Log("「" + oneLine(c.Bye) + "」")
+			s.Log("「" + oneLine(s.trTalk(i18n.TalkFieldBye, c.Bye)) + "」")
 		}
 		s.EndConversation()
 		return
@@ -246,13 +251,13 @@ func (s *State) answer(word string) {
 		return
 	}
 
-	text, fx, ok := c.Respond(word)
+	idx, text, fx, ok := c.RespondAt(word)
 	if !ok {
 		s.Log(MsgDoesNotUnderstand)
 		return
 	}
 	if text != "" {
-		s.Log("「" + oneLine(text) + "」")
+		s.Log("「" + oneLine(s.trTalk(i18n.TalkEntryField(idx), text)) + "」")
 	}
 	s.applyEffects(fx)
 }
@@ -344,7 +349,7 @@ func (s *State) ask(code byte) {
 	if s.Conv == nil {
 		return
 	}
-	q, ok := s.Conv.Question(code)
+	qi, q, ok := s.Conv.QuestionAt(code)
 	if !ok {
 		// 記錄裡沒有這個碼的區塊 —— 資料或解析的問題,讓它看得見。
 		s.Log(MsgNoQuestionBlock)
@@ -352,8 +357,9 @@ func (s *State) ask(code byte) {
 	}
 	text, fx := s.Conv.Render(q.Text)
 	if text != "" {
-		s.Log("「" + oneLine(text) + "」")
+		s.Log("「" + oneLine(s.trTalk(i18n.TalkQuestionField(qi), text)) + "」")
 	}
+	s.pendingIdx = qi
 	if q.Terminal {
 		// 終端區塊的副作用(入隊、結束)在這裡生效。
 		s.applyEffects(fx)
@@ -522,4 +528,33 @@ func (s *State) KnowsThyName(slot int) bool {
 		return false
 	}
 	return s.Introduced[s.Location]&(1<<uint(slot)) != 0
+}
+
+// 對話本文的譯文覆蓋層(見 internal/i18n/talk.go)
+//
+// 三個顯示點都走這裡:招呼 / 外觀 / 道別、關鍵字回應、提問區塊。
+// **只換顯示的字,不動任何機制** —— 效果(業報、入隊、叫衛兵)一律由
+// 英文那條路的 `Effects` 決定,譯文查不到就原樣印英文。
+
+// talkFileOf 回報這個地點的對話出自哪個 `.TLK`。
+//
+// 與 `TalkSet.Record` 用同一條規則(`(地點編號-1)/8` 選檔),
+// 兩邊要是分岐,譯文就會掛到別的檔上而且完全不會報錯。
+func (s *State) talkFileOf(location int) string {
+	loc, err := u5data.LocationByNumber(location)
+	if err != nil {
+		return ""
+	}
+	if loc.SceneFile < 0 || loc.SceneFile >= len(u5data.TalkFiles) {
+		return ""
+	}
+	return u5data.TalkFiles[loc.SceneFile]
+}
+
+// trTalk 查目前這段對話某個欄位的譯文。
+func (s *State) trTalk(field, en string) string {
+	if s.Conv == nil || s.convFile == "" {
+		return en
+	}
+	return i18n.Talk(s.convFile, s.Conv.ID, field, en, s.AvatarName())
 }

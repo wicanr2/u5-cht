@@ -62,6 +62,8 @@ func main() {
 		err = cmdTown(os.Args[2:])
 	case "cbt":
 		err = cmdCBT(os.Args[2:])
+	case "talkwork":
+		err = cmdTalkWork(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -86,6 +88,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump scenemaps     <場景檔.DAT> <U5_E> <out.png>  16 張 32×32 場景地圖
   u5dump town          <gamedata> <U5_E> <地名> <out.png>  依原版地點表進城,畫出每一層
   u5dump cbt           <.CBT 檔> <U5_E> <out.png> [--max N]  戰鬥地圖 11×11 + 入場位置
+  u5dump talkwork      <gamedata> <out.md> [U5_J 目錄]  .TLK 對話翻譯工作清單(英日對照)
                                                遊戲畫面 headless 截圖(純 CPU,不需 GPU)
 `
 
