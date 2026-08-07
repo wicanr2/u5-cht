@@ -76,6 +76,12 @@ const (
 
 // Search 是 S 指令。
 func (s *State) Search() {
+	// 地牢有自己的一支(原版 `sub_147A8` 依地點分派到 `sub_142EC`)——
+	// 方向是相對的、報的是地形、而且搜得出暗門。見 dungeonsearch.go。
+	if s.InDungeon() {
+		s.searchDungeon()
+		return
+	}
 	s.AskDirection(func(d Direction) {
 		dx, dy := d.Delta()
 		s.searchAt(s.X+dx, s.Y+dy)

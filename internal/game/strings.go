@@ -152,6 +152,14 @@ const (
 	MsgNotHere = "此處不可。"
 	// "What?\n"
 	MsgWhat = "此為何意?"
+
+	// MsgDWhat / MsgWWhat 是 D 與 W 兩個鍵的回應。
+	//
+	// ★ 這兩個鍵在原版**不是指令** —— 主分派器 `sub_2ACF4` 與戰鬥分派器
+	// `sub_A360` 都只印一句 `D-What?` / `W-What?`(兩處獨立佐證,`docs/re/49`)。
+	// 把它們做成指令(我第一版把 W 當成 U4 的 Wear)就是自創遊戲。
+	MsgDWhat = "D—— 何事?"
+	MsgWWhat = "W—— 何事?"
 	// "\nOn foot\n" —— 要先下來走路才能上另一個載具。
 	MsgOnFoot = "汝須先下來步行。"
 	// "\nDANGER: SHIP BADLY DAMAGED!\n"
@@ -295,7 +303,6 @@ const (
 
 	// Ready(R)與 Wear(W)。
 	MsgCannotReady  = "那個拿不上手。"
-	MsgCannotWear   = "那個穿不上身。"
 	MsgDontHaveThat = "汝沒有那件東西。"
 	MsgEquipped     = "%s 裝上了%s。"
 	MsgUnequipped   = "%s 卸下了%s。"

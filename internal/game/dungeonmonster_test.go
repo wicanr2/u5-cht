@@ -230,3 +230,66 @@ func TestDungeonGroupSizeFollowsTheStatsTable(t *testing.T) {
 		}
 	}
 }
+
+// 地牢的搜尋:方向是相對的,而且搜得出暗門。
+func TestDungeonSearchFindsSecretDoors(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Facing = North
+	s.TorchTurns = 10 // 有光才搜得到
+
+	// 正前方(北)放一道暗門,而且帶著「頭上有洞」那一位元。
+	const holed = DungeonSecretDoor | u5data.DungeonHoleAbove
+	s.Dungeons.Set(d.Index, d.Level, 4, 3, holed)
+
+	s.Messages = nil
+	s.Search()
+	if !s.AwaitingDirection() {
+		t.Fatalf("地牢的搜尋沒有問方向:\n%s", s.log())
+	}
+	s.AnswerDirection(North) // ↑ = 前方
+	joined := strings.Join(s.Messages, "\n")
+	if !strings.Contains(joined, "暗門") {
+		t.Errorf("沒找到暗門:\n%s", s.log())
+	}
+	after := s.Dungeons.At(d.Index, d.Level, 4, 3)
+	if u5data.DungeonKind(after) != u5data.DungeonDoorway {
+		t.Errorf("暗門沒有變成門:0x%02X", after)
+	}
+	// ★ 「頭上有洞」那一位元不能被抹掉,否則之後爬不回上一層。
+	if after&u5data.DungeonHoleAbove == 0 {
+		t.Errorf("開門把「頭上有洞」抹掉了:0x%02X", after)
+	}
+}
+
+// 沒有火把也沒有光明咒語時,搜尋只會回「一片漆黑」。
+//
+// ⚠ 原版判的是**兩個光源計時器**,不是視野半徑 —— 地牢的基礎半徑永遠 > 0,
+// 拿半徑判會變成「永遠有光」。
+func TestDungeonSearchNeedsLight(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Facing = North
+	s.TorchTurns, s.LightTurns = 0, 0
+	s.Dungeons.Set(d.Index, d.Level, 4, 3, DungeonSecretDoor)
+
+	s.Messages = nil
+	s.Search()
+	s.AnswerDirection(North)
+	if !strings.Contains(strings.Join(s.Messages, "\n"), "漆黑") {
+		t.Errorf("沒有光卻搜得到東西:\n%s", s.log())
+	}
+	if u5data.DungeonKind(s.Dungeons.At(d.Index, d.Level, 4, 3)) != DungeonSecretDoor {
+		t.Error("摸黑竟然把暗門開了")
+	}
+}

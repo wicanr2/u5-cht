@@ -6,14 +6,22 @@ import (
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
-// Ready(R)與 Wear(W)—— 換裝備
+// Ready(R)—— 換裝備
 //
-// 原版把「拿武器」與「穿護甲」分成兩個鍵,但做的是同一件事:
-// 從背包拿一件出來、把身上原本那件放回背包。差別只在**哪些欄位收得下**。
+// ⚠⚠ **更正(2026-08-08,`docs/re/49`)**:原版**只有一個 R**,沒有 W。
+// 我第一版把 U4 的「Ready 武器 / Wear 護甲」兩鍵模型搬過來,而 U5 的
+// 主指令分派器 `sub_2ACF4` 對 'W' 只印一句 **"W-What?"** —— 它不是指令
+//('D' 也一樣)。兩個分派器(`sub_2ACF4` 世界/場景/地牢、`sub_A360` 戰鬥)
+// 都各自印這句,兩處獨立佐證。
 //
-//	R Ready  武器(16..41)→ 右手 / 左手;盾(4..8)→ 左手
-//	W Wear   頭盔(0..3)→ 頭;護甲(9..15)→ 身;戒指(42..44)→ 指;
-//	         頸飾(45..47)→ 頸
+// 原版 R(`sub_1F3A4`)的清單範圍是 `sub_1E418(-1, 0x30, …)` ——
+// **0x30 = 48 = 全部裝備**,頭盔護甲戒指頸飾武器盾一起列。
+//
+//	R Ready  頭盔(0..3)→ 頭;盾(4..8)→ 左手;護甲(9..15)→ 身;
+//	         武器(16..41)→ 右手 / 左手;戒指(42..44)→ 指;頸飾(45..47)→ 頸
+//
+// 「哪個欄位收得下」由 `SlotFor` 判斷,那部分沒變 —— 錯的只是鍵位與清單切分。
+// 這是 `rulebook/65` 的典型:自家測試全綠,而行為與原版不同。
 //
 // 裝備欄位的位移早在 `u5data/items.go` 就解出來了(`CharHelm` … `CharAmulet`),
 // 由六名初始角色橫向對照定出 —— 法師沒頭盔穿布甲拿匕首、戰士釘盔加釘盾、
@@ -78,21 +86,11 @@ func SlotFor(item byte) (EquipSlot, bool) {
 	return 0, false
 }
 
-// Ready 是 R 指令:給某人換一件武器或盾。
+// Ready 是 R 指令:給某人換上一件裝備。**六個欄位都走這一支。**
 func (s *State) Ready(member int, item byte) bool {
 	slot, ok := SlotFor(item)
-	if !ok || (slot != SlotWeapon && slot != SlotShield) {
+	if !ok {
 		s.Log(MsgCannotReady)
-		return false
-	}
-	return s.equip(member, slot, item)
-}
-
-// Wear 是 W 指令:給某人換一件頭盔、護甲、戒指或頸飾。
-func (s *State) Wear(member int, item byte) bool {
-	slot, ok := SlotFor(item)
-	if !ok || slot == SlotWeapon || slot == SlotShield {
-		s.Log(MsgCannotWear)
 		return false
 	}
 	return s.equip(member, slot, item)
@@ -142,26 +140,19 @@ func (s *State) Unequip(member int, slot EquipSlot) bool {
 	return true
 }
 
-// ReadyList 是背包裡拿得起來的武器與盾(給 R 指令的選單)。
-func (s *State) ReadyList() []byte { return s.equipList(true) }
-
-// WearList 是背包裡穿得上的頭盔、護甲、戒指與頸飾(給 W 指令的選單)。
-func (s *State) WearList() []byte { return s.equipList(false) }
-
-func (s *State) equipList(weapons bool) []byte {
+// ReadyList 是背包裡**所有**穿戴得上的東西(給 R 指令的選單)。
+//
+// 原版的範圍是 `sub_1E418(-1, 0x30, …)` —— 48 件裝備全列,不分武器與護甲。
+func (s *State) ReadyList() []byte {
 	var out []byte
 	for i := 0; i < u5data.ItemCount; i++ {
 		if s.Inventory.Items[i] <= 0 {
 			continue
 		}
-		slot, ok := SlotFor(byte(i))
-		if !ok {
+		if _, ok := SlotFor(byte(i)); !ok {
 			continue
 		}
-		isWeapon := slot == SlotWeapon || slot == SlotShield
-		if isWeapon == weapons {
-			out = append(out, byte(i))
-		}
+		out = append(out, byte(i))
 	}
 	return out
 }

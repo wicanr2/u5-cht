@@ -130,19 +130,14 @@ func (s *State) equipEntries(items []byte) []PickEntry {
 	return out
 }
 
-// BeginReady 是 R 指令:先挑人,再挑武器或盾。
+// BeginReady 是 R 指令:先挑人,再挑裝備。
+//
+// ⚠ 原版**沒有 W(Wear)** —— 六個欄位全部走這一支,清單是 48 件裝備全列。
+// 舊版拆成 R / W 兩支是把 U4 的模型搬過來,已更正(`docs/re/49`)。
 func (s *State) BeginReady() bool {
 	return s.beginPick(MsgPickWho, s.partyEntries(-1), MsgNobodyHere, func(member int) bool {
 		return !s.beginPick(MsgPickItem, s.equipEntries(s.ReadyList()), MsgNoUsableItems,
 			func(item int) bool { s.Ready(member, byte(item)); return true })
-	})
-}
-
-// BeginWear 是 W 指令:先挑人,再挑要穿的東西。
-func (s *State) BeginWear() bool {
-	return s.beginPick(MsgPickWho, s.partyEntries(-1), MsgNobodyHere, func(member int) bool {
-		return !s.beginPick(MsgPickItem, s.equipEntries(s.WearList()), MsgNoUsableItems,
-			func(item int) bool { s.Wear(member, byte(item)); return true })
 	})
 }
 
