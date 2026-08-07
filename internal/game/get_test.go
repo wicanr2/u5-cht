@@ -77,17 +77,20 @@ func TestPickingUpTheSandalwoodBox(t *testing.T) {
 // 王冠 / 權杖 / 寶珠 / 圖紙各有各的旗標。
 func TestPickingUpTheRegalia(t *testing.T) {
 	cases := []struct {
-		kind byte
-		get  func(*State) bool
-		name string
+		kind    byte
+		quality int
+		get     func(*State) bool
+		name    string
 	}{
-		{u5data.ItemCrown, func(s *State) bool { return s.Regalia.Crown }, "王冠"},
-		{u5data.ItemSceptre, func(s *State) bool { return s.Regalia.Sceptre }, "權杖"},
-		{u5data.ItemOrb, func(s *State) bool { return s.Regalia.Orb }, "寶珠"},
-		{u5data.ItemPlans, func(s *State) bool { return s.Regalia.Plans }, "圖紙"},
+		{u5data.ItemCrown, 0, func(s *State) bool { return s.Regalia.Crown }, "王冠"},
+		{u5data.ItemSceptre, 0, func(s *State) bool { return s.Regalia.Sceptre }, "權杖"},
+		{u5data.ItemOrb, 0, func(s *State) bool { return s.Regalia.Orb }, "寶珠"},
+		// ⚠ 圖紙是**卷軸裡品質 0xFF 的那一筆**,不是自己的種類碼。
+		{u5data.ItemScroll, u5data.ItemPlansQuality,
+			func(s *State) bool { return s.Regalia.Plans }, "圖紙"},
 	}
 	for _, c := range cases {
-		s := getScene(t, c.kind, 0)
+		s := getScene(t, c.kind, c.quality)
 		getNorth(s)
 		if !c.get(s) {
 			t.Errorf("撿了%s卻沒拿到", c.name)
@@ -407,5 +410,121 @@ func TestWalkUpToAShardAndTakeIt(t *testing.T) {
 	}
 	if s.UnderObjects.Objects[u5data.UnderworldShardSlot].Present() {
 		t.Error("撿走之後地上不該還有一個")
+	}
+}
+
+// 藥水:品質選顏色,而且顏色之間不會互相加到。
+func TestPotionsGoByColour(t *testing.T) {
+	for c := 0; c < u5data.PotionCount; c++ {
+		s := getScene(t, u5data.ItemPotion, c)
+		getNorth(s)
+		if s.Inventory.Potions[c] != 1 {
+			t.Errorf("撿了 %s 色藥水,Potions[%d] = %d", u5data.PotionColours[c], c,
+				s.Inventory.Potions[c])
+		}
+		for d := 0; d < u5data.PotionCount; d++ {
+			if d != c && s.Inventory.Potions[d] != 0 {
+				t.Errorf("撿 %d 號顏色卻讓 %d 號也加了", c, d)
+			}
+		}
+		if !strings.Contains(allLogs(s), u5data.PotionColoursZH[c]) {
+			t.Errorf("訊息沒說顏色:%q", allLogs(s))
+		}
+	}
+}
+
+// 卷軸:品質選咒語;而品質 0xFF 的那一筆**不是卷軸,是攻城圖紙**。
+//
+// ⚠ 這一條分得清楚很重要 —— 把種類 4 一律當圖紙的話,地牢寶箱掉出來的
+// 每一捲卷軸都會變成圖紙,而圖紙是任務物品。
+func TestScrollsAndThePlansShareAKindCode(t *testing.T) {
+	s := getScene(t, u5data.ItemScroll, 2)
+	getNorth(s)
+	if s.Inventory.Scrolls[2] != 1 {
+		t.Errorf("撿了 2 號卷軸,Scrolls[2] = %d", s.Inventory.Scrolls[2])
+	}
+	if s.Regalia.Plans {
+		t.Error("一般卷軸不該變成圖紙")
+	}
+	if !strings.Contains(allLogs(s), u5data.ScrollSpells[2]) {
+		t.Errorf("訊息沒印咒語縮寫:%q", allLogs(s))
+	}
+
+	s = getScene(t, u5data.ItemScroll, u5data.ItemPlansQuality)
+	getNorth(s)
+	if !s.Regalia.Plans {
+		t.Error("品質 0xFF 的那一捲應該是圖紙")
+	}
+	for i := range s.Inventory.Scrolls {
+		if s.Inventory.Scrolls[i] != 0 {
+			t.Errorf("圖紙不該同時算成卷軸(Scrolls[%d] = %d)", i, s.Inventory.Scrolls[i])
+		}
+	}
+}
+
+// ⚠ 鑰匙有兩個計數欄:品質最高位設起來的是「怪鑰匙」,而且數量要先清掉那一位。
+func TestOddKeysAreCountedSeparately(t *testing.T) {
+	s := getScene(t, u5data.ItemKey, 3)
+	getNorth(s)
+	if s.Inventory.Keys != 3 || s.Inventory.OddKeys != 0 {
+		t.Errorf("一般鑰匙:Keys=%d OddKeys=%d,應該是 3 / 0",
+			s.Inventory.Keys, s.Inventory.OddKeys)
+	}
+	s = getScene(t, u5data.ItemKey, 0x80|3)
+	getNorth(s)
+	if s.Inventory.OddKeys != 3 || s.Inventory.Keys != 0 {
+		t.Errorf("怪鑰匙:Keys=%d OddKeys=%d,應該是 0 / 3 —— "+
+			"沒清最高位的話會變成 131 把", s.Inventory.Keys, s.Inventory.OddKeys)
+	}
+}
+
+// 裝備:品質就是裝備編號;箭矢與弩矢一次五支。
+func TestEquipmentAndAmmo(t *testing.T) {
+	// 種類碼 5 沒有專屬分支 → 走裝備那一條。
+	s := getScene(t, 5, u5data.ItemArrows)
+	getNorth(s)
+	if s.Inventory.Items[u5data.ItemArrows] != u5data.AmmoPerPickup {
+		t.Errorf("撿箭應該一次 %d 支,實得 %d",
+			u5data.AmmoPerPickup, s.Inventory.Items[u5data.ItemArrows])
+	}
+	s = getScene(t, 5, u5data.ItemQuarrels)
+	getNorth(s)
+	if s.Inventory.Items[u5data.ItemQuarrels] != u5data.AmmoPerPickup {
+		t.Errorf("撿弩矢應該一次 %d 支,實得 %d",
+			u5data.AmmoPerPickup, s.Inventory.Items[u5data.ItemQuarrels])
+	}
+	// 其餘裝備一次一件。
+	s = getScene(t, 6, 0)
+	getNorth(s)
+	if s.Inventory.Items[0] != 1 {
+		t.Errorf("一般裝備應該一次一件,實得 %d", s.Inventory.Items[0])
+	}
+}
+
+// 月石:品質是第幾顆。
+func TestMoonstonesAreIndexedByQuality(t *testing.T) {
+	s := getScene(t, u5data.ItemMoonstone, 5)
+	getNorth(s)
+	if !s.Inventory.Moonstones[5] {
+		t.Error("撿了 5 號月石卻沒記起來")
+	}
+	if s.Inventory.Moonstones[0] {
+		t.Error("不該連 0 號也拿到")
+	}
+}
+
+// 上限照原版:金幣與糧食 9999,其餘 99。
+func TestPickupCaps(t *testing.T) {
+	s := getScene(t, u5data.ItemGold, 200)
+	s.Inventory.Gold = u5data.GoldLimit - 10
+	getNorth(s)
+	if s.Inventory.Gold != u5data.GoldLimit {
+		t.Errorf("金幣應該封在 %d,實得 %d", u5data.GoldLimit, s.Inventory.Gold)
+	}
+	s = getScene(t, u5data.ItemGem, 50)
+	s.Inventory.Gems = 90
+	getNorth(s)
+	if s.Inventory.Gems != u5data.CarryLimit {
+		t.Errorf("寶石應該封在 %d,實得 %d", u5data.CarryLimit, s.Inventory.Gems)
 	}
 }

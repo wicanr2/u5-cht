@@ -116,3 +116,19 @@ func (s *State) takeNPCObject(i int) {
 	s.markNPCRemoved(i)
 	s.removeNPC(i)
 }
+
+// markNPCRemovedAt 對**指定地點**寫永久移除位元。
+//
+// 一般情況用 `markNPCRemoved`(寫當前地點)。這一支是給
+// `sub_154BC` 檀香木盒分支那種寫死位址的情形用的 —— 原版在那裡
+// 直接改 `byte_3E3AF`,不管玩家當下站在哪裡。
+func (s *State) markNPCRemovedAt(location, slot int) {
+	if location < 1 || location > len(s.RemovedNPC) {
+		return
+	}
+	s.RemovedNPC[location-1] |= 1 << uint(slot)
+	if s.Location == location {
+		s.releaseNPCObject(slot)
+		s.removeNPC(slot)
+	}
+}

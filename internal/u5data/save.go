@@ -50,6 +50,9 @@ const (
 	// 名字則來自 `sub_154BC` 的撿取分支(`mov byte_3DFC0, 0FFh` 後面接
 	// "The crown of Lord British"…)。
 	SaveCarpetsOffset = 0x020A // byte_3DFBC(魔毯;先前記為「位移未知」)
+	// SaveOddKeysOffset 是「怪鑰匙」(byte_3DFBD)—— `sub_154BC` 的鑰匙分支
+	// 有兩條:品質 ≥ 0x80 進這一格,其餘進一般鑰匙(0x0206)。
+	SaveOddKeysOffset = 0x020B
 	SaveOrbOffset     = 0x020D // byte_3DFBF 寶珠
 	SaveCrownOffset   = 0x020E // byte_3DFC0 王冠
 	SaveSceptreOffset = 0x020F // byte_3DFC1 權杖
@@ -58,6 +61,26 @@ const (
 	SavePlansOffset = 0x0215 // byte_3DFC9 圖紙
 	// SaveItemsOffset 起 48 B,索引就是裝備編號(sub_11AF0 的 byte_3DFD0[裝備編號])。
 	SaveItemsOffset = 0x021A
+	// 卷軸 / 藥水 / 月石:與記憶體佈局同序,而且**兩端都有錨點**。
+	//
+	//	存檔 0x024A ↔ byte_3E000(已驗的 SaveSpellsOffset,48 B 咒語)
+	//	存檔 0x02AA ↔ byte_3E060(已驗的 SaveReagentsOffset,8 B 藥草)
+	//
+	// 兩者相距 0x60,記憶體位址也正好相距 0x60 → 中間這一段沒有滑動的餘地,
+	// `byte_3E030` / `byte_3E038` / `byte_3E050` 的位移是**算出來的,不是猜的**。
+
+	// SaveScrollsOffset 起 8 B(byte_3E030):八種卷軸各持有幾捲。
+	SaveScrollsOffset = 0x027A
+	// SavePotionsOffset 起 8 B(byte_3E038):八色藥水各持有幾瓶。
+	SavePotionsOffset = 0x0282
+	// SaveMoonstonesOffset 起 16 B(byte_3E050):十六顆月石,0xFF = 在手上。
+	//
+	// ⚠ 長度 16 是由下一個已知欄位(0x02AA 藥草)夾出來的;
+	// 每一格的語意(哪一格對應哪一座月門)還沒追,只當旗標存讀。
+	SaveMoonstonesOffset = 0x029A
+	// MoonstoneSlots 是上面那一段有幾格。
+	MoonstoneSlots = 16
+
 	// SaveReagentsOffset 起 8 B,順序同 ReagentNames(sub_11588 的 byte_3E060[藥草編號])。
 	SaveReagentsOffset = 0x02AA
 
@@ -212,6 +235,14 @@ type Inventory struct {
 	Spells [SpellCount]int
 	// Carpets 是持有的魔毯數(原版 byte_3DFBC,存檔 0x020A)。
 	Carpets int
+	// OddKeys 是「怪鑰匙」(原版 byte_3DFBD)—— 品質最高位被設起來的那種鑰匙。
+	OddKeys int
+	// Scrolls[卷軸編號] 是持有幾捲(原版 byte_3E030),名字見 ScrollSpells。
+	Scrolls [ScrollCount]int
+	// Potions[顏色編號] 是持有幾瓶(原版 byte_3E038),顏色見 PotionColours。
+	Potions [PotionCount]int
+	// Moonstones[i] 是第 i 顆月石在不在手上(原版 byte_3E050,0xFF = 在)。
+	Moonstones [MoonstoneSlots]bool
 }
 
 // Regalia 是不列顛王的信物與圖紙 —— 各佔一個 0/0xFF 的位元組。
@@ -318,6 +349,7 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.Inventory.Gems = int(raw[SaveGemsOffset])
 	s.Inventory.Torches = int(raw[SaveTorchesOffset])
 	s.Inventory.Carpets = int(raw[SaveCarpetsOffset])
+	s.Inventory.OddKeys = int(raw[SaveOddKeysOffset])
 	s.Regalia.Orb = raw[SaveOrbOffset] != 0
 	s.Regalia.Crown = raw[SaveCrownOffset] != 0
 	s.Regalia.Sceptre = raw[SaveSceptreOffset] != 0
@@ -330,6 +362,15 @@ func ParseSave(raw []byte) (*Save, error) {
 	}
 	for i := 0; i < ReagentCount; i++ {
 		s.Inventory.Reagents[i] = int(raw[SaveReagentsOffset+i])
+	}
+	for i := 0; i < ScrollCount; i++ {
+		s.Inventory.Scrolls[i] = int(raw[SaveScrollsOffset+i])
+	}
+	for i := 0; i < PotionCount; i++ {
+		s.Inventory.Potions[i] = int(raw[SavePotionsOffset+i])
+	}
+	for i := 0; i < MoonstoneSlots; i++ {
+		s.Inventory.Moonstones[i] = raw[SaveMoonstonesOffset+i] != 0
 	}
 
 	s.PartySize = int(raw[SavePartySizeOffset])
@@ -475,6 +516,7 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveGemsOffset] = byte(s.Inventory.Gems)
 	out[SaveTorchesOffset] = byte(s.Inventory.Torches)
 	out[SaveCarpetsOffset] = byte(s.Inventory.Carpets)
+	out[SaveOddKeysOffset] = byte(s.Inventory.OddKeys)
 	putFlag(out, SaveOrbOffset, s.Regalia.Orb)
 	putFlag(out, SaveCrownOffset, s.Regalia.Crown)
 	putFlag(out, SaveSceptreOffset, s.Regalia.Sceptre)
@@ -487,6 +529,15 @@ func (s *Save) Encode() ([]byte, error) {
 	}
 	for i := 0; i < ReagentCount; i++ {
 		out[SaveReagentsOffset+i] = byte(s.Inventory.Reagents[i])
+	}
+	for i := 0; i < ScrollCount; i++ {
+		out[SaveScrollsOffset+i] = byte(s.Inventory.Scrolls[i])
+	}
+	for i := 0; i < PotionCount; i++ {
+		out[SavePotionsOffset+i] = byte(s.Inventory.Potions[i])
+	}
+	for i := 0; i < MoonstoneSlots; i++ {
+		putFlag(out, SaveMoonstonesOffset+i, s.Inventory.Moonstones[i])
 	}
 
 	out[SavePartySizeOffset] = byte(s.PartySize)

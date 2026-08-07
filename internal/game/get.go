@@ -75,74 +75,148 @@ func (s *State) pickableAt(x, y int) (int, *u5data.MapObject) {
 // **這條被推翻了**:`sub_15A94` 就是把 +5 當數量 / 品質傳進來的,
 // 而且哪一塊碎片完全由它決定(`and eax, 3`)。
 func (s *State) pickUp(kind byte, quality, slot int) {
-	taken := true
-	switch {
-	case kind == u5data.ItemClosedChest:
+	inv := &s.Inventory
+	switch kind {
+	case u5data.ItemClosedChest:
+		// 關著的箱子不能撿 —— 而且**不清槽**,箱子留在原地等 Open。
 		s.Log(MsgOpenItFirst)
 		return
-	case kind == u5data.ItemGold:
-		s.Inventory.Gold = addCapped(s.Inventory.Gold, quality, 9999)
+
+	case u5data.ItemGold:
+		inv.Gold = addCapped(inv.Gold, quality, u5data.GoldLimit)
 		s.Log(fmt.Sprintf(MsgGotGold, quality))
-	case kind == u5data.ItemGem:
-		s.Inventory.Gems = addCapped(s.Inventory.Gems, quality, 99)
-		s.Log(fmt.Sprintf(MsgGotGems, quality))
-	case kind == u5data.ItemKey:
-		s.Inventory.Keys = addCapped(s.Inventory.Keys, quality, 99)
-		s.Log(fmt.Sprintf(MsgGotKeys, quality))
-	case kind == u5data.ItemTorch:
-		s.Inventory.Torches = addCapped(s.Inventory.Torches, quality, 99)
-		s.Log(fmt.Sprintf(MsgGotTorches, quality))
-	case kind == u5data.ItemFood:
-		s.Inventory.Food = addCapped(s.Inventory.Food, quality, 9999)
+	case u5data.ItemFood:
+		inv.Food = addCapped(inv.Food, quality, u5data.GoldLimit)
 		s.Log(fmt.Sprintf(MsgGotFood, quality))
-	case kind == u5data.ItemMagicCarpet:
-		s.Inventory.Carpets = addCapped(s.Inventory.Carpets, 1, 99)
+	case u5data.ItemGem:
+		inv.Gems = addCapped(inv.Gems, quality, u5data.CarryLimit)
+		s.Log(fmt.Sprintf(MsgGotGems, quality))
+	case u5data.ItemTorch:
+		inv.Torches = addCapped(inv.Torches, quality, u5data.CarryLimit)
+		s.Log(fmt.Sprintf(MsgGotTorches, quality))
+
+	case u5data.ItemKey:
+		// ⚠ 鑰匙有**兩個**計數欄。品質最高位被設起來的是「怪鑰匙」,
+		// 而且數量取的是清掉最高位之後的值 —— 混在一起算的話,
+		// 一把怪鑰匙會變成一百多把普通鑰匙。
+		if quality&u5data.KeyOddBit != 0 {
+			n := quality &^ u5data.KeyOddBit
+			inv.OddKeys = addCapped(inv.OddKeys, n, u5data.CarryLimit)
+			s.Log(fmt.Sprintf(MsgGotOddKeys, n))
+			break
+		}
+		inv.Keys = addCapped(inv.Keys, quality, u5data.CarryLimit)
+		s.Log(fmt.Sprintf(MsgGotKeys, quality))
+
+	case u5data.ItemPotion:
+		// 品質選顏色。
+		inv.Potions[quality%u5data.PotionCount] = addCapped(
+			inv.Potions[quality%u5data.PotionCount], 1, u5data.CarryLimit)
+		s.Log(fmt.Sprintf(MsgGotPotion, u5data.PotionColoursZH[quality%u5data.PotionCount]))
+
+	case u5data.ItemScroll:
+		// ★ 圖紙**不是自己的種類碼** —— 它是卷軸裡品質 0xFF 的那一筆。
+		if quality == u5data.ItemPlansQuality {
+			s.Regalia.Plans = true
+			s.Log(MsgGotPlans)
+			break
+		}
+		// ⚠ 計數用**完整**品質當索引,顯示的咒語名卻只取低三位
+		//(原版 `and eax, 7` 只套在名字上)。照抄。
+		i := quality % u5data.ScrollCount
+		inv.Scrolls[i] = addCapped(inv.Scrolls[i], 1, u5data.CarryLimit)
+		s.Log(fmt.Sprintf(MsgGotScroll, u5data.ScrollSpells[quality&7]))
+
+	case u5data.ItemMagicCarpet:
+		inv.Carpets = addCapped(inv.Carpets, 1, u5data.CarryLimit)
 		s.Log(MsgGotCarpet)
-	case kind == u5data.ItemSandalwood:
+		// ⚠⚠ **原版只做暫時移除,沒有寫進存檔的遮罩**(`sub_268(0x16)`,
+		// 沒有配套的 `sub_218`)。所以離開城堡再回來,毯子又躺在原地 ——
+		// 這是可以刷魔毯的。照抄:「機制與原版一模一樣」包含原版的 bug。
+		if s.Location == u5data.CarpetNPCLocation {
+			s.removeNPC(u5data.CarpetNPCSlot)
+		}
+
+	case u5data.ItemMoonstone:
+		// 品質是第幾顆月石。
+		if quality >= 0 && quality < u5data.MoonstoneSlots {
+			inv.Moonstones[quality] = true
+		}
+		s.Log(MsgGotMoonstone)
+
+	case u5data.ItemSandalwood:
 		s.SandalwoodBox = true
 		s.Log(MsgGotSandalwood)
-	case kind == u5data.ItemPlans:
-		s.Regalia.Plans = true
-		s.Log(MsgGotPlans)
-	case kind == u5data.ItemCrown:
+		// ★ 原版在這裡直接寫 `byte_3E3AF |= 0x80` —— 而
+		// `0x3E3AF = 0x3E36C + 16×4 + 3`,也就是**地點 17 的第 31 號 NPC**
+		// 那一個永久移除位元。硬編碼的位址獨立指回 `CASTLE.NPC` 槽 31,
+		// 與 docs/re/36 由資料檔得到的結論完全對上(兩個來源,同一個答案)。
+		s.markNPCRemovedAt(u5data.SandalwoodNPCLocation, u5data.SandalwoodNPCSlot)
+
+	case u5data.ItemCrown:
 		s.Regalia.Crown = true
 		s.Log(MsgGotCrown)
-	case kind == u5data.ItemSceptre:
+		// 王冠是唯一走「反查 NPC → 永久移除」那條泛用路徑的(sub_2E0 + sub_218 + sub_268)。
+		if i, mirrored := s.npcOfObject(slot); mirrored {
+			s.takeNPCObject(i)
+		}
+	case u5data.ItemSceptre:
 		s.Regalia.Sceptre = true
 		s.Log(MsgGotSceptre)
-	case kind == u5data.ItemOrb:
+	case u5data.ItemOrb:
 		s.Regalia.Orb = true
 		s.Log(MsgGotOrb)
-	case kind == u5data.ItemShard:
+	case u5data.ItemShard:
 		i := u5data.ShardIndex(quality)
 		s.Shards[i] = true
 		s.Log(fmt.Sprintf(MsgGotShard, u5data.Flames[i].ShardZH))
-	case kind == u5data.ItemMoonstone:
-		s.Log(MsgGotMoonstone)
+
 	default:
-		// 其餘種類碼原版也收(藥水、卷軸、裝備…),但那幾條要先把
-		// `byte_3DFD0` / `byte_3E030` / `byte_3E038` 三張表接進背包。
-		// 還沒做 —— 誠實回報,不假裝撿到了。
-		s.Log(MsgCannotCarry)
-		taken = false
+		// 種類 5 / 6 / 9 / 10 / 0x0B / 0x0C 全走同一條:品質就是**裝備編號**。
+		if kind > u5data.ItemKindEquipMax {
+			s.Log(MsgNothingToGet)
+			return
+		}
+		if quality < 0 || quality >= u5data.ItemCount {
+			s.Log(MsgNothingToGet)
+			return
+		}
+		// 箭矢與弩矢一次五支,其餘一件。
+		n := 1
+		if quality == u5data.ItemArrows || quality == u5data.ItemQuarrels {
+			n = u5data.AmmoPerPickup
+		}
+		inv.Items[quality] = addCapped(inv.Items[quality], n, u5data.CarryLimit)
+		s.Log(fmt.Sprintf(MsgGotItem, s.equipName(quality)))
 	}
-	if taken {
-		s.clearObject(slot)
-	}
+	s.clearObject(slot)
 }
 
-// clearObject 把物件槽清空 —— 東西已經在背包裡了,地上不該還有一個。
+// equipName 取裝備名。裝備表還沒載入時退回編號 —— 不要靜默印空字串。
+func (s *State) equipName(id int) string {
+	if s.Items != nil {
+		if n := s.Items.Name(byte(id)); n != "" {
+			return n
+		}
+	}
+	return fmt.Sprintf("#%d", id)
+}
+
+// clearObject 把物件槽清空(原版 `sub_154BC` 收尾的 `sub_2B6C8(0,…,槽)`)。
 //
-// ⚠ 城鎮裡的東西多半是 NPC 鏡射出來的槽(寶箱、地上的物品、檀香木盒),
-// 只清物件表的話下一回合 `syncNPCObjects` 會**照原樣再配一格回來**。
-// 這種槽要連 NPC 一起除籍(原版 `sub_268` + `sub_218`)。
+// ⚠⚠ **只清槽,不動 NPC。** 城裡的物品是 NPC 鏡射出來的槽,只清這裡的話
+// 下一回合 `sub_1E74` 會照原樣再配一格回來 —— 而原版**就是這樣**。
+// 要它不再長回來得另外除籍,而原版是**逐案硬編碼**的,沒有通則:
+//
+//	檀香木盒  直接寫 `byte_3E3AF |= 0x80`(= 地點 17 槽 31 的永久位元)
+//	王冠      `sub_2E0` 反查 NPC → `sub_218` + `sub_268`(唯一走泛用路徑的)
+//	魔毯      只有 `sub_268(0x16)`,**沒有** `sub_218` → 離場再回來又長出來
+//
+// 我第一版在這裡加了「是鏡射就一律永久除籍」的通則 —— 那會把魔毯那個
+// 可以刷的行為「修好」,而修好就是與原版不同。已改回逐案處理。
 func (s *State) clearObject(slot int) {
 	objs := s.currentObjects()
 	if objs == nil || slot <= 0 || slot >= u5data.ObjectSlots {
-		return
-	}
-	if i, mirrored := s.npcOfObject(slot); mirrored {
-		s.takeNPCObject(i)
 		return
 	}
 	objs.Objects[slot] = u5data.MapObject{}

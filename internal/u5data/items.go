@@ -235,3 +235,69 @@ func (t *CreatureTable) Name(creature byte) string {
 func (t *CreatureTable) IsHuman(creature byte) bool {
 	return creature >= 0x40 && creature < 0x74
 }
+
+// 藥水與卷軸(原版 `off_55D94` / `off_55DB4`,`sub_154BC` 的 0x03 / 0x04 分支)
+//
+// 兩張都是 8 個指標的表,而且**緊接在一起**:`0x55DB4 − 0x55D94 = 0x20` = 8 個 dword,
+// 而 `0x55DD4`(地牢獎品門檻表,`docs/re/33` §4)又在卷軸表後面 0x20 ——
+// 兩端都被別的已知表夾住,所以「各 8 個」不是數出來的,是釘出來的。
+
+// PotionCount 是藥水的顏色數。
+const PotionCount = 8
+
+// PotionColours 是藥水的顏色(canonical,原版字串)。
+var PotionColours = [PotionCount]string{
+	"blue", "yellow", "red", "green", "orange", "purple", "black", "white",
+}
+
+// PotionColoursZH 是顯示用的中譯,順序同上。
+var PotionColoursZH = [PotionCount]string{
+	"藍", "黃", "紅", "綠", "橙", "紫", "黑", "白",
+}
+
+// ScrollCount 是卷軸的種類數。
+const ScrollCount = 8
+
+// ScrollSpells 是卷軸上的咒語縮寫(原版就印這兩三個字母)。
+//
+// ⚠ **維持英文縮寫**:它們是咒語的首字母(Vas Lor、Rel Hur、In Sanct、In An、
+// In Quas Wis、Kal Xen Corp、In Mani Corp、An Tym),而咒語本身是玩家要打進去的
+// canonical 字串(CLAUDE.md §5.2)。翻成中文會讓卷軸與咒語表對不起來。
+var ScrollSpells = [ScrollCount]string{
+	"VL", "RH", "IS", "IA", "IQW", "KXC", "IMC", "AT",
+}
+
+// PotionColour / ScrollSpell 取名字,超出範圍回空字串(原版會讀到表外,不照抄)。
+func PotionColour(i int) string {
+	if i < 0 || i >= PotionCount {
+		return ""
+	}
+	return PotionColours[i]
+}
+
+// ScrollSpell 同上。
+func ScrollSpell(i int) string {
+	if i < 0 || i >= ScrollCount {
+		return ""
+	}
+	return ScrollSpells[i]
+}
+
+// AmmoPerPickup 是撿到箭矢 / 弩矢時一次拿幾支(`sub_154BC` 的 `push 5`)。
+//
+// ⚠ 與**買**的時候不同:`sub_11AF0` 買箭是直接補滿 99,Get 一次只給 5。
+// 上限兩邊都是 `CarryLimit`(見 price.go),金幣與糧食則是 `GoldLimit`。
+const AmmoPerPickup = 5
+
+// ItemPlansQuality 是「這捲不是卷軸,是那份圖紙」的品質值。
+//
+// ★ 圖紙**不是自己的種類碼** —— 它是種類 4(卷軸)裡品質 0xFF 的那一筆
+// (`sub_154BC` 的 `cmp edi, 0FFh`)。當成「種類 4 一律是圖紙」的話,
+// 隨便一捲卷軸都會變成攻城圖紙。
+const ItemPlansQuality = 0xFF
+
+// KeyOddBit 是「這串是怪鑰匙」的位元(`sub_154BC` 的 `cmp edi, 7Fh` / `and edi, 7Fh`)。
+//
+// 鑰匙有兩個計數欄:一般鑰匙 `byte_3DFB8`,品質 ≥ 0x80 的走 `byte_3DFBD`,
+// 而且數量取的是**清掉最高位之後**的值。
+const KeyOddBit = 0x80

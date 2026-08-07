@@ -136,3 +136,80 @@ func TestObjectRoundTrip(t *testing.T) {
 		t.Error("地下世界那半段對不上")
 	}
 }
+
+// 新解出來的四個欄位:怪鑰匙、卷軸、藥水、月石。
+//
+// ⚠ 這一條**同時**在驗位移。存檔已有「讀進來寫出去逐位元組相同」的測試,
+// 所以只要位移落在別人的欄位上,改動就會破壞那一條 —— 兩條合起來才有意義:
+// 一條說「寫得回去」,一條說「寫的是這一格」。
+func TestNewInventoryFieldsRoundTrip(t *testing.T) {
+	raw := make([]byte, SaveFileSize)
+	// 讓 validate() 過得去的最小合理值(月 / 日;其餘 0 就合法)。
+	raw[SaveMonthOffset], raw[SaveDayOffset] = 4, 5
+	raw[SaveOddKeysOffset] = 7
+	for i := 0; i < ScrollCount; i++ {
+		raw[SaveScrollsOffset+i] = byte(i + 1)
+	}
+	for i := 0; i < PotionCount; i++ {
+		raw[SavePotionsOffset+i] = byte(10 + i)
+	}
+	raw[SaveMoonstonesOffset+3] = 0xFF
+
+	s, err := ParseSave(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Inventory.OddKeys != 7 {
+		t.Errorf("怪鑰匙讀成 %d", s.Inventory.OddKeys)
+	}
+	for i := 0; i < ScrollCount; i++ {
+		if s.Inventory.Scrolls[i] != i+1 {
+			t.Errorf("卷軸 %d 讀成 %d", i, s.Inventory.Scrolls[i])
+		}
+	}
+	for i := 0; i < PotionCount; i++ {
+		if s.Inventory.Potions[i] != 10+i {
+			t.Errorf("藥水 %d 讀成 %d", i, s.Inventory.Potions[i])
+		}
+	}
+	if !s.Inventory.Moonstones[3] || s.Inventory.Moonstones[2] {
+		t.Errorf("月石讀錯:%v", s.Inventory.Moonstones)
+	}
+
+	out, err := s.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range raw {
+		if out[i] != raw[i] {
+			t.Fatalf("位移 0x%04X 寫回去變了:%02X → %02X", i, raw[i], out[i])
+		}
+	}
+}
+
+// 卷軸 / 藥水 / 月石不能重疊到已驗過的咒語與藥草那兩段。
+func TestNewInventoryOffsetsDoNotOverlap(t *testing.T) {
+	type span struct {
+		name     string
+		off, len int
+	}
+	spans := []span{
+		{"咒語", SaveSpellsOffset, SpellCount},
+		{"卷軸", SaveScrollsOffset, ScrollCount},
+		{"藥水", SavePotionsOffset, PotionCount},
+		{"月石", SaveMoonstonesOffset, MoonstoneSlots},
+		{"藥草", SaveReagentsOffset, ReagentCount},
+	}
+	for i := 1; i < len(spans); i++ {
+		prev, cur := spans[i-1], spans[i]
+		if prev.off+prev.len > cur.off {
+			t.Errorf("%s(0x%04X+%d)壓到%s(0x%04X)",
+				prev.name, prev.off, prev.len, cur.name, cur.off)
+		}
+	}
+	// 咒語到藥草之間正好 0x60 —— 與記憶體上 byte_3E000 到 byte_3E060 的距離相同。
+	if SaveReagentsOffset-SaveSpellsOffset != 0x60 {
+		t.Errorf("咒語到藥草距離 0x%X,應該是 0x60(記憶體佈局的錨點)",
+			SaveReagentsOffset-SaveSpellsOffset)
+	}
+}

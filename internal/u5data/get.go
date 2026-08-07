@@ -12,8 +12,18 @@ package u5data
 const (
 	ItemClosedChest  = 0x01 // 「得先打開它!」
 	ItemGold         = 0x02
-	ItemPotion       = 0x03
-	ItemPlans        = 0x04 // 圖紙(byte_3DFC9)
+	ItemPotion       = 0x03 // 藥水;品質選顏色(byte_3E038[品質])
+	// ItemScroll 是卷軸(byte_3E030[品質])。
+	//
+	// ⚠ **圖紙不是自己的種類碼** —— 它是這一類裡品質 0xFF 的那一筆
+	// (`sub_154BC` 的 `cmp edi, 0FFh`,見 ItemPlansQuality)。
+	// 把種類 4 一律當成圖紙的話,隨便一捲卷軸都會變成攻城圖。
+	ItemScroll       = 0x04
+	// ItemKindEquipMax 是「這個種類碼走裝備那一條」的上限。
+	//
+	// 跳表涵蓋 1..0x0B,再加上比較鏈的 0x0C —— 落在其中而又沒有專屬分支的
+	// (5、6、9、10、0x0B、0x0C)全部進 `byte_3DFD0[品質]`,品質就是裝備編號。
+	ItemKindEquipMax = 0x0C
 	ItemKey          = 0x07
 	ItemGem          = 0x08
 	ItemTorch        = 0x0D
@@ -162,7 +172,7 @@ var (
 )
 
 // DungeonLootSpecial 是索引 5 / 6 那兩類寫死的種類碼。
-var DungeonLootSpecial = map[int]byte{5: ItemPotion, 6: ItemPlans}
+var DungeonLootSpecial = map[int]byte{5: ItemPotion, 6: ItemScroll}
 
 // DungeonLootRollMax 是那顆骰子的上限:`random(1, 樓層×4 + 4)`。
 //
@@ -218,3 +228,26 @@ var UnderworldShards = [ShadowlordCount]struct {
 	{X: 130, Y: 65, Quality: 0xF1},
 	{X: 176, Y: 184, Quality: 0xF2},
 }
+
+// 兩個寫死在程式裡的 NPC 槽(`sub_154BC` 的魔毯與檀香木盒分支)
+//
+// 城裡的物品是 `.NPC` 檔裡生物編號 < 0x40 的槽,由 `sub_1E74` 鏡射進物件表
+//(見 `docs/re/36`)。撿走之後要不要讓它復活,原版是**逐案硬編碼**的,
+// 沒有通則 —— 而全遊戲撿得起來的物品型 NPC 只有這兩個加王冠。
+const (
+	// SandalwoodNPCLocation / SandalwoodNPCSlot 是檀香木盒那一槽。
+	//
+	// ★ 這兩個數字不是從 `.NPC` 檔數出來的,是從程式碼算出來的:
+	// 原版寫的是 `byte_3E3AF |= 0x80`,而永久移除遮罩的基底是 `dword_3E36C`,
+	// 於是 `0x3E3AF = 0x3E36C + 16×4 + 3` → 陣列第 16 格(地點 17)的位元 31。
+	// 資料檔那邊獨立給出同一個答案(`CASTLE.NPC` 地點 17 槽 31 生物編號 0x0E)。
+	SandalwoodNPCLocation = 17
+	SandalwoodNPCSlot     = 31
+
+	// CarpetNPCLocation / CarpetNPCSlot 是不列顛王城堡二樓那張魔毯(`sub_268(0x16)`)。
+	//
+	// ⚠⚠ **原版只做暫時移除,沒有配套的 `sub_218`** —— 離開再回來毯子又在原地。
+	// 這是可以刷的。照抄,不「修好」。
+	CarpetNPCLocation = 17
+	CarpetNPCSlot     = 22
+)

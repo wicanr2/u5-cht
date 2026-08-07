@@ -167,7 +167,7 @@ func TestSurfaceChestKindsAreItemCodes(t *testing.T) {
 		u5data.ItemClosedChest: "上鎖的箱子",
 		u5data.ItemGold:        "金幣",
 		u5data.ItemPotion:      "藥水",
-		u5data.ItemPlans:       "卷軸",
+		u5data.ItemScroll:      "卷軸",
 		u5data.ItemKey:         "鑰匙",
 		u5data.ItemGem:         "寶石",
 		u5data.ItemTorch:       "火把",

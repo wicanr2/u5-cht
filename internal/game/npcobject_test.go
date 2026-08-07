@@ -139,3 +139,70 @@ func TestFlaggedSlotsGetQualityFF(t *testing.T) {
 		t.Errorf("寶箱的品質是 %02X,應該是 %02X", got, u5data.NPCObjectQualityChest)
 	}
 }
+
+// ⚠⚠ 魔毯撿走之後**離場再回來又會長出來** —— 原版只做暫時移除
+//(`sub_268(0x16)`,沒有配套的 `sub_218`)。這是可以刷的,而且照抄。
+//
+// 這一條看起來像在測一個 bug,而它就是:寫成「撿過就永遠沒有」會比較
+// 「合理」,但那與原版不同,而本專案的驗收標準是與原版一致。
+func TestTheMagicCarpetComesBack(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	s := realState(t, dir)
+	// 毯子在二樓 (15,18);站在它北邊往南撿。
+	if err := s.SetScene(u5data.CarpetNPCLocation, 2, 15, 17); err != nil {
+		t.Fatalf("進不了城堡二樓:%v", err)
+	}
+	o, _, ok := s.ObjectAt(15, 18)
+	if !ok || o.Kind != u5data.ItemMagicCarpet {
+		t.Fatalf("(15,18) 上應該是魔毯,實得 %+v ok=%v", o, ok)
+	}
+	before := s.Inventory.Carpets
+	s.getAt(0, 1)
+	if s.Inventory.Carpets != before+1 {
+		t.Fatalf("撿完魔毯數是 %d,應該是 %d", s.Inventory.Carpets, before+1)
+	}
+	if _, _, still := s.ObjectAt(15, 18); still {
+		t.Error("撿完當下地上不該還有一張")
+	}
+	// ★ 永久遮罩**沒有**被寫進去 —— 這正是原版的行為。
+	if s.RemovedNPC[u5data.CarpetNPCLocation-1]&(1<<u5data.CarpetNPCSlot) != 0 {
+		t.Error("原版沒有對魔毯寫永久移除位元;寫了就與原版不同")
+	}
+	// 離場再回來,毯子又在。
+	if err := s.SetScene(u5data.CarpetNPCLocation, 2, 15, 17); err != nil {
+		t.Fatalf("重進場景失敗:%v", err)
+	}
+	o, _, ok = s.ObjectAt(15, 18)
+	if !ok || o.Kind != u5data.ItemMagicCarpet {
+		t.Error("回來之後毯子應該又躺在原地(原版可刷)")
+	}
+}
+
+// 檀香木盒相反:原版**直接寫死**永久位元(`byte_3E3AF |= 0x80`),所以不會復活。
+func TestTheSandalwoodBoxDoesNotComeBack(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	s := realState(t, dir)
+	if err := s.SetScene(u5data.SandalwoodNPCLocation, 2, 17, 17); err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range u5data.HarpTune {
+		s.PlayNote(rune('0' + n))
+	}
+	s.X, s.Y = u5data.HarpDoorX, u5data.HarpDoorY-1
+	s.getAt(1, 0)
+	if !s.SandalwoodBox {
+		t.Fatalf("沒撿到盒子:%q", allLogs(s))
+	}
+	if err := s.SetScene(u5data.SandalwoodNPCLocation, 2, 17, 17); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, back := s.ObjectAt(18, 12); back {
+		t.Error("盒子不該復活 —— 原版寫死了永久移除位元")
+	}
+}
