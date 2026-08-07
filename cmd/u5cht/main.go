@@ -375,9 +375,10 @@ func main() {
 	g := &game{
 		state: st,
 		scene: &render.Scene{
-			State: st,
-			Tiles: bundle.Tiles,
-			Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+			State:        st,
+			Tiles:        bundle.Tiles,
+			Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+			DungeonViews: bundle.DungeonViews,
 		},
 	}
 

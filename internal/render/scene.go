@@ -42,6 +42,9 @@ const (
 	HintY = MapOriginY + ViewPixels + 6
 )
 
+// EGABlack 是地牢視野外圍的底色。
+var EGABlack = color.NRGBA{A: 0xFF}
+
 var (
 	ColorBackground = color.NRGBA{R: 0x10, G: 0x10, B: 0x28, A: 0xFF}
 	ColorText       = color.NRGBA{R: 0xE8, G: 0xE8, B: 0xD8, A: 0xFF}
@@ -56,6 +59,8 @@ type Scene struct {
 	State *game.State
 	Tiles []u5data.Tile
 	Text  *TextRenderer
+	// DungeonViews 是 DNG1/2/3.16 的透視切片。空的話地牢退回俯視圖。
+	DungeonViews []u5data.PictureSet
 }
 
 // Render 畫出整個 640×400 畫面。
@@ -255,6 +260,15 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	s.drawInputLine(dst, y)
 }
 
+// fillRect 把一塊矩形填成單色。
+func fillRect(dst *image.NRGBA, x, y, w, h int, c color.NRGBA) {
+	for py := y; py < y+h; py++ {
+		for px := x; px < x+w; px++ {
+			SetPixel(dst, px, py, c)
+		}
+	}
+}
+
 func fill(dst *image.NRGBA, c color.NRGBA) {
 	b := dst.Bounds()
 	for y := b.Min.Y; y < b.Max.Y; y++ {
@@ -305,6 +319,9 @@ func (s *Scene) drawCombat(dst *image.NRGBA) {
 //
 // 8×8 的地牢畫在 11×11 視窗的中央,朝向用一個外框加箭頭表示。
 func (s *Scene) drawDungeon(dst *image.NRGBA) {
+	if s.drawDungeonFirstPerson(dst) {
+		return
+	}
 	d := s.State.Dungeon
 	const side = u5data.DungeonSide
 	off := (ViewTiles - side) / 2
@@ -321,6 +338,99 @@ func (s *Scene) drawDungeon(dst *image.NRGBA) {
 	DrawFrame(dst, px, py, TilePixels, TilePixels, ColorMarker)
 }
 
+// DungeonViewScale 是透視畫面的放大倍率。
+//
+// 原版是 160×164;畫布是原版的乾淨 2×,所以這裡也是 2 → 320×328,
+// 擺進 352×352 的地圖窗還有餘裕。
+const DungeonViewScale = 2
+
+// drawDungeonFirstPerson 畫原版的第一人稱透視走廊。切片沒載到就回 false。
+//
+// 畫的順序照 `sub_3D14`:
+//
+//	由近而遠 —— 每一階先看正面擋不擋得住(擋住就畫正面並停),再畫左右側牆
+//
+// ⚠ 深度 0 是**腳下這一格**,不是前面那一格。搞錯會整個往前偏一格,
+// 而畫面看起來仍然「像個走廊」,不會當場穿幫。
+func (s *Scene) drawDungeonFirstPerson(dst *image.NRGBA) bool {
+	st := s.State
+	d := st.Dungeon
+	if d == nil || len(s.DungeonViews) == 0 {
+		return false
+	}
+	theme := u5data.DungeonTheme(d.Location) - 1
+	if theme < 0 || theme >= len(s.DungeonViews) {
+		return false
+	}
+	set := s.DungeonViews[theme]
+
+	const vw, vh = u5data.DungeonViewWidth, u5data.DungeonViewHeight
+	ox := MapOriginX + (ViewPixels-vw*DungeonViewScale)/2
+	oy := MapOriginY + (ViewPixels-vh*DungeonViewScale)/2
+	fillRect(dst, ox, oy, vw*DungeonViewScale, vh*DungeonViewScale, EGABlack)
+
+	// 沒有光就是全黑 —— `sub_3D14` 一開頭 `if (!byte_3E0B6 && !byte_3E0B7)`
+	// 直接畫一個黑框收工。地牢裡沒火把是真的什麼都看不到。
+	if !st.HasLight() {
+		return true
+	}
+
+	fdx, fdy := d.Facing.Delta()
+	// 側向 = 朝向轉 90 度(`byte_4FFA4` / `byte_4FFA8`)。
+	sdx, sdy := -fdy, fdx
+
+	x, y := d.X, d.Y
+	for depth := 0; depth < u5data.DungeonViewDepths; depth++ {
+		tile := st.DungeonTileAt(u5data.DungeonWrap(x), u5data.DungeonWrap(y))
+		if !u5data.DungeonSeeThrough(tile, depth) {
+			if n := u5data.DungeonFrontShape(tile, depth); n >= 0 {
+				s.blitSlice(dst, set, n, ox, oy, depth)
+			}
+			break
+		}
+		// 站在門口時不畫腳下這一格的側牆 —— 門框就在身邊,擋住了。
+		if depth > 0 || u5data.DungeonKind(tile) != u5data.DungeonDoorway {
+			for _, sign := range [2]int{1, -1} {
+				sx := u5data.DungeonWrap(x + sdx*sign)
+				sy := u5data.DungeonWrap(y + sdy*sign)
+				n := u5data.DungeonSideShape(st.DungeonTileAt(sx, sy), depth)
+				s.blitSliceSide(dst, set, n, ox, oy, depth, sign < 0)
+			}
+		}
+		x, y = x+fdx, y+fdy
+	}
+	return true
+}
+
+// blitSlice 把一張切片畫在左右兩半(右半水平鏡射)。
+func (s *Scene) blitSlice(dst *image.NRGBA, set u5data.PictureSet, n, ox, oy, depth int) {
+	s.blitSliceSide(dst, set, n, ox, oy, depth, false)
+	s.blitSliceSide(dst, set, n, ox, oy, depth, true)
+}
+
+// blitSliceSide 畫半邊。mirror 為真時畫右半(水平翻轉)。
+func (s *Scene) blitSliceSide(dst *image.NRGBA, set u5data.PictureSet, n, ox, oy, depth int, mirror bool) {
+	if n < 0 || n >= len(set) || set[n] == nil {
+		return
+	}
+	p := set[n]
+	bx := u5data.DungeonBandX(depth)
+	for py := 0; py < p.Height; py++ {
+		for px := 0; px < p.Width; px++ {
+			vx := bx + px
+			if mirror {
+				vx = u5data.DungeonViewWidth - 1 - vx
+			}
+			c := u5data.EGAPalette[p.Pix[py*p.Width+px]&0x0F]
+			for ky := 0; ky < DungeonViewScale; ky++ {
+				for kx := 0; kx < DungeonViewScale; kx++ {
+					SetPixel(dst, ox+vx*DungeonViewScale+kx, oy+py*DungeonViewScale+ky, c)
+				}
+			}
+		}
+	}
+}
+
 // dungeonViewTile 把地牢格子換成一個看得懂的世界 tile。
 //
 // 只是為了讓俯視圖分得出通道 / 牆 / 梯子 / 房間,**不是原版的對應** ——
@@ -328,7 +438,7 @@ func (s *Scene) drawDungeon(dst *image.NRGBA) {
 func dungeonViewTile(t byte) int {
 	switch u5data.DungeonKind(t) {
 	case u5data.DungeonWall, u5data.DungeonUnknownC,
-		u5data.DungeonUnknownD, u5data.DungeonUnknownE:
+		u5data.DungeonUnknownD, u5data.DungeonDoorway:
 		return 0x0E // 山:走不過去
 	case u5data.DungeonLadderUp:
 		return 0xC8 // 上行梯

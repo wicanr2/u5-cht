@@ -101,11 +101,28 @@ func (s *State) DungeonTurn(left bool) {
 	if d == nil {
 		return
 	}
+	// ⚠ 站在門口轉不了身(`sub_48F4` 的「Not in doorway!」)。
+	// 轉身 180 度不受限,但那走 DungeonTurnAround。
+	if !u5data.DungeonCanTurn(s.DungeonTileHere()) {
+		s.Log("在門口轉不了身!")
+		return
+	}
 	if left {
 		d.Facing = d.Facing.TurnLeft()
 	} else {
 		d.Facing = d.Facing.TurnRight()
 	}
+	s.Log("汝轉向" + d.Facing.Name() + "。")
+}
+
+// DungeonTurnAround 轉身 180 度。**在門口也做得到** —— 原版的
+// 「Not in doorway!」只擋左右轉,轉身走的是 default case。
+func (s *State) DungeonTurnAround() {
+	d := s.Dungeon
+	if d == nil {
+		return
+	}
+	d.Facing = d.Facing.TurnLeft().TurnLeft()
 	s.Log("汝轉向" + d.Facing.Name() + "。")
 }
 
@@ -119,7 +136,7 @@ func (s *State) DungeonForward(back bool) {
 	if back {
 		dx, dy = -dx, -dy
 	}
-	s.dungeonStep(d.X+dx, d.Y+dy)
+	s.dungeonStep(d.X+dx, d.Y+dy, back)
 }
 
 // DungeonMove 讓玩家直接往某個絕對方向走(給俯視畫面用的方便鍵)。
@@ -133,17 +150,27 @@ func (s *State) DungeonMove(dir Direction) {
 	}
 	d.Facing = dir
 	dx, dy := dir.Delta()
-	s.dungeonStep(d.X+dx, d.Y+dy)
+	s.dungeonStep(d.X+dx, d.Y+dy, false)
 }
 
 // dungeonStep 走到 (nx, ny)。
-func (s *State) dungeonStep(nx, ny int) {
+func (s *State) dungeonStep(nx, ny int, back bool) {
 	d := s.Dungeon
-	if nx < 0 || nx >= u5data.DungeonSide || ny < 0 || ny >= u5data.DungeonSide {
-		s.Log(MsgBlocked)
+	// ⚠ 原版的地牢座標是**繞的**,不是撞牆(`sub_48F4` 的 `if (v<0) v=7`)。
+	// 引擎原本在邊界印「Blocked!」—— 那讓 8×8 的地圖變成有牆的盒子,
+	// 而原版是環面。
+	nx, ny = u5data.DungeonWrap(nx), u5data.DungeonWrap(ny)
+	tile := s.DungeonTileAt(nx, ny)
+	// 電擊力場:走進去 → 受傷 → 被彈回原格(`sub_4834`)。
+	// ⚠ 這一段在**移動**裡,不在踩踏分派表裡 —— 玩家從來沒真的站上去過。
+	if tile == u5data.DungeonElectricA || tile == u5data.DungeonElectricB {
+		s.Log("好痛!")
+		s.Log("電擊力場!")
+		s.damageWholeParty()
+		s.AdvanceTime(MinutesPerTurn)
 		return
 	}
-	if u5data.DungeonPlayerBlocks(s.DungeonTileAt(nx, ny)) {
+	if u5data.DungeonPlayerBlocks(tile, back) {
 		s.Log(MsgBlocked)
 		return
 	}
@@ -185,8 +212,9 @@ func (s *State) onDungeonTile() {
 		s.Log("烈焰!")
 		s.damageWholeParty()
 	}
-	// ⚠ 0x83 / 0x8B(In Sanct Grav 的防護力場)**刻意沒有 case** ——
-	// `jpt_52C7` 把它們送進 default,踩上去什麼都不會發生。
+	// ⚠ 0x83 / 0x8B(電擊力場)**刻意沒有 case** —— `jpt_52C7` 把它們送進
+	// default。它的效果在 `dungeonStep` 裡:走進去就被彈回來,
+	// 所以玩家從來沒真的站在上面過。
 }
 
 // dungeonPitTrap 掉進陷阱坑(原版 `sub_4EB8`)。

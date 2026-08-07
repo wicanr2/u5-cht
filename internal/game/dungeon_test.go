@@ -113,7 +113,7 @@ func TestDungeonWalkStaysInsideAndOffWalls(t *testing.T) {
 			if d.X < 0 || d.X >= u5data.DungeonSide || d.Y < 0 || d.Y >= u5data.DungeonSide {
 				t.Fatalf("第 %d 座走到 (%d,%d),出了 8×8", dg, d.X, d.Y)
 			}
-			if u5data.DungeonPlayerBlocks(s.DungeonTileHere()) {
+			if u5data.DungeonPlayerBlocks(s.DungeonTileHere(), false) {
 				t.Fatalf("第 %d 座站進了 %02X(走不過去的格子)", dg, s.DungeonTileHere())
 			}
 			if [2]int{d.X, d.Y} != before {
@@ -126,7 +126,7 @@ func TestDungeonWalkStaysInsideAndOffWalls(t *testing.T) {
 		if moved == 0 {
 			open := 0
 			for _, dxy := range [][2]int{{0, -1}, {1, 0}, {0, 1}, {-1, 0}} {
-				if !u5data.DungeonPlayerBlocks(s.DungeonTileAt(d.X+dxy[0], d.Y+dxy[1])) {
+				if !u5data.DungeonPlayerBlocks(s.DungeonTileAt(d.X+dxy[0], d.Y+dxy[1]), false) {
 					open++
 				}
 			}

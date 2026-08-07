@@ -892,7 +892,7 @@ func TestFieldSpellsPlaceTheRightTile(t *testing.T) {
 		SpellInFlamGrav:  u5data.DungeonFireA,
 		SpellInNoxGrav:   u5data.DungeonPoisonA,
 		SpellInZuGrav:    u5data.DungeonSleepA,
-		SpellInSanctGrav: u5data.DungeonProtectA,
+		SpellInSanctGrav: u5data.DungeonElectricA,
 	}
 	for spell, tile := range want {
 		s := dungeonState(t)
@@ -924,11 +924,15 @@ func TestFieldSpellsPlaceTheRightTile(t *testing.T) {
 	}
 }
 
-// TestProtectFieldDoesNothing:In Sanct Grav 的力場踩上去不該有事。
+// TestElectricFieldBouncesInsteadOfBeingStoodOn:電擊力場是在**移動**時觸發。
 //
-// `jpt_52C7` 把 0x83 送進 default —— 沒有訊息、沒有傷害、沒有狀態。
-// 這條同時擋住「四個力場都寫成會傷人」這個很容易犯的對稱化錯誤。
-func TestProtectFieldDoesNothing(t *testing.T) {
+// `jpt_52C7` 把 0x83 送進 default —— 踩踏分派表裡它什麼都不做。
+// 但它一點也不無害:`sub_48F4` 在移動時攔下來,印「Ouch! Electric field!」、
+// 全隊受傷、把人彈回原格。玩家**從來沒有真的站上去過**。
+//
+// 這條同時擋兩種寫錯的方式:把它寫成無害(漏了傷害),
+// 或把它寫進踩踏表(那樣玩家會站在上面)。
+func TestElectricFieldBouncesInsteadOfBeingStoodOn(t *testing.T) {
 	s := dungeonState(t)
 	if !s.EnterDungeon(0, false) {
 		t.Skip("進不了地牢")
@@ -938,13 +942,33 @@ func TestProtectFieldDoesNothing(t *testing.T) {
 		before = append(before, ch.HP)
 	}
 	d := s.Dungeon
-	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonProtectA)
+	// (a) 踩踏分派表對 0x83 沒有反應。
+	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonElectricA)
 	s.onDungeonTile()
 	for i, ch := range s.Party() {
 		if ch.HP != before[i] || ch.Status != u5data.StatusGood {
-			t.Errorf("站上防護力場,%s 變成 HP %d / 狀態 %c —— 原版什麼都不會發生",
+			t.Errorf("踩踏表對電擊力場有反應了:%s 變成 HP %d / 狀態 %c",
 				ch.Name, ch.HP, ch.Status)
 		}
+	}
+	// (b) 走進去卻會受傷,而且人留在原地。
+	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonPassage)
+	dx, dy := d.Facing.Delta()
+	tx, ty := u5data.DungeonWrap(d.X+dx), u5data.DungeonWrap(d.Y+dy)
+	s.Dungeons.Set(d.Index, d.Level, tx, ty, u5data.DungeonElectricA)
+	x0, y0 := d.X, d.Y
+	s.DungeonForward(false)
+	if d.X != x0 || d.Y != y0 {
+		t.Errorf("走進電擊力場之後停在 (%d,%d),應該被彈回 (%d,%d)", d.X, d.Y, x0, y0)
+	}
+	hurt := false
+	for i, ch := range s.Party() {
+		if ch.HP < before[i] {
+			hurt = true
+		}
+	}
+	if !hurt {
+		t.Errorf("走進電擊力場卻沒人受傷:\n%s", s.log())
 	}
 }
 

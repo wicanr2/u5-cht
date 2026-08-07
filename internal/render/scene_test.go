@@ -1,7 +1,10 @@
 package render
 
 import (
+	"fmt"
 	"image/color"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/wicanr2/u5-cht/internal/game"
@@ -101,4 +104,116 @@ func TestDrawFrameAndSetPixelClamp(t *testing.T) {
 	DrawFrame(img, CanvasWidth+10, CanvasHeight+10, 10, 10, color.NRGBA{R: 1, A: 1})
 	SetPixel(img, -1, -1, color.NRGBA{})
 	SetPixel(img, CanvasWidth, CanvasHeight, color.NRGBA{})
+}
+
+// TestDungeonFirstPersonIsSymmetric:透視畫面必須左右對稱。
+//
+// 每張切片都是**半邊**,右半是水平鏡射。只要 x 算錯一格(off-by-one)
+// 或鏡射公式寫錯,對稱就破了 —— 而畫面看起來仍然「像個走廊」,
+// 光用眼睛很難發現。這條用像素比對把它釘死。
+//
+// ⚠ 只在「左右兩側的地牢格子相同」時才成立,所以先找一個左右對稱的位置。
+func TestDungeonFirstPersonIsSymmetric(t *testing.T) {
+	sc, st := dungeonScene(t)
+	if sc == nil {
+		return
+	}
+	d := st.Dungeon
+	// 找一個左右鄰格種類相同的朝向,不然畫面本來就不該對稱。
+	fdx, fdy := d.Facing.Delta()
+	sdx, sdy := -fdy, fdx
+	l := st.DungeonTileAt(u5data.DungeonWrap(d.X+sdx), u5data.DungeonWrap(d.Y+sdy))
+	r := st.DungeonTileAt(u5data.DungeonWrap(d.X-sdx), u5data.DungeonWrap(d.Y-sdy))
+	if u5data.DungeonSideShape(l, 0) != u5data.DungeonSideShape(r, 0) {
+		t.Skip("入口左右兩側不同,這一格測不了對稱")
+	}
+	img := sc.Render()
+	ox := MapOriginX + (ViewPixels-u5data.DungeonViewWidth*DungeonViewScale)/2
+	oy := MapOriginY + (ViewPixels-u5data.DungeonViewHeight*DungeonViewScale)/2
+	w := u5data.DungeonViewWidth * DungeonViewScale
+	bad := 0
+	for y := 0; y < u5data.DungeonViewHeight*DungeonViewScale; y++ {
+		for x := 0; x < w/2; x++ {
+			a := img.NRGBAAt(ox+x, oy+y)
+			b := img.NRGBAAt(ox+w-1-x, oy+y)
+			if a != b {
+				if bad < 3 {
+					t.Errorf("(%d,%d) 是 %v,鏡射位置是 %v", x, y, a, b)
+				}
+				bad++
+			}
+		}
+	}
+	if bad != 0 {
+		t.Fatalf("%d 個像素左右不對稱", bad)
+	}
+}
+
+// TestDungeonWithoutLightIsBlack:沒光就是全黑。
+//
+// `sub_3D14` 一開頭 `if (!byte_3E0B6 && !byte_3E0B7)` 直接畫一個黑框收工。
+// 這條擋的是「忘了實作黑暗,玩家沒火把也看得見整條走廊」。
+func TestDungeonWithoutLightIsBlack(t *testing.T) {
+	sc, st := dungeonScene(t)
+	if sc == nil {
+		return
+	}
+	st.LightTurns, st.TorchTurns = 0, 0
+	img := sc.Render()
+	ox := MapOriginX + (ViewPixels-u5data.DungeonViewWidth*DungeonViewScale)/2
+	oy := MapOriginY + (ViewPixels-u5data.DungeonViewHeight*DungeonViewScale)/2
+	for y := 0; y < u5data.DungeonViewHeight*DungeonViewScale; y += 7 {
+		for x := 0; x < u5data.DungeonViewWidth*DungeonViewScale; x += 7 {
+			if c := img.NRGBAAt(ox+x, oy+y); c != EGABlack {
+				t.Fatalf("沒有光,(%d,%d) 卻是 %v", x, y, c)
+			}
+		}
+	}
+	// 有光就不該是全黑 —— 不然上面那條測的只是「畫面本來就黑」。
+	st.TorchTurns = 100
+	img = sc.Render()
+	lit := false
+	for y := 0; y < u5data.DungeonViewHeight*DungeonViewScale && !lit; y += 3 {
+		for x := 0; x < u5data.DungeonViewWidth*DungeonViewScale; x += 3 {
+			if img.NRGBAAt(ox+x, oy+y) != EGABlack {
+				lit = true
+				break
+			}
+		}
+	}
+	if !lit {
+		t.Error("點了火把畫面還是全黑")
+	}
+}
+
+// dungeonScene 準備一個「已經進到地牢裡、火把點著」的場景。
+// 沒有原版素材就 skip,回傳 nil。
+func dungeonScene(t *testing.T) (*Scene, *game.State) {
+	t.Helper()
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA")
+		return nil, nil
+	}
+	views := make([]u5data.PictureSet, 0, u5data.DungeonThemes)
+	for i := 1; i <= u5data.DungeonThemes; i++ {
+		set, err := u5data.LoadPictures(filepath.Join(dir, fmt.Sprintf("DNG%d.16", i)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		views = append(views, set)
+	}
+	dg, err := u5data.LoadDungeons(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc := testScene()
+	sc.DungeonViews = views
+	st := sc.State
+	st.Dungeons = dg
+	if !st.EnterDungeon(0, false) {
+		t.Fatal("進不了地牢")
+	}
+	st.TorchTurns = 100
+	return sc, st
 }

@@ -59,10 +59,15 @@ const (
 	DungeonRoomF = 0xF0
 	// DungeonWall 牆。
 	DungeonWall = 0xB0
-	// 0xC0 / 0xD0 / 0xE0 出現在地圖上但語意還沒定,一律當成走不過去。
+	// 0xC0 / 0xD0 走不過去,語意還沒完全定。
 	DungeonUnknownC = 0xC0
 	DungeonUnknownD = 0xD0
-	DungeonUnknownE = 0xE0
+	// DungeonDoorway 是**門口**(2026-08-07 修正,原本記成「語意未定,當牆」)。
+	//
+	// 依據 `sub_48F4`:站在 0xE0 上時左轉右轉都會被擋下,印「Not in doorway!」
+	//(轉身 180 度不受限)。而移動的阻擋判定 `0xA0 < kind < 0xE0` **不含 0xE0**
+	// —— 門口是走得過去的。
+	DungeonDoorway = 0xE0
 )
 
 // 陷阱與魔法力場的完整位元組(`sub_5150` 比的是**整個位元組**,不是高四位元)。
@@ -72,7 +77,7 @@ const (
 // = `82 81 80 83`)。玩家放的與地圖上的走同一段程式碼,所以是同一組編號。
 //
 //	0x80 睡眠(In Zu Grav)     0x81 毒(In Nox Grav)
-//	0x82 烈焰(In Flam Grav)   0x83 防護(In Sanct Grav)—— 踩到沒有效果
+//	0x82 烈焰(In Flam Grav)   0x83 電擊(In Sanct Grav)—— 見下
 //
 // 每一個都有 **+8 的變體**(0x88..0x8B),那是「頭上有洞」的位元疊上去的:
 // `sub_18A08` 寫回的是 `(舊值 & 8) | 力場編號`。
@@ -81,6 +86,12 @@ const (
 //(索引 = 格子 − 0x81)排得清清楚楚:0x80 與 0x88 是睡眠、
 // 0x81 與 0x89 是毒、0x82 與 0x8A 是烈焰,0x83..0x87 與 0x8B 什麼都不做。
 // 錯因是憑「0x80 系列 = 睡眠」的印象往下填,沒把跳表逐格數完。
+//
+// ⚠ **0x83 在踩踏那條路徑上什麼都不做,不代表它無害。** 它是
+// **電擊力場**,處理在**移動**那一段(`sub_48F4` → `sub_4834`):
+// 走進去會印「Ouch! Electric field!」、全隊受傷、然後**被彈回原格**。
+// 所以玩家從來沒有真的站上去過 —— 踩踏分派表當然看不到它。
+// 一個效果沒出現在你正在讀的那張表裡,先想想它是不是在另一條路徑上。
 const (
 	DungeonPitTrapA  = 0x61
 	DungeonPitTrapB  = 0x69
@@ -91,10 +102,10 @@ const (
 	DungeonSleepB   = 0x88
 	DungeonPoisonA  = 0x81
 	DungeonPoisonB  = 0x89
-	DungeonFireA    = 0x82
-	DungeonFireB    = 0x8A
-	DungeonProtectA = 0x83
-	DungeonProtectB = 0x8B
+	DungeonFireA     = 0x82
+	DungeonFireB     = 0x8A
+	DungeonElectricA = 0x83
+	DungeonElectricB = 0x8B
 )
 
 // DungeonFieldTile 是四個 `*Grav` 咒語在地牢裡放出來的力場格子。
@@ -103,7 +114,7 @@ const (
 // 0 = In Flam Grav、1 = In Nox Grav、2 = In Zu Grav、3 = In Sanct Grav。
 // 值取自 `byte_55E24`(FM Towns 0x55E24:`82 81 80 83`)。
 var DungeonFieldTile = [4]byte{
-	DungeonFireA, DungeonPoisonA, DungeonSleepA, DungeonProtectA,
+	DungeonFireA, DungeonPoisonA, DungeonSleepA, DungeonElectricA,
 }
 
 // DungeonHoleAbove 是「頭上有個洞」的位元。
@@ -183,16 +194,49 @@ func DungeonBlocks(tile byte) bool {
 	return k == DungeonTrap || k == DungeonMagic || k >= DungeonRoomA
 }
 
-// DungeonPlayerBlocks 是玩家能不能走進去。
+// DungeonPlayerBlocks 是玩家能不能走進去。`backing` 為真時是後退。
 //
-// 玩家與怪物的差別只有陷阱:陷阱是**踩上去才觸發**的,不能當成障礙。
-// 房間(0xA0 / 0xF0)玩家走得進去 —— 那正是進房間的方式。
-func DungeonPlayerBlocks(tile byte) bool {
-	switch DungeonKind(tile) {
-	case DungeonWall, DungeonUnknownC, DungeonUnknownD, DungeonUnknownE:
+// `sub_48F4` 的判定,逐條照抄:
+//
+//	前進:0xA0 < kind < 0xE0 擋下 —— 也就是 **0xB0、0xC0、0xD0** 三種
+//	後退:上面三種之外,**再加 0xA0 與 0xF0**(房間)
+//
+// 也就是說:
+//
+//	陷阱與力場不擋 —— 那是踩上去才觸發的
+//	房間(0xA0 / 0xF0)**可以走進去,但不能倒退進去**
+//	門口(0xE0)兩個方向都通
+//
+// ⚠ 「後退不能進房間」很容易漏掉,而漏掉的話玩家可以倒著走進戰鬥,
+// 原版不允許。
+func DungeonPlayerBlocks(tile byte, backing bool) bool {
+	k := DungeonKind(tile)
+	if k > DungeonRoomA && k < DungeonDoorway {
+		return true
+	}
+	if backing && (k == DungeonRoomA || k == DungeonRoomF) {
 		return true
 	}
 	return false
+}
+
+// DungeonCanTurn 回報站在這一格能不能左右轉(`sub_48F4` 的「Not in doorway!」)。
+//
+// 站在門口(0xE0)時左轉右轉都被擋下 —— 門框太窄,轉不了身。
+// **轉身 180 度不受限**(那一支走 default case,沒有這道檢查)。
+func DungeonCanTurn(tile byte) bool { return DungeonKind(tile) != DungeonDoorway }
+
+// DungeonWrap 把地牢座標繞回 0..7(`sub_48F4` 的 `if (v<0) v=7; if (v>7) v=0`)。
+//
+// ⚠ 原版是**繞的**,不是撞牆。走出東邊會從西邊出來。
+func DungeonWrap(v int) int {
+	switch {
+	case v < 0:
+		return DungeonSide - 1
+	case v >= DungeonSide:
+		return 0
+	}
+	return v
 }
 
 // DungeonIsRoom 回報這一格是不是地牢房間。

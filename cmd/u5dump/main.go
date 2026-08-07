@@ -422,7 +422,9 @@ func cmdScene(args []string) error {
 	// 存檔先套(時間、隊伍、位置),命令列參數再覆蓋。順序反了的話
 	// --at / --scene 會被存檔的位置蓋掉,截圖就永遠停在同一個地方。
 	if atX >= 0 && atY >= 0 {
-		st.X, st.Y = atX, atY
+		// ⚠ 連 Location 一起清掉。只改座標的話,存檔停在某個場景時
+		// --at 會變成「在那個場景裡的這個座標」—— 看起來有效、其實沒到世界地圖。
+		st.X, st.Y, st.Location = atX, atY, 0
 	} else if bundle.Save == nil {
 		st.X, st.Y = assets.FindLandStart(bundle.World, 1)
 	}
@@ -441,9 +443,10 @@ func cmdScene(args []string) error {
 	}
 
 	sc := &render.Scene{
-		State: st,
-		Tiles: bundle.Tiles,
-		Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+		State:        st,
+		Tiles:        bundle.Tiles,
+		Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+		DungeonViews: bundle.DungeonViews,
 	}
 
 	if err := writePNG(args[2], sc.Render()); err != nil {
@@ -723,9 +726,19 @@ func playScript(st *game.State, script string) error {
 			st.Answer(false)
 		case 'P':
 			st.Peer() // In Quas Wis 的 32×32 全景
+		case 'L':
+			st.LightTorch() // 點火把(地牢沒光是全黑的)
+		case 'f':
+			st.DungeonForward(false) // 地牢:前進
+		case 'b':
+			st.DungeonForward(true) // 地牢:後退
+		case '<':
+			st.DungeonTurn(true) // 地牢:左轉
+		case '>':
+			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、P 全景、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、P 全景、L 點火把、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil
@@ -882,7 +895,6 @@ func outline(dst *image.NRGBA, ox, oy, n int, c color.NRGBA) {
 		dst.SetNRGBA(ox+n-1, oy+i, c)
 	}
 }
-
 
 // cmdPictures 把一個 `.16` / `.4` 圖檔的形狀表橫排畫成一張 PNG。
 //
