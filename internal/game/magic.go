@@ -670,7 +670,22 @@ func (s *State) AdvanceTime(minutes int) {
 	s.Clock.Advance(minutes)
 	s.LightTurns = subFloor(s.LightTurns, minutes)
 	s.TorchTurns = subFloor(s.TorchTurns, minutes)
+	s.tickHourly(before)
 	s.afterMidnight(before)
+}
+
+// tickHourly 是**每過一個遊戲小時**才減的那些計數。
+//
+// 原版 `sub_29304` 把它們放在「分鐘計數器溢出 60」的那一支裡面 ——
+// 與火把 / 光明咒語(每分鐘減)是不同的節奏。目前只有休息冷卻
+// (`byte_3E09C`,`sub_2BBFC(&byte_3E09C, 1)`)。
+//
+// ⚠ 算的是**跨過幾個小時邊界**,不是「小時剛好變了」——
+// 一次推進超過一小時(紮營、聖壇石室)時後者會整段跳過去。
+func (s *State) tickHourly(before Clock) {
+	if hours := s.Clock.HoursSince(before); hours > 0 {
+		s.RestCooldown = subFloor(s.RestCooldown, hours)
+	}
 }
 
 // afterMidnight 處理「跨過午夜」才發生的事(原版 `sub_29304` 在

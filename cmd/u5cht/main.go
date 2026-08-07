@@ -343,6 +343,17 @@ func (g *game) Update() error {
 					st.CombatMove(dir)
 				}
 			}
+			// 原版戰鬥中不可用的字母鍵**各有自己的回應**,不是統一一句話
+			// (`sub_A360` 的 `jpt_A5C8`,見 gamestate/combatcmd.go)。
+			for _, r := range ebiten.AppendInputChars(nil) {
+				up := r
+				if up >= 'a' && up <= 'z' {
+					up -= 32
+				}
+				if msg, ok := gamestate.CombatRefuse(up); ok {
+					st.Log(msg)
+				}
+			}
 		}
 		g.dirty = true
 		return nil

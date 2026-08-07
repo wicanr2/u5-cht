@@ -1,6 +1,7 @@
 package game
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/wicanr2/u5-cht/internal/u5data"
@@ -170,39 +171,193 @@ func (s *State) askWatch(hours int) {
 	})
 }
 
+// 紮營的規則(原版 `sub_165C8`)。
+const (
+	// campAmbushOneIn 是**每過一個遊戲小時**擲一次的突襲機率分母
+	//(原版 `random(0, 0x3F) == 0`)。睡九小時大約 13% 會被襲擊。
+	campAmbushOneIn = 0x3F
+	// campStepMinutes 是紮營時每次推的分鐘數(原版 `sub_29304(5)`)。
+	campStepMinutes = 5
+	// campMinHours 是「有效果」的最低時數 —— **睡不到 6 小時完全沒用**
+	//(原版 `cmp arg_8, 5; jle → "No effect..."`)。
+	campMinHours = 5
+	// campHealMax 是紮營回的血量上限(原版 `random(1, 0x3F)`)。
+	//
+	// ⚠ **不是回滿。** 回滿是旅店(`sub_21D48`)的規則,兩條路不一樣;
+	// 我第一版把旅店那支拿來用,等於讓野外紮營跟住旅店一樣好。
+	campHealMax = 0x3F
+	// campRestCooldown 是休息後的冷卻(原版 `byte_3E09C = 0x0E`)。
+	// 冷卻沒退完再紮營只會得到「毫無效果」。
+	campRestCooldown = 0x0E
+	// campApparitionPercent 是老人出現的機率(原版 `random(0,99) < 25`)。
+	campApparitionPercent = 25
+	// campWrapAt 是紮營的時刻環繞值。
+	//
+	// ★ **這裡減的是 24(0x18),而睡床減的是 23(0x17)。**
+	// 同一個遊戲的兩條休息路徑,一條對一條錯 —— 所以那個 off-by-one
+	// 是真的寫錯了,不是某種刻意的設計。兩邊都照抄。
+	campWrapAt = 0x18
+)
+
+// campAmbushCreature 是紮營被突襲時抽到的八種怪物(原版 `byte_3F3C8`)。
+//
+// 值是生物索引:41 巨魔 / 20 巨鼠 / 21 蝙蝠 / 24 泥怪 / 22 巨蛛 / 25 小鬼 /
+// 36 無頭者 / 20 巨鼠。⚠ 巨鼠出現**兩次**(索引 1 與 7)—— 機率是雙倍,
+// 不是我抄重複了。而且這張表與地牢的 `byte_3F3D0` **只差在頭尾兩筆**
+// (地牢有收割者與凝視魔,野外換成巨魔與無頭者),兩張表緊鄰在執行檔裡。
+var campAmbushCreature = [8]byte{0x29, 0x14, 0x15, 0x18, 0x16, 0x19, 0x24, 0x14}
+
 // camp 紮營歇息 hours 小時,watch 是守夜的人(−1 = 無人)。
 //
-// ⚠ **遭遇那一層還沒做。** 原版走 `sub_2E364(4 或 6, watch, hours)` 進一個
-// 專用戰場(地表 type 4、地牢 type 6),在那裡判要不要被襲擊、守夜的人有沒有
-// 發現。那條路的解析見 `docs/re/48` §8 的未完項 —— 沒有證據就不補一個機率,
-// 所以目前紮營一定睡得安穩。**這是已知的落差,不是「紮營做完了」。**
+// 原版 `sub_165C8`。三件事按這個順序:睡 → 可能被襲擊 → 恢復。
 func (s *State) camp(hours int, watch int) {
 	s.Watch = watch
 	if watch >= 0 && watch < len(s.Roster) {
 		s.Log(s.Roster[watch].Name + "守夜。")
 	}
-	s.restHours(hours)
+	// 中毒的人記下來 —— 他們不會恢復(而且**也不會死**;毒死是旅店的規則)。
+	poisoned := map[int]bool{}
+	for i, c := range s.Party() {
+		if c.Status == u5data.StatusPoisoned {
+			poisoned[i] = true
+		}
+		if c.Status == u5data.StatusGood && i != watch {
+			c.Status = u5data.StatusAsleep
+			c.Raw[u5data.CharStatus] = u5data.StatusAsleep
+		}
+	}
+	s.Log("Zzzzzz……")
+
+	target := s.Clock.Hour + hours
+	if target > holeUpWrapAt {
+		target -= campWrapAt
+	}
+	last := s.Clock.Hour
+	for guard := 0; s.Clock.Hour != target && guard < 24*12+1; guard++ {
+		s.AdvanceTime(campStepMinutes)
+		if s.Clock.Hour == last {
+			continue
+		}
+		last = s.Clock.Hour
+		// ★ 突襲的骰子**一小時擲一次**,不是一步一次。
+		if s.Roll(0, campAmbushOneIn) != 0 {
+			continue
+		}
+		s.campAmbush(watch)
+		return
+	}
+	s.finishCamp(hours, watch, poisoned)
+}
+
+// campAmbush 是「遭到突襲!」(原版 `loc_167CE` 那一段的骰子中了之後)。
+//
+// ★ **守夜的意義全在這裡**:有人守夜,全隊在開打前就站起來了;
+// 沒人守夜,大家還躺著('S')就被打 —— 睡著的人在戰鬥裡動不了。
+func (s *State) campAmbush(watch int) {
+	idx := campAmbushCreature[s.Roll(0, len(campAmbushCreature)-1)]
+	s.Log("遭到突襲!")
+	if watch >= 0 {
+		for _, c := range s.Party() {
+			if c.Status == u5data.StatusAsleep {
+				c.Status = u5data.StatusGood
+				c.Raw[u5data.CharStatus] = u5data.StatusGood
+			}
+		}
+	}
+	kind := u5data.CreatureBase + idx*4
+	if s.InDungeon() {
+		s.campDungeonAmbush(kind)
+		return
+	}
+	o := &u5data.MapObject{X: s.X, Y: s.Y, Kind: kind}
+	o.Raw[0] = kind
+	o.Raw[u5data.ObjX], o.Raw[u5data.ObjY] = byte(s.X), byte(s.Y)
+	s.beginCombatWith(o)
+}
+
+// campDungeonAmbush 是地牢裡紮營被突襲(原版走 `byte_3E0B1 = 6` 那條)。
+func (s *State) campDungeonAmbush(kind byte) {
+	d := s.Dungeon
+	arena := u5data.BuildDungeonArena(u5data.DungeonArena{
+		Number: d.Location - u5data.DungeonLocationBase + 1,
+		Here:   s.DungeonTileHere(),
+		Around: s.dungeonNeighbours(),
+		Facing: int(d.Facing),
+	})
+	arena.EnemyKind[0] = kind
+	s.beginRoomCombat(arena, -1)
+}
+
+// finishCamp 是睡完一整段之後的恢復(原版 `loc_16A33`)。
+//
+// ⚠⚠ **三條與旅店完全不同的規則**,我第一版全部弄錯(拿旅店那支來用):
+//
+//	1. **睡不到 6 小時完全沒效果。** 原版 `cmp arg_8, 5; jle → "No effect..."`。
+//	2. **回的血是 `random(1, 63)`,不是回滿。** 回滿是旅店。
+//	3. **守夜的人什麼都不恢復。** 那是派人守夜要付的代價。
+//
+// 另外中毒的人不恢復,但**不會死** —— 「睡覺毒發身亡」也是旅店的規則。
+func (s *State) finishCamp(hours int, watch int, poisoned map[int]bool) {
+	defer s.wakeCamp()
+	if s.RestCooldown >= 1 || hours <= campMinHours {
+		s.Log("毫無效果……")
+		return
+	}
+	s.Log("隊伍歇息過了!")
+	for i, c := range s.Party() {
+		if poisoned[i] || c.Status == u5data.StatusDead || i == watch {
+			continue
+		}
+		hp := int(c.HP) + s.Roll(1, campHealMax)
+		if hp > int(c.MaxHP) {
+			hp = int(c.MaxHP)
+		}
+		c.HP = uint16(hp)
+		binary.LittleEndian.PutUint16(c.Raw[u5data.CharHP:], c.HP)
+		// 法力:法師回滿智力,其餘只有一半。
+		// ⚠ 與旅店的分類不同 —— 這裡只認 'A',旅店把 'M' 也算進去。
+		mp := int(c.Intel)
+		if c.Class != 'A' {
+			mp /= 2
+		}
+		c.MP = byte(mp)
+		c.Raw[u5data.CharMP] = c.MP
+	}
+	// 老人(升級)只在紮營成功之後擲,而且四分之一。
+	s.MaybeApparition()
+	s.RestCooldown = campRestCooldown
+}
+
+// wakeCamp 把睡著的人叫起來(原版兩條路共用的收尾)。
+func (s *State) wakeCamp() {
+	for _, c := range s.Party() {
+		if c.Status == u5data.StatusAsleep {
+			c.Status = u5data.StatusGood
+			c.Raw[u5data.CharStatus] = u5data.StatusGood
+		}
+	}
+	s.Log("汝醒來了。")
 }
 
 // sleepInBed 睡床(原版 `sub_16BA0`)。
-func (s *State) sleepInBed(hours int) {
-	s.restHours(hours)
-}
-
-// restHours 是「睡 N 小時」的本體(原版 `sub_16BA0` 的後半)。
+//
+// ★★ **睡床什麼都不恢復。** 原版的尾巴只做三件事:全隊 'S' → 'G'、
+// 把隊伍座標 **x + 1**(從床上下來往東挪一格)、還原音樂。
+// 沒有一行動到 HP 或 MP。
+//
+// 所以睡床的用途是**讓時間過去**(等 NPC 上班、等商店開門),不是治傷 ——
+// 治傷要紮營(≥ 6 小時)或住旅店。憑「睡在床上當然比野地舒服」的直覺
+// 去補恢復,就是自創遊戲。
 //
 // # 目標時刻的算法有個 off-by-one
 //
 //	edi = 現在的小時 + 要睡的小時
 //	if (edi > 0x17) edi -= 0x17       ← **減 23,不是 24**
 //
-// 所以跨過午夜時會多醒一小時:22 時睡 4 小時 → 26 → 26 − 23 = 3 時,
-// 而正確的環繞是 2 時。**這是原版的 bug,照抄**(CLAUDE.md §3.0:
-// 機制與原版一模一樣,包括它的 bug)。
-//
-// 時間是每次推 10 分鐘直到小時數對上 —— 不是一次加 hours×60,
-// 因為途中要讓 NPC 走、讓事件觸發。
-func (s *State) restHours(hours int) {
+// 22 時睡 4 小時 → 26 − 23 = 3 時,而正確的環繞是 2 時。
+// **紮營那條路減的是 24**(`campWrapAt`)—— 同一個遊戲兩條路,一條對一條錯,
+// 所以這是真的寫錯,不是刻意設計。兩邊都照抄(CLAUDE.md §3.0)。
+func (s *State) sleepInBed(hours int) {
 	target := s.Clock.Hour + hours
 	if target > holeUpWrapAt {
 		target -= holeUpWrapAt
@@ -214,15 +369,12 @@ func (s *State) restHours(hours int) {
 		}
 	}
 	s.Log("Zzzzzz……")
-	// 上限擋住「target 永遠對不上」的情況(推 10 分鐘一次,一天 144 次)。
 	for guard := 0; s.Clock.Hour != target && guard < 24*6+1; guard++ {
 		s.AdvanceTime(holeUpStepMinutes)
 	}
-	for _, c := range s.Party() {
-		s.wakeUp(c)
-	}
-	s.Log("汝醒來了。")
-	s.MaybeApparition()
+	s.wakeCamp()
+	// 從床上下來 —— 原版 `inc byte_3E0A6`,往東挪一格。
+	s.X++
 }
 
 const (

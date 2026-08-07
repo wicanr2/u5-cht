@@ -62,6 +62,20 @@ func (c *Clock) Advance(n int) {
 	}
 }
 
+// HoursSince 回傳從 old 到現在跨過幾個小時邊界。
+//
+// ⚠ 不是「小時欄位差多少」—— 那在跨日、跨月時會變成負數。
+// 一次推進整晚(紮營)時這個差別是決定性的。
+func (c Clock) HoursSince(old Clock) int {
+	return c.totalHours() - old.totalHours()
+}
+
+// totalHours 把時間攤平成小時數,供比較用。年的長度是 13 × 28 天。
+func (c Clock) totalHours() int {
+	days := ((c.Year*MonthsPerYear+(c.Month-1))*DaysPerMonth) + (c.Day - 1)
+	return days*HoursPerDay + c.Hour
+}
+
 // String 是給 HUD 用的短格式。
 func (c Clock) String() string {
 	return fmt.Sprintf("%02d:%02d", c.Hour, c.Minute)

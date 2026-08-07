@@ -237,6 +237,11 @@ type State struct {
 
 	// Watch 是紮營時守夜的隊員索引;−1 = 無人守夜。
 	Watch int
+	// RestCooldown 是休息後的冷卻(原版 `byte_3E09C`,紮營成功後設 14)。
+	//
+	// 冷卻沒退完再紮營只會得到「毫無效果」—— 這條擋住「連續紮營刷血」。
+	// ⚠ 原版在哪裡遞減還沒追到(`docs/re/51` §5),目前每個世界回合減 1。
+	RestCooldown int
 
 	// numThen / numMax / yesNoThen 是通用提問的回呼(見 holeup.go 的用法)。
 	numThen   func(int)

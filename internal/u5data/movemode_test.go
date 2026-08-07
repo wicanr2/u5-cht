@@ -49,13 +49,27 @@ func TestShipCannotEnterShoals(t *testing.T) {
 
 // TestHorseRefusesWater:馬不下水,而兩棲的會。
 func TestHorseRefusesWater(t *testing.T) {
-	for _, tile := range []int{0, 1, 2, 3, 0x60, 0x6F} {
+	// ⚠ **tile 0 不在這份清單裡。** `TileIsWater(0)` 為真(原版 `sub_2A674`
+	// 把 0 併進去了),但阻擋位圖的第 0 位是 **0**,而坐騎判的是位圖 ——
+	// 所以原版的馬**踩得上 tile 0**。第一版的測試把 0 也列進來,
+	// 釘住的是「馬應該怕水」的直覺,不是原版的判定式。
+	for _, tile := range []int{1, 2, 3, 0x60, 0x6F} {
 		if MoveModeAllows(MoveHorse, tile) {
 			t.Errorf("馬走進了水 0x%02X", tile)
 		}
 		if !MoveModeAllows(MoveAmphibious, tile) {
 			t.Errorf("兩棲的過不了水 0x%02X", tile)
 		}
+	}
+	// 而沼澤(4)是坐騎**額外**擋的那一格 —— 位圖沒擋它,case 3 自己擋。
+	if TileBlocksWalking(horseBlockSwamp) {
+		t.Errorf("沼澤竟然在阻擋位圖裡,那 case 3 多寫的那條就沒意義了")
+	}
+	if MoveModeAllows(MoveHorse, horseBlockSwamp) {
+		t.Error("馬過了沼澤")
+	}
+	if MoveModeAllows(MoveHorse, horseBlockOdd) {
+		t.Errorf("馬過了 0x%02X", horseBlockOdd)
 	}
 }
 
@@ -81,11 +95,74 @@ func TestWaterTileGroups(t *testing.T) {
 	}
 }
 
-// TestFlyerGoesAnywhere:飛行的什麼都不管。
-func TestFlyerGoesAnywhere(t *testing.T) {
-	for _, tile := range []int{0, 3, 0x3E, 0x4F, 0x60, 0xFF} {
+// TestFlyerIgnoresWallsButNotWater:飛行的不看位圖,但**過不了水**。
+//
+// ⚠ 這支的前身是 `TestFlyerGoesAnywhere`,釘住「飛行的什麼都不管」——
+// 而原版 case 4 是 `sub_2A674(tile); setz` = **只放行非水**。
+// 少了後半,飛行怪物會直接飛過海洋追殺玩家,而測試會一路綠。
+func TestFlyerIgnoresWallsButNotWater(t *testing.T) {
+	// 牆與山:位圖擋得住,但飛行的過。
+	for _, tile := range []int{0x3E, 0x4F, 0xFF} {
 		if !MoveModeAllows(MoveFlyer, tile) {
 			t.Errorf("飛行的過不了 0x%02X", tile)
+		}
+	}
+	// 水:飛不過。
+	for _, tile := range []int{0, 1, 2, 3, 0x60, 0x6F} {
+		if MoveModeAllows(MoveFlyer, tile) {
+			t.Errorf("飛行的飛過了水 0x%02X", tile)
+		}
+	}
+}
+
+// TestOneTerrainModesAcceptExactlyOneTile:模式 7..10 各只認一種地形。
+func TestOneTerrainModesAcceptExactlyOneTile(t *testing.T) {
+	want := map[MoveMode]int{
+		MoveSwampOnly:   swampTile,
+		MoveGrassOnly:   grassTile,
+		MoveShallowOnly: shallowTile,
+		MoveDesertOnly:  desertTile,
+	}
+	for mode, only := range want {
+		n := 0
+		for tile := 0; tile < TileCount; tile++ {
+			if MoveModeAllows(mode, tile) {
+				n++
+				if tile != only {
+					t.Errorf("模式 %d 放行了 0x%02X,只該放行 0x%02X", mode, tile, only)
+				}
+			}
+		}
+		if n != 1 {
+			t.Errorf("模式 %d 放行了 %d 種地形,應該只有 1 種", mode, n)
+		}
+	}
+}
+
+// TestShipStaysInDeepWater:大船只走 tile 0..2,連 0x6x 那族水都進不去。
+//
+// ★ 這就是「大船靠不了岸、得放小艇」的真正機制。第一版放行了 0x6x,
+// 等於讓大船開得進河道。
+func TestShipStaysInDeepWater(t *testing.T) {
+	for tile := 0; tile <= ShipDeepMax; tile++ {
+		if !MoveModeAllows(MoveShip, tile) {
+			t.Errorf("大船走不了 0x%02X", tile)
+		}
+	}
+	for _, tile := range []int{3, 4, 0x60, 0x6F, 0x70} {
+		if MoveModeAllows(MoveShip, tile) {
+			t.Errorf("大船開進了 0x%02X", tile)
+		}
+	}
+}
+
+// TestUnknownModeBlocks:表上的 0xFF 走 default,而 default 是**擋住**。
+//
+// ⚠ 第一版寫成「與一般陸行同」,那讓 0xE8..0xEB 那組移動者憑空獲得通行能力。
+func TestUnknownModeBlocks(t *testing.T) {
+	for _, tile := range []int{0, 5, 0x4F} {
+		if MoveModeAllows(MoveModeNone, tile) {
+			t.Errorf("未知模式放行了 0x%02X", tile)
 		}
 	}
 }

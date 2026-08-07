@@ -293,3 +293,105 @@ func TestDungeonSearchNeedsLight(t *testing.T) {
 		t.Error("摸黑竟然把暗門開了")
 	}
 }
+
+// 地牢搜尋的擲骰:敏捷高的看得清楚,敏捷 0 的會亂猜 —— 而且**兩種錯都會犯**。
+//
+// 這條與地表的陷阱偵測同一個形狀(`docs/re/43`):不能寫成「敏捷不足一定失敗」,
+// 因為門檻是 `(樓層×2 + 30 − 敏捷)/2`,骰子是 random(1,30),兩邊都有機會。
+func TestDungeonChestSearchDependsOnDexterity(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Facing = North
+	s.TorchTurns = 1000
+	// 正前方放一個「沒有陷阱」的寶箱。
+	s.Dungeons.Set(d.Index, d.Level, 4, 3, u5data.DungeonChest)
+
+	count := func(dex byte) map[string]int {
+		for i := 0; i < s.PartySize; i++ {
+			s.Roster[i].Dex = dex
+			s.Roster[i].Status = u5data.StatusGood
+		}
+		got := map[string]int{}
+		for i := 0; i < 200; i++ {
+			s.Messages = nil
+			s.searchDungeonRelative(SearchAhead)
+			joined := strings.Join(s.Messages, "|")
+			switch {
+			case strings.Contains(joined, "沒有陷阱"):
+				got["clear"]++
+			case strings.Contains(joined, "機關"):
+				got["trap"]++
+			}
+		}
+		return got
+	}
+
+	sharp := count(30)
+	if sharp["clear"] == 0 {
+		t.Errorf("敏捷 30 一次都沒看清楚:%v", sharp)
+	}
+	dull := count(0)
+	if dull["trap"] == 0 {
+		t.Errorf("敏捷 0 從來沒看錯過:%v", dull)
+	}
+	if dull["clear"] >= sharp["clear"] {
+		t.Errorf("敏捷 0(%d 次看清)不該比敏捷 30(%d 次)還準",
+			dull["clear"], sharp["clear"])
+	}
+}
+
+// 搜到炸彈坑會**解除**它。
+//
+// ⚠ 而且原版只認 **0x60 / 0x61 / 0x62 三個整值** —— `cmp edx, 60h/61h/62h`
+// 比的是完整位元組,不是高四位元。所以帶「頭上有洞」那一位元的
+// 0x68 / 0x69 / 0x6A 三種**搜起來什麼都不會說**。
+// 那八成是原版的漏洞(那三種確實出現在地牢資料裡),但照抄。
+func TestDungeonBombPitGetsDisarmed(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Facing = North
+	s.TorchTurns = 1000
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 30 // 看得清楚
+		s.Roster[i].Status = u5data.StatusGood
+	}
+	found := false
+	for i := 0; i < 200 && !found; i++ {
+		s.Dungeons.Set(d.Index, d.Level, 4, 3, u5data.DungeonBombTrapA)
+		s.Messages = nil
+		s.searchDungeonRelative(SearchAhead)
+		if strings.Contains(strings.Join(s.Messages, "|"), "炸彈") {
+			found = true
+			after := s.Dungeons.At(d.Index, d.Level, 4, 3)
+			if after != u5data.DungeonTrap {
+				t.Errorf("炸彈坑沒解除:0x%02X,預期 0x%02X", after, u5data.DungeonTrap)
+			}
+		}
+	}
+	if !found {
+		t.Error("兩百次都沒偵測到炸彈坑")
+	}
+
+	// 帶「頭上有洞」那一位元的變體:原版整值比不中 → 一句話都沒有。
+	s.Dungeons.Set(d.Index, d.Level, 4, 3, u5data.DungeonBombTrapB)
+	s.Messages = nil
+	s.searchDungeonRelative(SearchAhead)
+	joined := strings.Join(s.Messages, "|")
+	if strings.Contains(joined, "炸彈") || strings.Contains(joined, "坑") {
+		t.Errorf("0x%02X 竟然報得出來(原版的整值比較會漏掉它):%s",
+			u5data.DungeonBombTrapB, joined)
+	}
+	if s.Dungeons.At(d.Index, d.Level, 4, 3) != u5data.DungeonBombTrapB {
+		t.Error("0x6A 被改掉了,原版不會動它")
+	}
+}
