@@ -118,6 +118,9 @@ type State struct {
 	Input string
 	// Karma 是業報(0..99)。對話裡的 opcode 0x89/0x8A 會動到它。
 	Karma int
+	// Roster 是全部 16 名可用角色,Party 是目前隊伍(名冊的前 PartySize 名)。
+	Roster []u5data.Character
+	Party  []*u5data.Character
 
 	Messages    []string
 	MaxMessages int
@@ -422,6 +425,43 @@ func (s *State) leaveScene() {
 		s.Floor = 0
 		s.Log(MsgExitTo + MsgBritannia)
 	}
+}
+
+// LoadFrom 把一份原版存檔套進遊戲狀態。
+//
+// 這讓「匯入原版存檔」直接可用,也讓開局時間、隊伍與位置都來自原版而不是寫死的預設
+// (CLAUDE.md §3.0:沒有證據就不要自己編數值)。
+func (s *State) LoadFrom(sv *u5data.Save) {
+	if sv == nil {
+		return
+	}
+	s.Clock = Clock{Minute: sv.Minute, Hour: sv.Hour, Day: sv.Day, Month: sv.Month, Year: sv.Year}
+	s.Karma = sv.Karma
+	s.Transport = sv.Transport
+	s.X, s.Y = sv.X, sv.Y
+	s.Floor = sv.Floor
+	s.Roster = append(s.Roster[:0], sv.Roster[:]...)
+	s.Party = nil
+	for i := 0; i < sv.PartySize && i < len(s.Roster); i++ {
+		s.Party = append(s.Party, &s.Roster[i])
+	}
+	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
+	s.Location = 0
+	s.scene, s.npcs = nil, nil
+	if sv.Location > 0 && s.Scenes != nil {
+		if err := s.SetScene(sv.Location, sv.Floor, sv.X, sv.Y); err != nil {
+			// 載不回場景就退回大地圖,並說明 —— 靜默把玩家丟到別處更糟。
+			s.Log("讀檔:回不到原本的場景(" + err.Error() + "),改由大地圖開始。")
+		}
+	}
+}
+
+// AvatarName 回傳聖者的名字(名冊第 0 名)。對話裡的 opcode 0x81 用它。
+func (s *State) AvatarName() string {
+	if len(s.Roster) > 0 && s.Roster[0].Name != "" {
+		return s.Roster[0].Name
+	}
+	return ""
 }
 
 // SetScene 直接把狀態放進某個地點的某一層(給工具與測試用,不是遊戲流程)。

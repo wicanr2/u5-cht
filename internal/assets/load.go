@@ -21,6 +21,8 @@ type Options struct {
 	FMTowns string
 	// FontPrefix 是倚天 atlas 前綴(tools/dev.sh font 15 產生)。
 	FontPrefix string
+	// SaveFile 是要載入的存檔。空字串時依序試 SAVED.GAM、INIT.GAM。
+	SaveFile string
 	// WaterTile 是世界地圖全水 chunk 要填的 tile 索引。
 	WaterTile byte
 }
@@ -33,6 +35,7 @@ type Bundle struct {
 	Scenes  *u5data.SceneSet   // 城鎮 / 民居 / 城堡 / 要塞
 	NPCs    *u5data.NPCSet     // 各地點的居民與排程
 	Talks   *u5data.TalkSet    // 對話文字 + 展開詞典
+	Save    *u5data.Save       // 存檔:名冊、隊伍、時間、位置
 	Charset *u5data.Charset
 	CJK     *cjk.Font
 }
@@ -93,6 +96,13 @@ func Load(opts Options) (*Bundle, []string) {
 		b.Talks = t
 	}
 
+	if sv, name, err := loadSave(opts); err != nil {
+		warn = append(warn, fmt.Sprintf("存檔:%v", err))
+	} else {
+		b.Save = sv
+		_ = name
+	}
+
 	if opts.FontPrefix != "" {
 		if f, err := cjk.Load(opts.FontPrefix); err != nil {
 			warn = append(warn, fmt.Sprintf("中文字型:%v", err))
@@ -101,6 +111,30 @@ func Load(opts Options) (*Bundle, []string) {
 		}
 	}
 	return b, warn
+}
+
+// loadSave 載入存檔。沒指定就依序試 SAVED.GAM、INIT.GAM ——
+// 前者是玩家進行中的遊戲,後者是原版附的新遊戲範本。
+// 兩個都沒有也不致命:上層會退回「找一塊陸地站上去」的起始狀態。
+func loadSave(opts Options) (*u5data.Save, string, error) {
+	candidates := []string{opts.SaveFile}
+	if opts.SaveFile == "" {
+		candidates = []string{
+			filepath.Join(opts.GameData, "SAVED.GAM"),
+			filepath.Join(opts.GameData, "INIT.GAM"),
+		}
+	}
+	var firstErr error
+	for _, p := range candidates {
+		sv, err := u5data.LoadSave(p)
+		if err == nil {
+			return sv, p, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return nil, "", firstErr
 }
 
 func loadWorld(gameData string, water byte) (*u5data.WorldMap, error) {

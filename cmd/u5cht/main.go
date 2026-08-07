@@ -137,6 +137,8 @@ func main() {
 		"FM Towns 版 U5_E 目錄(未壓縮 tileset 來源)")
 	fontPrefix := flag.String("font", "assets/fonts/eten-15",
 		"倚天中文點陣字 atlas 前綴(用 tools/dev.sh font 15 產生)")
+	saveFile := flag.String("save", "",
+		"要載入的存檔;留空則依序試 gamedata/SAVED.GAM、INIT.GAM")
 	scale := flag.Int("scale", 2, "視窗放大倍率(整數;邏輯畫布固定 640×400)")
 	showVersion := flag.Bool("version", false, "印出版本後結束")
 	flag.Parse()
@@ -152,6 +154,7 @@ func main() {
 		GameData:   *gamedata,
 		FMTowns:    *fmtowns,
 		FontPrefix: *fontPrefix,
+		SaveFile:   *saveFile,
 	})
 	for _, w := range warns {
 		fmt.Fprintf(os.Stderr, "⚠ %s\n", w)
@@ -163,11 +166,19 @@ func main() {
 		Scenes:      bundle.Scenes,
 		NPCs:        bundle.NPCs,
 		Talks:       bundle.Talks,
-		Clock:       gamestate.NewClock(),
 		MaxMessages: maxMessages,
 	}
-	st.X, st.Y = assets.FindLandStart(bundle.World, 1)
-	st.Log("汝已抵達不列顛尼亞。")
+	if bundle.Save != nil {
+		// 開局狀態一律取自原版存檔:時間、隊伍、位置都不是自己編的。
+		st.LoadFrom(bundle.Save)
+		st.Log(fmt.Sprintf("汝已抵達不列顛尼亞 —— %d 年 %d 月 %d 日。",
+			st.Clock.Year, st.Clock.Month, st.Clock.Day))
+	} else {
+		// 沒有存檔時退回「找一塊陸地站上去」,並說明這不是原版的開局。
+		st.Clock = gamestate.NewClock()
+		st.X, st.Y = assets.FindLandStart(bundle.World, 1)
+		st.Log("未載入存檔,由任意陸地起始。")
+	}
 
 	g := &game{
 		state: st,

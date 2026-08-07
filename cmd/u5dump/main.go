@@ -49,6 +49,8 @@ func main() {
 		err = cmdScene(os.Args[2:])
 	case "scenemaps":
 		err = cmdSceneMaps(os.Args[2:])
+	case "save":
+		err = cmdSave(os.Args[2:])
 	case "conv":
 		err = cmdConv(os.Args[2:])
 	case "npc":
@@ -400,12 +402,17 @@ func cmdScene(args []string) error {
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
 		NPCs: bundle.NPCs, Talks: bundle.Talks, Clock: game.NewClock(), MaxMessages: 8,
 	}
+	if bundle.Save != nil {
+		st.LoadFrom(bundle.Save)
+	}
 	if hour >= 0 {
 		st.Clock.Hour = hour
 	}
+	// 存檔先套(時間、隊伍、位置),命令列參數再覆蓋。順序反了的話
+	// --at / --scene 會被存檔的位置蓋掉,截圖就永遠停在同一個地方。
 	if atX >= 0 && atY >= 0 {
 		st.X, st.Y = atX, atY
-	} else {
+	} else if bundle.Save == nil {
 		st.X, st.Y = assets.FindLandStart(bundle.World, 1)
 	}
 	if sceneName != "" {
@@ -449,6 +456,44 @@ func cmdScene(args []string) error {
 		}
 	}
 	_ = u5data.TileSize
+	return nil
+}
+
+// cmdSave 印出一份存檔的內容(名冊、隊伍、時間、位置)。
+func cmdSave(args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("用法:u5dump save <SAVED.GAM 或 INIT.GAM>")
+	}
+	sv, err := u5data.LoadSave(args[0])
+	if err != nil {
+		return err
+	}
+	where := fmt.Sprintf("大地圖 (%d,%d)", sv.X, sv.Y)
+	if sv.Location > 0 {
+		if loc, e := u5data.LocationByNumber(sv.Location); e == nil {
+			where = fmt.Sprintf("%s 第 %+d 層 (%d,%d)", loc.DisplayName(), sv.Floor, sv.X, sv.Y)
+		}
+	} else if sv.Floor < 0 {
+		where = fmt.Sprintf("地下世界 (%d,%d)", sv.X, sv.Y)
+	}
+	fmt.Printf("%s\n", args[0])
+	fmt.Printf("  時間:%d 年 %d 月 %d 日 %02d:%02d\n", sv.Year, sv.Month, sv.Day, sv.Hour, sv.Minute)
+	fmt.Printf("  位置:%s   載具 tile %d   業報 %d   隊伍 %d 人\n",
+		where, sv.Transport, sv.Karma, sv.PartySize)
+	fmt.Printf("  名冊:\n")
+	for i := range sv.Roster {
+		c := &sv.Roster[i]
+		if !c.Present() {
+			continue
+		}
+		mark := "  "
+		if i < sv.PartySize {
+			mark = "★ "
+		}
+		fmt.Printf("   %s%2d %-10s %-8s Lv%-2d  HP %3d/%-3d  MP %2d  力%2d 敏%2d 智%2d  經驗 %d\n",
+			mark, i, c.Name, c.ClassName(), c.Level, c.HP, c.MaxHP, c.MP,
+			c.Strength, c.Dex, c.Intel, c.Exp)
+	}
 	return nil
 }
 

@@ -36,7 +36,7 @@ const (
 	PanelX     = MapOriginX + ViewPixels + 8 // 368
 	PanelWidth = CanvasWidth - PanelX - 8    // 264
 	// PanelTextY 是右欄裡「狀態結束、對話開始」的分界。
-	PanelTextY = MapOriginY + LineHeight*9
+	PanelTextY = MapOriginY + LineHeight*11
 
 	// 地圖下方剩下的一條給操作提示。
 	HintY = MapOriginY + ViewPixels + 6
@@ -151,6 +151,14 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 			line = "★ " + loc.DisplayName()
 		}
 		s.Text.Draw(dst, PanelX, y, line)
+	}
+
+	// 隊伍:名字 + HP。原版右欄就是這個位置。
+	y += LineHeight
+	for _, c := range st.Party {
+		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("%-9s %-4s %3d/%-3d",
+			c.Name, c.ClassName(), c.HP, c.MaxHP))
+		y += LineHeight
 	}
 
 	// 分隔線:狀態與對話之間

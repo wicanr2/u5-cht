@@ -1,0 +1,242 @@
+package u5data
+
+import (
+	"encoding/binary"
+	"fmt"
+)
+
+// 存檔格式(`SAVED.GAM` / `INIT.GAM`,4,192 B)
+//
+// 出自 FM Towns 版的讀取函式 `sub_27D24` —— 它把整份存檔**逐欄位循序**讀進一串
+// 全域變數(44 次 fread + 82 次 fgetc,寫入函式 `sub_284CC` 完全對稱)。
+// 因為是逐欄位而不是整塊記憶體 dump,檔案位移得把每個欄位的大小累加起來算。
+//
+// ⚠ FM Towns 的讀取序列加起來是 **4,226** B,比檔案多 34 B。兩個東西一拿掉就正好
+// 對上 4,192,而且最後一個欄位剛好收在 EOF:
+//
+//   - `byte_3EDB0`(32 B)在 FM Towns 版被**連續讀了兩次**(組語確認,不是反編譯錯覺)
+//   - 結尾多一個 2 B 欄位 `byte_3EE18`
+//
+// 兩者都是 FM Towns 移植時多出來的;隨遊戲附的 `SAVED.GAM`/`INIT.GAM` 是 DOS 版寫的
+// (FM Towns 的資料檔與 DOS 版逐一同大小),所以**本套件用 4,192 的 DOS 版面**。
+// 「最後一個欄位剛好收在 EOF」是這個判斷的主要證據,不是湊出來的。
+//
+// 前段已逐欄位對真實檔案驗證過:0x02CE 的年份讀出 139(不列顛尼亞的紀年)、
+// 0x02D6 的載具是 0x1C(步行,與隊伍 tile 相符)、之後接著月 4 / 日 5 / 時 8 / 分 35。
+const (
+	// SaveFileSize 是存檔大小。
+	SaveFileSize = 4192
+
+	// 角色名冊:16 筆 32 B 的角色紀錄,從位移 2 開始。
+	SaveRosterOffset = 0x0002
+	RosterSize       = 16
+	CharRecordSize   = 32
+
+	// 以下位移由讀取序列累加得出,並以真實檔案交叉驗證。
+	SavePartySizeOffset = 0x02B5 // byte_3E06B
+	SaveYearOffset      = 0x02CE // word_3E084
+	SaveTimeStopOffset  = 0x02D4 // byte_3E08A('T' 停止時間、'Q' 速度加倍)
+	SaveTransportOffset = 0x02D6 // byte_3E08C(隊伍當前載具 tile)
+	SaveMonthOffset     = 0x02D7 // byte_3E08D
+	SaveDayOffset       = 0x02D8 // byte_3E08E
+	SaveHourOffset      = 0x02D9 // byte_3E08F
+	SaveMinuteOffset    = 0x02DB // byte_3E091
+	SaveKarmaOffset     = 0x02E2 // byte_3E098
+	SaveLocationOffset  = 0x02ED // byte_3E0A3
+	SaveFloorOffset     = 0x02EF // byte_3E0A5
+	SaveXOffset         = 0x02F0 // byte_3E0A6
+	SaveYOffset         = 0x02F1 // byte_3E0A7
+)
+
+// 角色紀錄的欄位位移。
+//
+// 由六名初始角色橫向對照得出:性別欄只有 0x0B/0x0C 兩種而 Mariah 與 Jaana 是 0x0C;
+// 職業欄是可讀字母 A/F/B/M(Avatar/Fighter/Bard/Mage);
+// 目前 HP 與最大 HP 在五名角色身上相等(全新角色),經驗值與等級也彼此相符
+// (150/167 → 等級 2,249/260/278 → 等級 3)。
+const (
+	CharName     = 0  // 9 B,NUL 補齊
+	CharGender   = 9  // 0x0B 男 / 0x0C 女
+	CharClass    = 10 // 'A' 聖者 / 'F' 戰士 / 'B' 吟遊詩人 / 'M' 法師
+	CharStatus   = 11 // 'G' 良好
+	CharStrength = 12
+	CharDex      = 13
+	CharIntel    = 14
+	CharMP       = 15
+	CharHP       = 16 // u16 LE
+	CharMaxHP    = 18 // u16 LE
+	CharExp      = 20 // u16 LE
+	CharLevel    = 22
+
+	CharNameLen = 9
+)
+
+// Character 是一名角色。
+type Character struct {
+	Name     string
+	Gender   byte
+	Class    byte
+	Status   byte
+	Strength byte
+	Dex      byte
+	Intel    byte
+	MP       byte
+	HP       uint16
+	MaxHP    uint16
+	Exp      uint16
+	Level    byte
+
+	// Raw 是完整的 32 B 紀錄。裝備欄位(0x17 之後)還沒對到物品表,
+	// 先原樣保留而不是硬取名字。
+	Raw [CharRecordSize]byte
+}
+
+// Present 回報這一格名冊有沒有角色。
+func (c *Character) Present() bool { return c.Name != "" || c.Class != 0 }
+
+// ClassName 回傳職業的中文名。
+//
+// 職業代碼是可讀字母,譯名對齊 u4-cht / u6-cht 的《創世紀聖者之書》體系。
+func (c *Character) ClassName() string {
+	switch c.Class {
+	case 'A':
+		return "聖者"
+	case 'F':
+		return "戰士"
+	case 'B':
+		return "吟遊詩人"
+	case 'M':
+		return "法師"
+	case 'T':
+		return "盜賊"
+	}
+	return string(rune(c.Class))
+}
+
+// Save 是一份存檔。
+//
+// 只解出已經驗證過的欄位;其餘保留在 Raw 裡。與其對沒把握的位移硬取名字,
+// 不如讓呼叫端看得到「這一段還沒解」。
+type Save struct {
+	Roster    [RosterSize]Character
+	PartySize int
+	Year      int
+	Month     int
+	Day       int
+	Hour      int
+	Minute    int
+	Karma     int
+	Transport byte
+	Location  int // 0 = 大地圖
+	Floor     int // signed:負數是地下
+	X, Y      int
+
+	Raw []byte
+}
+
+// LoadSave 讀入一份存檔(`SAVED.GAM` 或 `INIT.GAM`)。
+func LoadSave(path string) (*Save, error) {
+	raw, err := readExact(path, SaveFileSize)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSave(raw)
+}
+
+// ParseSave 解析存檔內容。
+func ParseSave(raw []byte) (*Save, error) {
+	if len(raw) != SaveFileSize {
+		return nil, fmt.Errorf("存檔 %d B,預期 %d B", len(raw), SaveFileSize)
+	}
+	s := &Save{Raw: raw}
+	for i := range s.Roster {
+		off := SaveRosterOffset + i*CharRecordSize
+		rec := raw[off : off+CharRecordSize]
+		c := &s.Roster[i]
+		copy(c.Raw[:], rec)
+		c.Name = cstring(rec[CharName : CharName+CharNameLen])
+		c.Gender = rec[CharGender]
+		c.Class = rec[CharClass]
+		c.Status = rec[CharStatus]
+		c.Strength = rec[CharStrength]
+		c.Dex = rec[CharDex]
+		c.Intel = rec[CharIntel]
+		c.MP = rec[CharMP]
+		c.HP = binary.LittleEndian.Uint16(rec[CharHP:])
+		c.MaxHP = binary.LittleEndian.Uint16(rec[CharMaxHP:])
+		c.Exp = binary.LittleEndian.Uint16(rec[CharExp:])
+		c.Level = rec[CharLevel]
+	}
+	s.PartySize = int(raw[SavePartySizeOffset])
+	s.Year = int(binary.LittleEndian.Uint16(raw[SaveYearOffset:]))
+	s.Month = int(raw[SaveMonthOffset])
+	s.Day = int(raw[SaveDayOffset])
+	s.Hour = int(raw[SaveHourOffset])
+	s.Minute = int(raw[SaveMinuteOffset])
+	s.Karma = int(raw[SaveKarmaOffset])
+	s.Transport = raw[SaveTransportOffset]
+	s.Location = int(raw[SaveLocationOffset])
+	s.Floor = int(int8(raw[SaveFloorOffset]))
+	s.X = int(raw[SaveXOffset])
+	s.Y = int(raw[SaveYOffset])
+
+	if err := s.validate(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// validate 檢查解出來的值合不合理。
+//
+// 位移是用「把讀取序列的欄位大小累加起來」算的,只要中間漏算一個欄位,
+// 後面全部會偏移。偏移之後讀出來的仍然是「某個數字」,不會自己報錯 ——
+// 所以這裡主動撞一次牆:日期與隊伍人數只要有一個離譜,就是位移錯了。
+func (s *Save) validate() error {
+	switch {
+	case s.Month < 1 || s.Month > MonthsPerYearSave:
+		return fmt.Errorf("月份是 %d(合理範圍 1..%d)—— 存檔位移大概算錯了",
+			s.Month, MonthsPerYearSave)
+	case s.Day < 1 || s.Day > DaysPerMonthSave:
+		return fmt.Errorf("日期是 %d(合理範圍 1..%d)", s.Day, DaysPerMonthSave)
+	case s.Hour > 23:
+		return fmt.Errorf("小時是 %d", s.Hour)
+	case s.Minute > 59:
+		return fmt.Errorf("分鐘是 %d", s.Minute)
+	case s.PartySize > MaxPartySize:
+		return fmt.Errorf("隊伍 %d 人(上限 %d)", s.PartySize, MaxPartySize)
+	case s.Location > len(Locations):
+		return fmt.Errorf("地點編號 %d 超出 0..%d", s.Location, len(Locations))
+	}
+	return nil
+}
+
+// 曆法上限。與 internal/game 的 Clock 同源(原版 sub_29304 的進位條件),
+// 這裡重複一份是為了讓 u5data 不必反向依賴 game。
+const (
+	DaysPerMonthSave  = 28
+	MonthsPerYearSave = 13
+	// MaxPartySize 是隊伍人數上限。原版 sub_1BB5C 用 `cmp byte_3E06B, 6` 判滿員。
+	MaxPartySize = 6
+)
+
+// Party 回傳目前在隊伍裡的角色(名冊前 PartySize 名)。
+func (s *Save) Party() []*Character {
+	n := s.PartySize
+	if n > RosterSize {
+		n = RosterSize
+	}
+	out := make([]*Character, 0, n)
+	for i := 0; i < n; i++ {
+		out = append(out, &s.Roster[i])
+	}
+	return out
+}
+
+func cstring(b []byte) string {
+	for i, c := range b {
+		if c == 0 {
+			return string(b[:i])
+		}
+	}
+	return string(b)
+}
