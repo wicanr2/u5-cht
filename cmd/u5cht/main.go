@@ -348,6 +348,9 @@ func (g *game) Update() error {
 			st.OpenChest()
 		case inpututil.IsKeyJustPressed(ebiten.KeyG):
 			st.Get()
+		// 站在豎琴前(正南那一格)時數字鍵是彈音,不是指令。
+		case st.AtHarp() && harpKey(st) != 0:
+			st.PlayNote(harpKey(st))
 		case inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ctrl:
 			st.Save()
 		}
@@ -550,4 +553,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "執行失敗:%v\n", err)
 		os.Exit(1)
 	}
+}
+
+// harpKey 回傳這一幀按下的數字鍵('0'..'9'),沒有就回 0。
+func harpKey(st *gamestate.State) rune {
+	_ = st
+	for k := ebiten.Key0; k <= ebiten.Key9; k++ {
+		if inpututil.IsKeyJustPressed(k) {
+			return rune('0' + (k - ebiten.Key0))
+		}
+	}
+	return 0
 }

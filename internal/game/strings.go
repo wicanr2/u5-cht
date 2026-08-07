@@ -86,6 +86,9 @@ const (
 	MsgGuardPass     = "「過去吧,朋友!」"
 	MsgBegoneVermin  = "「滾開,害蟲!」"
 
+	// 豎琴(原版 `sub_11E0`)。原版只發聲不印字。
+	MsgSecretDoor = "牆上有東西動了……"
+
 	// NPC 反問名字(原版 opcode 0x88 / `sub_1C2FC`)。
 	MsgWhatIsThyName = "「汝名為何?」"
 	MsgAPleasure     = "幸會!"

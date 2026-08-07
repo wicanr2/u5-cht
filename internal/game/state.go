@@ -302,6 +302,8 @@ type State struct {
 	Input string
 	// pending 是正在等玩家回答的提問區塊。
 	pending *u5data.Question
+	// HarpProgress 是那首曲子已經彈對幾個音(原版 `byte_4FC8D`)。
+	HarpProgress int
 	// BeamFrame 是燈塔光束轉到第幾個扇區(0..15,原版 `byte_41414`)。
 	BeamFrame int
 	// Introduced[地點] 的第 i 位是「這座城的第 i 個 NPC 認得汝了」

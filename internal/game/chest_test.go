@@ -160,3 +160,55 @@ func TestUnlockLoweringTheTileByOne(t *testing.T) {
 		t.Errorf("0xBB 解鎖之後是 %02X", got)
 	}
 }
+
+// ★ 地表寶箱的種類碼就是 `sub_154BC` 的物品碼 —— 兩張獨立的表用同一組編碼。
+func TestSurfaceChestKindsAreItemCodes(t *testing.T) {
+	want := map[byte]string{
+		u5data.ItemClosedChest: "上鎖的箱子",
+		u5data.ItemGold:        "金幣",
+		u5data.ItemPotion:      "藥水",
+		u5data.ItemPlans:       "卷軸",
+		u5data.ItemKey:         "鑰匙",
+		u5data.ItemGem:         "寶石",
+		u5data.ItemTorch:       "火把",
+		u5data.ItemFood:        "食物",
+	}
+	for _, k := range u5data.ChestKind {
+		if _, ok := want[k]; !ok {
+			t.Errorf("寶箱種類碼 %d 不在 sub_154BC 的物品碼裡", k)
+		}
+	}
+	if len(u5data.ChestKind) != len(want) {
+		t.Errorf("寶箱有 %d 種,物品碼列了 %d 種", len(u5data.ChestKind), len(want))
+	}
+	// ⚠ 檀香木盒(0x0E)**刻意不在**任何獎品表裡 —— 它是唯一的劇情物品。
+	for _, k := range u5data.ChestKind {
+		if k == u5data.ItemSandalwood {
+			t.Error("檀香木盒不該從寶箱掉出來")
+		}
+	}
+	for _, k := range u5data.DungeonLootKind {
+		if k == u5data.ItemSandalwood {
+			t.Error("檀香木盒不該從地牢寶箱掉出來")
+		}
+	}
+}
+
+// 寶箱掉出來的東西真的進背包(原本只印一行「找到了什麼東西」)。
+func TestChestLootReachesTheBackpack(t *testing.T) {
+	s := getScene(t, 0, 0)
+	s.sceneObjects.Objects[3] = u5data.MapObject{}
+	before := s.Inventory.Gold + s.Inventory.Gems + s.Inventory.Keys +
+		s.Inventory.Torches + s.Inventory.Food
+	// 等級開到最大,八種門檻全過的機率很高;跑幾次總會拿到東西。
+	got := false
+	for i := 0; i < 40 && !got; i++ {
+		s.rollChestContents(99)
+		after := s.Inventory.Gold + s.Inventory.Gems + s.Inventory.Keys +
+			s.Inventory.Torches + s.Inventory.Food
+		got = after > before
+	}
+	if !got {
+		t.Error("開了四十次高等寶箱,背包一樣都沒多 —— 獎品沒接進背包")
+	}
+}

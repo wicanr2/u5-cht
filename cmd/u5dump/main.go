@@ -823,6 +823,12 @@ func playScript(st *game.State, script string) error {
 					st.CancelDirection()
 				}
 			}
+		// `♪123` —— 彈豎琴(後面接數字鍵,直到非數字為止)。
+		case '~':
+			for i+1 < len(rs) && rs[i+1] >= '0' && rs[i+1] <= '9' {
+				i++
+				st.PlayNote(rs[i])
+			}
 		case 'L':
 			st.LightTorch() // 點火把(地牢沒光是全黑的)
 		case 'Y':

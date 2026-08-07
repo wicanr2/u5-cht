@@ -120,16 +120,23 @@ func (s *State) rollChestContents(level int) bool {
 		}
 		kind := u5data.ChestKind[i]
 		if kind == u5data.ChestKindGold {
-			// 金幣是唯一語意確定的那一種:`random(1, 等級×3)`(`sub_14F68`)。
+			// 金幣的數量另有算法:`random(1, 等級×3)`(`sub_14F68`),
+			// 不走 `ChestMax` 那一格。
 			gold := s.Roll(1, level*3)
 			s.Inventory.Gold = addCap(s.Inventory.Gold, gold, 9999)
 			s.Log("找到 " + itoa(gold) + " 枚金幣。")
 			got = true
 			continue
 		}
-		// 其餘七種原版是**在那一格生一個物件**讓玩家自己撿(`sub_2B6C8`)。
-		// 種類碼的語意還沒對出來,所以照抄「生成」這個行為而不去猜它是什麼。
-		s.Log("找到了什麼東西(物件種類 " + itoa(int(kind)) + " ×" + itoa(n) + ")。")
+		// ★ **種類碼的語意對出來了。** 這張表的八個值
+		// `{1, 2, 3, 4, 7, 8, 13, 15}` 正是 `sub_154BC` 的物品碼:
+		// 1 上鎖的箱、2 金幣、3 藥水、4 卷軸、7 鑰匙、8 寶石、13 火把、15 食物。
+		// 原本這裡只印「找到了什麼東西(物件種類 N)」,因為當時還沒逆 `sub_154BC`。
+		//
+		// ⚠ 原版是**在那一格生一個物件**讓玩家自己 Get(`sub_2B6C8`);
+		// 這裡直接收進背包,少了「掉在地上」那一步。差別在:原版可以把
+		// 掉出來的東西留在原地不撿。標成已知差異,不假裝一樣。
+		s.pickUp(kind, n, 0)
 		got = true
 	}
 	return got
