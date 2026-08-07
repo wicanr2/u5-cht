@@ -1,0 +1,356 @@
+// Package game 是遊戲狀態機:大地圖與場景之間的進出、移動、樓層、通行判定。
+//
+// 這一層**不畫任何像素、不依賴 ebiten**,所以整段劇本(走到城門 → 進城 → 上樓 →
+// 走出邊界 → 回到大地圖)可以在單元測試裡跑完,不需要顯示環境。
+// 這是 internal/render 那個「headless 驗證不該需要 GPU」決策的延伸:
+// 邏輯與畫面各自可獨立驗證。
+//
+// 規則一律照原版執行檔,不自創(CLAUDE.md §3.0)。主要來源:
+//
+//	sub_86C  場景內移動 —— 邊界偵測、離開詢問、樓梯、阻擋(docs/re/03 §7)
+//	sub_758  樓梯升降 —— tile & 0xFC == 0xC4,朝向決定上或下
+//	sub_5C8  場景載入 —— 地點編號 + 樓層 → 哪一張 32×32 地圖
+//	sub_10928 進入場景 —— 比對地點表座標,設 (15, 30) 為入口
+package game
+
+import (
+	"github.com/wicanr2/u5-cht/internal/u5data"
+)
+
+// Direction 是原版內部使用的朝向碼(sub_86C 把按鍵轉成這組值後才往下傳)。
+//
+// 原版的按鍵碼是 1=西 2=東 3=北 4=南,進函式後立刻映射成下面這組 —— 之所以要換,
+// 是因為這組的**反向 = XOR 2**,樓梯判定(sub_758)直接用到這個性質。
+type Direction int
+
+const (
+	North Direction = 0
+	East  Direction = 1
+	South Direction = 2
+	West  Direction = 3
+)
+
+// Opposite 回傳反向。原版就是 XOR 2 —— 不是查表。
+func (d Direction) Opposite() Direction { return d ^ 2 }
+
+// Delta 回傳這個方向的座標增量。
+func (d Direction) Delta() (dx, dy int) {
+	switch d {
+	case North:
+		return 0, -1
+	case East:
+		return 1, 0
+	case South:
+		return 0, 1
+	case West:
+		return -1, 0
+	}
+	return 0, 0
+}
+
+// Name 回傳中文方位(訊息欄用)。
+func (d Direction) Name() string {
+	switch d {
+	case North:
+		return "北"
+	case East:
+		return "東"
+	case South:
+		return "南"
+	case West:
+		return "西"
+	}
+	return "?"
+}
+
+// 場景入口座標。原版 sub_10928 進場景時固定設 (15, 30):32 格寬的中央、靠底部,
+// 也就是城鎮的南門。
+const (
+	SceneEntryX = 15
+	SceneEntryY = 30
+)
+
+// UnderworldLocation 是唯一一個「離開後回到地下世界而非地表」的地點編號。
+// 原版 sub_86C:`if (byte_3E0A3 == 0x19)` → 印 "Underworld!"、樓層設 -1、BGM 換 10 號曲。
+const UnderworldLocation = 25 // ARARAT
+
+// Prompt 是等待玩家回答的提問。原版在場景邊界會問 "Dost thou wish to leave?",
+// 只收 Y / N / ESC。
+type Prompt int
+
+const (
+	// PromptNone 表示沒有待回答的提問。
+	PromptNone Prompt = iota
+	// PromptLeave 是「是否離開此地?」
+	PromptLeave
+)
+
+// State 是一局遊戲的位置狀態。
+type State struct {
+	World  *u5data.WorldMap // 地表(BRIT.DAT)
+	Under  *u5data.WorldMap // 地下世界(UNDER.DAT);可為 nil
+	Scenes *u5data.SceneSet // 城鎮 / 城堡 / 民居 / 要塞;可為 nil
+
+	// Location 是原版的 byte_3E0A3:0 代表在大地圖,1..32 是地點編號。
+	Location int
+	// Floor 是原版的 byte_3E0A5。在大地圖:0 = 地表、-1 = 地下世界;在場景:樓層。
+	Floor int
+	// X, Y 是原版的 byte_3E0A6 / byte_3E0A7。大地圖時是世界座標,場景時是場景座標
+	// —— 原版共用同一對變數,離開場景時從地點表把世界座標讀回來。
+	X, Y int
+
+	// Transport 是原版的 byte_3E08C:隊伍當前的載具 tile(0 = 步行)。
+	// 通行判定 sub_2A694 的第一個參數就是它(docs/re/02)。
+	Transport byte
+
+	// Prompt 是待回答的提問;非 PromptNone 時,移動輸入要先交給 Answer。
+	Prompt Prompt
+
+	Messages    []string
+	MaxMessages int
+
+	scene *u5data.SceneMap // 目前這一層的場景地圖快取
+}
+
+// InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。
+func (s *State) InScene() bool { return s.Location != 0 }
+
+// Location 名稱 —— 在大地圖時回傳空字串。
+func (s *State) LocationName() string {
+	loc, err := u5data.LocationByNumber(s.Location)
+	if err != nil {
+		return ""
+	}
+	return loc.DisplayName()
+}
+
+// Log 加一條訊息到訊息欄。
+func (s *State) Log(msg string) {
+	if s.MaxMessages <= 0 {
+		s.MaxMessages = 2
+	}
+	s.Messages = append(s.Messages, msg)
+	if len(s.Messages) > s.MaxMessages {
+		s.Messages = s.Messages[len(s.Messages)-s.MaxMessages:]
+	}
+}
+
+// currentWorld 回傳目前所在的大地圖(地表或地下世界)。
+func (s *State) currentWorld() *u5data.WorldMap {
+	if s.Floor < 0 && s.Under != nil {
+		return s.Under
+	}
+	return s.World
+}
+
+// TileAt 回報 (x, y) 在**視窗上**該顯示什麼 tile。
+//
+// 大地圖會環繞(不列顛尼亞是 wrap-around);場景則在邊界外回傳 TileBlank ——
+// 原版的 11×11 視窗緩衝就是先 memset 成 0xFF 再填入地圖內容,所以城鎮外緣
+// 看到的是黑格,不是別的地形。
+func (s *State) TileAt(x, y int) byte {
+	if s.InScene() {
+		if s.scene == nil || x < 0 || x >= u5data.SceneSide || y < 0 || y >= u5data.SceneSide {
+			return u5data.TileBlank
+		}
+		return s.scene.At(x, y)
+	}
+	w := s.currentWorld()
+	if w == nil {
+		return 0
+	}
+	return w.At(WrapWorld(x), WrapWorld(y))
+}
+
+// WrapWorld 把座標折回大地圖範圍(不列顛尼亞是環繞的)。
+func WrapWorld(v int) int {
+	v %= u5data.WorldSide
+	if v < 0 {
+		v += u5data.WorldSide
+	}
+	return v
+}
+
+// Move 往 d 走一步。
+//
+// 場景內的完整流程照 sub_86C:先判斷是不是踩到邊界(x<1 / x>30 / y<1 / y>30),
+// 是的話問「是否離開」;否則檢查通行,能走就走,並看看踩到的是不是樓梯。
+func (s *State) Move(d Direction) {
+	if s.Prompt != PromptNone {
+		return // 有提問待答時,移動輸入無效(原版是 do-while 只收 Y/N/ESC)
+	}
+	if s.InScene() {
+		s.moveInScene(d)
+		return
+	}
+	s.moveInWorld(d)
+}
+
+func (s *State) moveInWorld(d Direction) {
+	dx, dy := d.Delta()
+	nx, ny := WrapWorld(s.X+dx), WrapWorld(s.Y+dy)
+	if u5data.TileBlocksWalking(int(s.TileAt(nx, ny))) {
+		s.Log(MsgBlocked)
+		return
+	}
+	s.X, s.Y = nx, ny
+	if loc, ok := u5data.LocationAt(nx, ny); ok {
+		s.Log("往" + d.Name() + "方前行 —— 此處是" + loc.DisplayName() + "。")
+	} else {
+		s.Log("往" + d.Name() + "方前行。")
+	}
+}
+
+func (s *State) moveInScene(d Direction) {
+	dx, dy := d.Delta()
+	nx, ny := s.X+dx, s.Y+dy
+
+	// 邊界偵測。原版比的是**移動前**的座標:x<1 / x>30 / y<1 / y>30
+	// (asm 是 `cmp byte_3E0A6, 1 / jnb` 與 `cmp byte_3E0A6, 1Eh / jbe`),
+	// 也就是「已經站在最外圈,又要往外走」才算離開,不是「走到會出界」。
+	atEdge := false
+	switch d {
+	case West:
+		atEdge = s.X < 1
+	case East:
+		atEdge = s.X > 30
+	case North:
+		atEdge = s.Y < 1
+	case South:
+		atEdge = s.Y > 30
+	}
+
+	// 通行判定。原版還會先問「這格上有沒有 NPC / 物件」(sub_2B360),
+	// 那要等 .NPC 格式解出來才做得了;目前只判地形。
+	if u5data.TileBlocksWalking(int(s.TileAt(nx, ny))) && !atEdge {
+		s.Log(MsgBlocked)
+		return
+	}
+
+	if atEdge {
+		s.Prompt = PromptLeave
+		s.Log(MsgLeaveQuestion)
+		return
+	}
+
+	s.X, s.Y = nx, ny
+
+	// 踩到樓梯就換層。原版 sub_758:同向走進去 inc 樓層,反向 dec。
+	if facing, ok := u5data.StairsFacing(s.TileAt(s.X, s.Y)); ok {
+		switch Direction(facing) {
+		case d:
+			s.changeFloor(+1)
+		case d.Opposite():
+			s.changeFloor(-1)
+		}
+	}
+}
+
+// changeFloor 換一層並重載場景地圖。原版是 inc/dec byte_3E0A5 後呼叫 sub_5C8(1)。
+func (s *State) changeFloor(delta int) {
+	next := s.Floor + delta
+	m, err := s.Scenes.Map(s.Location, next)
+	if err != nil {
+		// 樓層超出範圍不該發生(梯子只出現在有下一層的地方)。真的發生時要看得見,
+		// 不要靜默留在原地 —— 那會變成「梯子壞了」這種很難查的 bug。
+		s.Log(MsgNothingToClimb)
+		return
+	}
+	s.Floor = next
+	s.scene = m
+	if delta > 0 {
+		s.Log(MsgUp)
+	} else {
+		s.Log(MsgDown)
+	}
+}
+
+// Klimb 是原版的「攀爬」指令(sub_EA0,按鍵 K)。
+//
+// 它看的是**腳下**那一格,不是要走進去的那一格 —— 這跟樓梯(走進去觸發)是兩套機制,
+// 而梯子才是主力:四座燈塔、兩座城堡、修道院、巨蛇要塞都只有梯子。
+func (s *State) Klimb() {
+	if !s.InScene() {
+		// 大地圖上的攀爬(上山、進地牢)是另一條路徑,還沒做。
+		s.Log(MsgNothingToClimb)
+		return
+	}
+	delta := u5data.ClimbDelta(s.TileAt(s.X, s.Y))
+	if delta == 0 {
+		s.Log(MsgNothingToClimb)
+		return
+	}
+	s.changeFloor(delta)
+}
+
+// Enter 是原版的「進入」指令(sub_10928)。
+//
+// 原版做的是:掃地點表找出座標與玩家世界座標相符的那一筆;找不到就回「此處無可進入之地」。
+func (s *State) Enter() {
+	if s.InScene() {
+		s.Log(MsgNothingToEnter)
+		return
+	}
+	loc, ok := u5data.LocationAt(s.X, s.Y)
+	if !ok {
+		s.Log(MsgNothingToEnter)
+		return
+	}
+	num := loc.Number()
+	m, err := s.Scenes.Map(num, 0)
+	if err != nil {
+		s.Log("進不去" + loc.DisplayName() + ":" + err.Error())
+		return
+	}
+	s.Location = num
+	s.Floor = 0
+	s.X, s.Y = SceneEntryX, SceneEntryY
+	s.scene = m
+	s.Log("進入" + loc.DisplayName() + "。")
+}
+
+// Answer 回答待決的提問。原版只收 Y / N / ESC,ESC 等同 N。
+func (s *State) Answer(yes bool) {
+	if s.Prompt != PromptLeave {
+		return
+	}
+	s.Prompt = PromptNone
+	if !yes {
+		s.Log(MsgNo)
+		return
+	}
+	s.leaveScene()
+}
+
+// leaveScene 離開場景回到大地圖。
+//
+// 原版 sub_86C 的離開分支:世界座標**從地點表讀回來**(byte_410F3/byte_4111B 用
+// 1-based 地點編號索引,就是同一張座標表),不是記著進來前的位置 ——
+// 所以無論在城裡走到哪一格出去,都會回到城門那一格。
+func (s *State) leaveScene() {
+	loc, err := u5data.LocationByNumber(s.Location)
+	if err != nil {
+		return
+	}
+	underworld := s.Location == UnderworldLocation
+	s.X, s.Y = loc.X, loc.Y
+	s.Location = 0
+	s.scene = nil
+	if underworld {
+		s.Floor = -1
+		s.Log(MsgExitTo + MsgUnderworld)
+	} else {
+		s.Floor = 0
+		s.Log(MsgExitTo + MsgBritannia)
+	}
+}
+
+// SetScene 直接把狀態放進某個地點的某一層(給工具與測試用,不是遊戲流程)。
+func (s *State) SetScene(num, floor, x, y int) error {
+	m, err := s.Scenes.Map(num, floor)
+	if err != nil {
+		return err
+	}
+	s.Location, s.Floor, s.X, s.Y, s.scene = num, floor, x, y, m
+	return nil
+}

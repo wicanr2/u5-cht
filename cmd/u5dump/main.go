@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/wicanr2/u5-cht/internal/assets"
+	"github.com/wicanr2/u5-cht/internal/game"
 	"github.com/wicanr2/u5-cht/internal/render"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
@@ -328,12 +329,25 @@ func cmdText(args []string) error {
 // xvfb + 軟體 GL 下死鎖了五小時,那正是改成 CPU 繪製的原因。
 func cmdScene(args []string) error {
 	if len(args) < 3 {
-		return fmt.Errorf("用法:u5dump scene <gamedata> <U5_E 目錄> <out.png> [--font 前綴] [--at X Y]")
+		return fmt.Errorf("用法:u5dump scene <gamedata> <U5_E 目錄> <out.png> [--font 前綴] [--at X Y] [--script nsewEKyN…] [--scene 地點名 樓層 X Y]")
 	}
 	fontPrefix := "assets/fonts/eten-15"
 	atX, atY := -1, -1
+	script := ""
+	sceneName, sceneFloor := "", 0
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
+		case "--scene":
+			if i+4 < len(args) {
+				sceneName = args[i+1]
+				sceneFloor, _ = strconv.Atoi(args[i+2])
+				atX, _ = strconv.Atoi(args[i+3])
+				atY, _ = strconv.Atoi(args[i+4])
+			}
+		case "--script":
+			if i+1 < len(args) {
+				script = args[i+1]
+			}
 		case "--font":
 			if i+1 < len(args) {
 				fontPrefix = args[i+1]
@@ -353,29 +367,49 @@ func cmdScene(args []string) error {
 		fmt.Fprintf(os.Stderr, "⚠ %s\n", w)
 	}
 
-	sc := &render.Scene{
-		World: bundle.World,
-		Tiles: bundle.Tiles,
-		Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
-		Messages: []string{
-			"汝已抵達不列顛尼亞。此地由不列顛王治理,然其人已然失蹤。",
-			"往北方前行。",
-		},
+	st := &game.State{
+		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
+		MaxMessages: 2,
 	}
 	if atX >= 0 && atY >= 0 {
-		sc.PX, sc.PY = atX, atY
+		st.X, st.Y = atX, atY
 	} else {
-		sc.PX, sc.PY = assets.FindLandStart(bundle.World, 1)
+		st.X, st.Y = assets.FindLandStart(bundle.World, 1)
+	}
+	if sceneName != "" {
+		loc, ok := findLocation(sceneName)
+		if !ok {
+			return fmt.Errorf("地點表裡沒有 %q", sceneName)
+		}
+		if err := st.SetScene(loc.Number(), sceneFloor, atX, atY); err != nil {
+			return err
+		}
+	}
+	st.Log("汝已抵達不列顛尼亞。此地由不列顛王治理,然其人已然失蹤。")
+	if err := playScript(st, script); err != nil {
+		return err
+	}
+
+	sc := &render.Scene{
+		State: st,
+		Tiles: bundle.Tiles,
+		Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
 	}
 
 	if err := writePNG(args[2], sc.Render()); err != nil {
 		return err
 	}
-	fmt.Printf("✓ 畫面 %d×%d → %s(玩家 %d,%d)\n",
-		render.CanvasWidth, render.CanvasHeight, args[2], sc.PX, sc.PY)
+	where := fmt.Sprintf("大地圖 %d,%d", st.X, st.Y)
+	if st.InScene() {
+		where = fmt.Sprintf("%s 第 %d 層 %d,%d", st.LocationName(), st.Floor+1, st.X, st.Y)
+	}
+	fmt.Printf("✓ 畫面 %d×%d → %s(%s)\n", render.CanvasWidth, render.CanvasHeight, args[2], where)
+	for _, m := range st.Messages {
+		fmt.Printf("  訊息:%s\n", m)
+	}
 	if bundle.CJK != nil {
 		var miss []rune
-		for _, m := range sc.Messages {
+		for _, m := range st.Messages {
 			miss = append(miss, bundle.CJK.MissingRunes(m)...)
 		}
 		if len(miss) > 0 {
@@ -383,6 +417,46 @@ func cmdScene(args []string) error {
 		}
 	}
 	_ = u5data.TileSize
+	return nil
+}
+
+// findLocation 依英文名找地點(不分大小寫)。
+func findLocation(name string) (*u5data.Location, bool) {
+	for i := range u5data.Locations {
+		if strings.EqualFold(u5data.Locations[i].Name, name) {
+			return &u5data.Locations[i], true
+		}
+	}
+	return nil, false
+}
+
+// playScript 把一串按鍵餵給狀態機,讓「走進城裡再走出來」這種劇本能 headless 重現。
+//
+//	n s e w 移動   E 進入   K 攀爬   y / N 回答提問
+func playScript(st *game.State, script string) error {
+	for _, r := range script {
+		switch r {
+		case 'n':
+			st.Move(game.North)
+		case 's':
+			st.Move(game.South)
+		case 'e':
+			st.Move(game.East)
+		case 'w':
+			st.Move(game.West)
+		case 'E':
+			st.Enter()
+		case 'K':
+			st.Klimb()
+		case 'y':
+			st.Answer(true)
+		case 'N':
+			st.Answer(false)
+		case ' ':
+		default:
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、y/N 回答)", r)
+		}
+	}
 	return nil
 }
 
@@ -440,7 +514,7 @@ func cmdTown(args []string) error {
 		return err
 	}
 	var floors []u5data.SceneMap
-	for f := 0; f < loc.Floors; f++ {
+	for f := loc.FloorMin; f <= loc.FloorMax; f++ {
 		idx := loc.SceneIndex + f
 		if idx >= len(scenes) {
 			break
@@ -456,6 +530,6 @@ func cmdTown(args []string) error {
 	}
 	fmt.Printf("✓ %s(%s)世界座標 (%d,%d) → %s 索引 %d,共 %d 層 → %s\n",
 		loc.Name, loc.DisplayName(), loc.X, loc.Y,
-		u5data.SceneFiles[loc.SceneFile], loc.SceneIndex, loc.Floors, args[3])
+		u5data.SceneFiles[loc.SceneFile], loc.SceneIndex, loc.FloorMax-loc.FloorMin+1, args[3])
 	return nil
 }

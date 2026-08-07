@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"os"
+	"path/filepath"
 )
 
 // 地圖資料的已驗證事實與待確認項(2026-08-07)
@@ -218,4 +219,22 @@ func RenderChunks(chunks []Chunk, tiles []Tile, cols, side int) (*image.NRGBA, e
 		}
 	}
 	return img, nil
+}
+
+// LoadFlatMap 讀入一張直接存放的 256×256 地圖。
+//
+// 地下世界 UNDER.DAT 就是這種格式:65,536 B = 256×256,**沒有 chunk 索引**
+// (地表 BRIT.DAT 才需要,因為它把全水區塊抽掉以省空間)。
+func LoadFlatMap(path string) (*WorldMap, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) != WorldSide*WorldSide {
+		return nil, fmt.Errorf("%s 是 %d B,預期 %d B(%d×%d)",
+			filepath.Base(path), len(raw), WorldSide*WorldSide, WorldSide, WorldSide)
+	}
+	w := &WorldMap{}
+	copy(w.Tiles[:], raw)
+	return w, nil
 }

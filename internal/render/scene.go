@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 
+	"github.com/wicanr2/u5-cht/internal/game"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -40,11 +41,9 @@ var (
 // 這是 headless 驗證與實機顯示的**共同來源**:兩邊都呼叫 Render(),
 // 所以截圖就是實機畫面,不會漂移。
 type Scene struct {
-	World    *u5data.WorldMap
-	Tiles    []u5data.Tile
-	Text     *TextRenderer
-	PX, PY   int      // 玩家在世界地圖的座標
-	Messages []string // 訊息欄(最新在後)
+	State *game.State
+	Tiles []u5data.Tile
+	Text  *TextRenderer
 }
 
 // Render 畫出整個 640×400 畫面。
@@ -59,15 +58,16 @@ func (s *Scene) Render() *image.NRGBA {
 }
 
 func (s *Scene) drawMapView(dst *image.NRGBA) {
-	if s.World == nil || len(s.Tiles) == 0 {
+	if s.State == nil || len(s.Tiles) == 0 {
 		return
 	}
+	// 11×11 視窗永遠以玩家為中心 —— 原版就是這樣:
+	// 場景移動函式 sub_86C 讀鄰格用的 byte_3F789[32*dy+dx] 是一個固定位址,
+	// 也就是視窗緩衝裡玩家那一格,四鄰用 ±1 / ±32 直接定址(docs/re/03 §7)。
 	half := ViewTiles / 2
 	for dy := -half; dy <= half; dy++ {
 		for dx := -half; dx <= half; dx++ {
-			// 世界地圖是環繞的(原版 Britannia 就是 wrap-around)。
-			wx, wy := WrapCoord(s.PX+dx), WrapCoord(s.PY+dy)
-			s.drawTile(dst, int(s.World.At(wx, wy)),
+			s.drawTile(dst, int(s.State.TileAt(s.State.X+dx, s.State.Y+dy)),
 				MapOriginX+(dx+half)*TilePixels,
 				MapOriginY+(dy+half)*TilePixels)
 		}
@@ -102,30 +102,51 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 	if s.Text == nil {
 		return
 	}
+	st := s.State
+	if st == nil {
+		return
+	}
 	y := MapOriginY
 	y = s.Text.DrawLines(dst, PanelX, y, []string{"創世紀 V", "命運勇士"})
 	y += LineHeight
-	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("座標 %3d,%3d", s.PX, s.PY))
+	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("座標 %3d,%3d", st.X, st.Y))
 	y += LineHeight
-	if s.World != nil {
-		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("地形 %3d", s.World.At(s.PX, s.PY)))
+	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("地形 %3d", st.TileAt(st.X, st.Y)))
+	y += LineHeight
+	if st.InScene() {
+		s.Text.Draw(dst, PanelX, y, "★ "+st.LocationName())
+		y += LineHeight
+		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("第 %d 層", st.Floor+1))
+		y += LineHeight
+	} else {
+		// 地點名取自原版執行檔的地點表(u5data.Locations),不是自己打的清單。
+		if loc, ok := u5data.LocationAt(st.X, st.Y); ok {
+			s.Text.Draw(dst, PanelX, y, "★ "+loc.DisplayName())
+		}
+		y += LineHeight
+		if st.Floor < 0 {
+			s.Text.Draw(dst, PanelX, y, "地下世界")
+			y += LineHeight
+		}
 	}
 	y += LineHeight
-	// 地點名取自原版執行檔的地點表(u5data.Locations),不是自己打的清單。
-	if loc, ok := u5data.LocationAt(s.PX, s.PY); ok {
-		s.Text.Draw(dst, PanelX, y, "★ "+loc.DisplayName())
+	keys := []string{"方向鍵移動", "E 進入", "K 攀爬", "F10 離開"}
+	if st.Prompt != game.PromptNone {
+		keys = []string{"Y 是 / N 否"}
 	}
-	y += LineHeight * 2
-	s.Text.DrawLines(dst, PanelX, y, []string{"方向鍵移動", "F10 離開"})
+	s.Text.DrawLines(dst, PanelX, y, keys)
 }
 
 func (s *Scene) drawMessages(dst *image.NRGBA) {
 	if s.Text == nil {
 		return
 	}
+	if s.State == nil {
+		return
+	}
 	y := MessageY
 	maxW := CanvasWidth - 2*MapOriginX
-	for _, m := range s.Messages {
+	for _, m := range s.State.Messages {
 		// 斷行用的是同一個 Advance,所以畫出來保證不溢框。
 		y = s.Text.DrawLines(dst, MapOriginX, y, Wrap(m, maxW))
 	}

@@ -80,13 +80,50 @@ func TestSceneMapping(t *testing.T) {
 			t.Errorf("地點 %d(%s)的檔案索引是 %d,依 (編號-1)/8 應為 %d",
 				num, Locations[i].Name, Locations[i].SceneFile, want)
 		}
-		// 起始索引 + 層數不可超出每檔 16 張
-		if end := Locations[i].SceneIndex + Locations[i].Floors; end > ScenesPerFile {
-			t.Errorf("地點 %d(%s)的索引 %d + %d 層 = %d,超出每檔 %d 張",
-				num, Locations[i].Name, Locations[i].SceneIndex, Locations[i].Floors, end, ScenesPerFile)
+		// 整個樓層範圍都必須落在每檔 16 張之內
+		if lo := Locations[i].SceneIndex + Locations[i].FloorMin; lo < 0 {
+			t.Errorf("地點 %d(%s)最低層算出索引 %d,小於 0", num, Locations[i].Name, lo)
 		}
-		if Locations[i].Floors < 1 {
-			t.Errorf("地點 %d(%s)的層數是 %d", num, Locations[i].Name, Locations[i].Floors)
+		if hi := Locations[i].SceneIndex + Locations[i].FloorMax; hi >= ScenesPerFile {
+			t.Errorf("地點 %d(%s)最高層算出索引 %d,超出每檔 %d 張",
+				num, Locations[i].Name, hi, ScenesPerFile)
+		}
+		if Locations[i].FloorMin > 0 {
+			t.Errorf("地點 %d(%s)的最低層是 %+d —— 地面層(0)一定要在範圍內",
+				num, Locations[i].Name, Locations[i].FloorMin)
+		}
+		if Locations[i].FloorMax < 0 {
+			t.Errorf("地點 %d(%s)的最高層是 %+d —— 地面層(0)一定要在範圍內",
+				num, Locations[i].Name, Locations[i].FloorMax)
+		}
+	}
+}
+
+// TestSceneMapsFullyPartitioned:四個場景檔各 16 張地圖,必須**恰好**被 8 個地點的
+// 樓層範圍蓋滿 —— 不重疊也不留空。這是整張表最強的一致性檢查:任何一筆樓層數寫錯,
+// 都會在這裡露出縫或疊到別人身上。
+func TestSceneMapsFullyPartitioned(t *testing.T) {
+	for f := range SceneFiles {
+		used := make([]int, ScenesPerFile)
+		for i := range Locations {
+			if Locations[i].SceneFile != f {
+				continue
+			}
+			for fl := Locations[i].FloorMin; fl <= Locations[i].FloorMax; fl++ {
+				idx := Locations[i].SceneIndex + fl
+				if idx < 0 || idx >= ScenesPerFile {
+					continue // 上一個測試已經報過
+				}
+				used[idx]++
+			}
+		}
+		for idx, n := range used {
+			switch {
+			case n == 0:
+				t.Errorf("%s 第 %d 張地圖沒有任何地點宣告使用", SceneFiles[f], idx)
+			case n > 1:
+				t.Errorf("%s 第 %d 張地圖被 %d 個地點同時宣告", SceneFiles[f], idx, n)
+			}
 		}
 	}
 }
@@ -94,17 +131,18 @@ func TestSceneMapping(t *testing.T) {
 // TestKnownSceneTargets 固定幾個已用畫面驗收過的對應。
 func TestKnownSceneTargets(t *testing.T) {
 	cases := []struct {
-		name   string
-		file   int
-		index  int
-		floors int
-		why    string
+		name     string
+		file     int
+		index    int
+		lo, hi   int
+		why      string
 	}{
-		{"BRITAIN", 0, 2, 2, "TOWNE.DAT 索引 2,兩層"},
-		{"MOONGLOW", 0, 0, 2, "TOWNE.DAT 第一個"},
-		{"FOGSBANE", 1, 0, 3, "燈塔三層 —— 畫面驗收過:底層有家具、二層剩塔身、頂層是圓形燈室"},
-		{"STORMCROW", 1, 3, 3, "第二座燈塔,同樣三層"},
-		{"IOLO'S HUT", 1, 12, 1, "小屋只有一層"},
+		{"BRITAIN", 0, 2, 0, 1, "TOWNE.DAT 索引 2,兩層"},
+		{"MOONGLOW", 0, 0, 0, 1, "TOWNE.DAT 第一個"},
+		{"YEW", 0, 7, -1, 0, "紫衫城的地下是監獄 —— 地圖排在地面層之前"},
+		{"FOGSBANE", 1, 0, 0, 2, "燈塔三層 —— 畫面驗收過:底層有家具、二層剩塔身、頂層是圓形燈室"},
+		{"IOLO'S HUT", 1, 12, 0, 0, "小屋只有一層"},
+		{"SERPENT'S HOLD", 3, 14, -1, 1, "地面層索引 14,但地圖 13 是它的地下層"},
 	}
 	for _, c := range cases {
 		var loc *Location
@@ -118,9 +156,11 @@ func TestKnownSceneTargets(t *testing.T) {
 			t.Errorf("地點表裡沒有 %s", c.name)
 			continue
 		}
-		if loc.SceneFile != c.file || loc.SceneIndex != c.index || loc.Floors != c.floors {
-			t.Errorf("%s → 檔案 %d 索引 %d %d 層,預期 %d/%d/%d(%s)",
-				c.name, loc.SceneFile, loc.SceneIndex, loc.Floors, c.file, c.index, c.floors, c.why)
+		if loc.SceneFile != c.file || loc.SceneIndex != c.index ||
+			loc.FloorMin != c.lo || loc.FloorMax != c.hi {
+			t.Errorf("%s → 檔案 %d 索引 %d 樓層 %+d..%+d,預期 %d/%d/%+d..%+d(%s)",
+				c.name, loc.SceneFile, loc.SceneIndex, loc.FloorMin, loc.FloorMax,
+				c.file, c.index, c.lo, c.hi, c.why)
 		}
 	}
 }

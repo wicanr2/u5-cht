@@ -4,6 +4,7 @@ import (
 	"image/color"
 	"testing"
 
+	"github.com/wicanr2/u5-cht/internal/game"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -23,12 +24,12 @@ func testScene() *Scene {
 		world.Tiles[i] = byte(i % 8)
 	}
 	return &Scene{
-		World:    world,
-		Tiles:    tiles,
-		Text:     NewTextRenderer(nil, nil, ColorText),
-		PX:       100,
-		PY:       100,
-		Messages: []string{"汝已抵達不列顛尼亞。"},
+		State: &game.State{
+			World: world, X: 100, Y: 100,
+			Messages: []string{"汝已抵達不列顛尼亞。"},
+		},
+		Tiles: tiles,
+		Text:  NewTextRenderer(nil, nil, ColorText),
 	}
 }
 
@@ -47,7 +48,10 @@ func TestSceneSurvivesMissingAssets(t *testing.T) {
 			t.Fatalf("缺素材時 panic 了:%v", r)
 		}
 	}()
-	empty := &Scene{Text: NewTextRenderer(nil, nil, ColorText), Messages: []string{"測試"}}
+	empty := &Scene{
+		State: &game.State{Messages: []string{"測試"}},
+		Text:  NewTextRenderer(nil, nil, ColorText),
+	}
 	if img := empty.Render(); img == nil {
 		t.Fatal("Render 回傳 nil")
 	}
@@ -80,7 +84,7 @@ func TestScenePlayerMarkerAtCenter(t *testing.T) {
 func TestSceneWrapAroundWorld(t *testing.T) {
 	s := testScene()
 	for _, pos := range [][2]int{{0, 0}, {255, 255}, {0, 255}, {255, 0}} {
-		s.PX, s.PY = pos[0], pos[1]
+		s.State.X, s.State.Y = pos[0], pos[1]
 		if img := s.Render(); img == nil {
 			t.Fatalf("在 (%d,%d) 取景失敗", pos[0], pos[1])
 		}

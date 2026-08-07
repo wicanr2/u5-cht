@@ -28,7 +28,9 @@ type Options struct {
 // Bundle 是載好的素材。任一欄位都可能是 nil —— 呼叫端要能在缺件時繼續跑。
 type Bundle struct {
 	Tiles   []u5data.Tile
-	World   *u5data.WorldMap
+	World   *u5data.WorldMap   // 地表(BRIT.DAT,chunk 組裝)
+	Under   *u5data.WorldMap   // 地下世界(UNDER.DAT,256×256 直接存,不分 chunk)
+	Scenes  *u5data.SceneSet   // 城鎮 / 民居 / 城堡 / 要塞
 	Charset *u5data.Charset
 	CJK     *cjk.Font
 }
@@ -63,6 +65,18 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("世界地圖:%v", err))
 	} else {
 		b.World = w
+	}
+
+	if u, err := u5data.LoadFlatMap(filepath.Join(opts.GameData, "UNDER.DAT")); err != nil {
+		warn = append(warn, fmt.Sprintf("地下世界:%v", err))
+	} else {
+		b.Under = u
+	}
+
+	if sc, err := u5data.LoadSceneSet(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("場景地圖:%v", err))
+	} else {
+		b.Scenes = sc
 	}
 
 	if opts.FontPrefix != "" {

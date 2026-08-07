@@ -1,11 +1,11 @@
 // u5cht 是 Ultima V 重製版(繁體中文)的執行檔。
 //
-// 目前是 P2 垂直切片:載入原版 tileset 與世界地圖,用 11×11 地圖視窗走 Britannia,
-// HUD 與訊息欄走倚天中文點陣字。遊戲邏輯(碰撞、時間、NPC、戰鬥)在 P4 之後。
+// 目前可以走大地圖、按 E 進城鎮 / 城堡 / 燈塔、在場景裡走動與上下樓、走到邊界離開。
+// 規則全部照原版執行檔(見 internal/game 的套件說明)。時間、NPC、戰鬥尚未實作。
 //
-// 架構:畫面完全由 internal/render 在 CPU 上組好(不依賴 ebiten),
-// 這一層只負責把成品上傳成紋理、整數倍放大顯示、收鍵盤。
-// 理由見 internal/render 的套件說明(headless 驗證不該需要 GPU)。
+// 架構:遊戲規則在 internal/game(純邏輯)、畫面在 internal/render(純 CPU),
+// 這一層只負責把成品上傳成紋理、整數倍放大顯示、把按鍵轉成 game 的動作。
+// 兩者都不依賴 ebiten,所以規則與畫面都能 headless 驗證。
 package main
 
 import (
@@ -17,8 +17,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/wicanr2/u5-cht/internal/assets"
+	gamestate "github.com/wicanr2/u5-cht/internal/game"
 	"github.com/wicanr2/u5-cht/internal/render"
-	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
 const maxMessages = 2
@@ -28,56 +28,60 @@ var version = "dev"
 
 type game struct {
 	scene *render.Scene
+	state *gamestate.State
 
 	tex   *ebiten.Image // 上傳到 GPU 的畫面
 	dirty bool          // 畫面是否需要重畫(回合制遊戲多數幀不需要)
 }
 
-func (g *game) log(format string, args ...any) {
-	g.scene.Messages = append(g.scene.Messages, fmt.Sprintf(format, args...))
-	if len(g.scene.Messages) > maxMessages {
-		g.scene.Messages = g.scene.Messages[len(g.scene.Messages)-maxMessages:]
-	}
-	g.dirty = true
-}
-
 func (g *game) Update() error {
-	// 離開語意:F10 / Ctrl+Q 才離開,ESC 永遠是取消(P4 補確認框與自動存檔)。
+	// 離開語意:F10 / Ctrl+Q 才離開,ESC 永遠是取消(P5 補確認框與自動存檔)。
 	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF10) || (ctrl && inpututil.IsKeyJustPressed(ebiten.KeyQ)) {
 		return ebiten.Termination
 	}
+	st := g.state
+	before := len(st.Messages)
+	snapshot := g.key()
 
-	// 方向鍵移動。碰撞與地形效果屬遊戲邏輯,P4 才做 —— 現在誠實地讓玩家走過所有地形。
-	for _, m := range []struct {
-		key    ebiten.Key
-		dx, dy int
-		name   string
-	}{
-		{ebiten.KeyArrowUp, 0, -1, "北"},
-		{ebiten.KeyArrowDown, 0, 1, "南"},
-		{ebiten.KeyArrowLeft, -1, 0, "西"},
-		{ebiten.KeyArrowRight, 1, 0, "東"},
-	} {
-		if !inpututil.IsKeyJustPressed(m.key) {
-			continue
+	// 有提問待答時只收 Y / N / ESC —— 原版 sub_86C 的 do-while 就是這個行為,
+	// ESC 等同於 N。
+	if st.Prompt != gamestate.PromptNone {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyY):
+			st.Answer(true)
+		case inpututil.IsKeyJustPressed(ebiten.KeyN), inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.Answer(false)
 		}
-		nx := render.WrapCoord(g.scene.PX + m.dx)
-		ny := render.WrapCoord(g.scene.PY + m.dy)
-		// 通行規則取自原版執行檔的 tile bitmap(u5data.TileBlocksWalking),
-		// 不是自己定的 —— 見 docs/re/02。
-		if g.scene.World != nil && u5data.TileBlocksWalking(int(g.scene.World.At(nx, ny))) {
-			g.log("受阻!")
-			continue
+	} else {
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+			st.Enter()
 		}
-		g.scene.PX, g.scene.PY = nx, ny
-		if loc, ok := u5data.LocationAt(nx, ny); ok {
-			g.log("往%s方前行 —— 此處是%s。", m.name, loc.DisplayName())
-		} else {
-			g.log("往%s方前行。", m.name)
+		if inpututil.IsKeyJustPressed(ebiten.KeyK) {
+			st.Klimb()
+		}
+		for key, dir := range map[ebiten.Key]gamestate.Direction{
+			ebiten.KeyArrowUp:    gamestate.North,
+			ebiten.KeyArrowDown:  gamestate.South,
+			ebiten.KeyArrowLeft:  gamestate.West,
+			ebiten.KeyArrowRight: gamestate.East,
+		} {
+			if inpututil.IsKeyJustPressed(key) {
+				st.Move(dir)
+			}
 		}
 	}
+
+	if len(st.Messages) != before || g.key() != snapshot {
+		g.dirty = true
+	}
 	return nil
+}
+
+// key 是「畫面該不該重畫」的判斷依據 —— 回合制遊戲多數幀什麼都沒變。
+func (g *game) key() [4]int {
+	st := g.state
+	return [4]int{st.X, st.Y, st.Location, st.Floor}
 }
 
 func (g *game) Draw(screen *ebiten.Image) {
@@ -131,13 +135,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "⚠ %s\n", w)
 	}
 
-	g := &game{scene: &render.Scene{
-		World: bundle.World,
-		Tiles: bundle.Tiles,
-		Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
-	}}
-	g.scene.PX, g.scene.PY = assets.FindLandStart(bundle.World, 1)
-	g.log("汝已抵達不列顛尼亞。")
+	st := &gamestate.State{
+		World:       bundle.World,
+		Under:       bundle.Under,
+		Scenes:      bundle.Scenes,
+		MaxMessages: maxMessages,
+	}
+	st.X, st.Y = assets.FindLandStart(bundle.World, 1)
+	st.Log("汝已抵達不列顛尼亞。")
+
+	g := &game{
+		state: st,
+		scene: &render.Scene{
+			State: st,
+			Tiles: bundle.Tiles,
+			Text:  render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+		},
+	}
 
 	if *scale < 1 {
 		*scale = 1
