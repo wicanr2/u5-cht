@@ -137,6 +137,21 @@ type Combat struct {
 	fromSlot int
 	// scan 是排程掃到第幾槽,actions 是累計行動數(每 10 次 = 1 分鐘)。
 	scan, actions int
+	// LadderBoth 記著腳下那格地牢地形是不是**兩向梯**(原版 `byte_418DE`)——
+	// 戰鬥中按 K 要不要問「上還是下」看它。
+	LadderBoth bool
+	// ArenaMode 是原版的 `byte_3E0B1`:0 一般遭遇 / 2 地牢遊蕩 / 4 地表紮營 / 6 地牢紮營。
+	// 目前只有「全隊同一出口」那條規則讀它(`sameExitEnforced`)。
+	ArenaMode int
+	// ExitDir 是第一個離場的人選的出口(0 = 還沒有人離場)。
+	ExitDir int
+	// Left 是已經離場的單位數。
+	Left int
+	// savedX / savedY 是進戰鬥前的世界座標。
+	//
+	// 戰鬥時 `State.X/Y` 借給行動中的單位當戰場座標(見 `focusCombatUnit`),
+	// 離場時還原 —— 原版 `sub_2E364` 的 var_4 / var_8 就是這個用途。
+	savedX, savedY int
 }
 
 // InCombat 回報是不是正在戰鬥。
@@ -191,6 +206,7 @@ func (s *State) beginCombatFrom(o *u5data.MapObject, slot int) bool {
 	m := &s.CombatMaps.Maps[idx]
 
 	c := &Combat{Map: m, MapIndex: idx, fromSlot: slot, Turn: -1,
+		savedX: s.X, savedY: s.Y,
 		EnemyName: s.enemyDisplayName(o.Kind)}
 	for i := range c.LastAttacker {
 		c.LastAttacker[i] = -1
@@ -212,7 +228,8 @@ func (s *State) beginCombatFrom(o *u5data.MapObject, slot int) bool {
 // 與撞上怪物那條的差別只在**敵人從哪來**:房間的怪物寫在地圖自己的
 // `EnemyKind` 裡(檔案位移 171),不是由撞到的物件決定。
 func (s *State) beginRoomCombat(m *u5data.CombatMap, idx int) bool {
-	c := &Combat{Map: m, MapIndex: idx, fromSlot: -1, Turn: -1, EnemyName: "房間裡的東西"}
+	c := &Combat{Map: m, MapIndex: idx, fromSlot: -1, Turn: -1,
+		savedX: s.X, savedY: s.Y, EnemyName: "房間裡的東西"}
 	for i := range c.LastAttacker {
 		c.LastAttacker[i] = -1
 	}
@@ -472,6 +489,7 @@ func (s *State) advanceCombat() {
 		}
 		if s.playerControlled(u) {
 			c.Turn = i
+			s.focusCombatUnit(u)
 			return
 		}
 		s.aiTurn(i)
@@ -479,6 +497,29 @@ func (s *State) advanceCombat() {
 			return
 		}
 	}
+}
+
+// focusCombatUnit 把「隊伍座標」指到目前行動的那個單位身上。
+//
+// ★ 原版 `sub_A360` 的**第一件事**就是這個:
+//
+//	movzx eax, byte_3E0AE                    ; 目前行動的單位
+//	mov   dl, byte ptr dword_3EF54+2[eax*8]
+//	mov   byte_3E0A6, dl                     ; 「隊伍 X」← 該單位在戰場上的 X
+//	mov   dl, byte ptr dword_3EF54+3[eax*8]
+//	mov   byte_3E0A7, dl
+//
+// 也就是說原版**只有一對座標**,戰鬥時把它借給行動中的單位用。
+// 這正是 Get / Jimmy / Open / Push / Search 那幾支不用改就能在戰場上
+// 運作的原因 —— 它們讀的一直是同一對全域座標。
+//
+// 進戰鬥前的世界座標由 `Combat.savedX/savedY` 收著,`EndCombat` 還回去
+//(原版 `sub_2E364` 的 var_4 / var_8 也是這樣存還)。
+func (s *State) focusCombatUnit(u *Combatant) {
+	if s.Combat == nil {
+		return
+	}
+	s.X, s.Y = u.X, u.Y
 }
 
 // checkCombatOver 判勝負(原版 `sub_A9EC` 每個單位行動完都查一次)。
@@ -513,6 +554,22 @@ func (s *State) CombatTileAt(x, y int) byte {
 	return s.Combat.Map.At(x, y)
 }
 
+// SetCombatTileAt 改寫戰場上的一格(撬開的門、燒掉的東西、推走的家具)。
+//
+// ⚠ 改的是 `Combat.Map` 這份**副本**。它是 `BuildDungeonArena` 現畫的,
+// 或是從 `.CBT` 讀進來的值傳副本 —— 不會寫回原版檔案(CLAUDE.md §3.2)。
+func (s *State) SetCombatTileAt(x, y int, tile byte) bool {
+	if s.Combat == nil || s.Combat.Map == nil {
+		return false
+	}
+	if x < 0 || x >= u5data.CombatSide || y < 0 || y >= u5data.CombatSide {
+		return false
+	}
+	s.Combat.Map.Tiles[y][x] = tile
+	s.Combat.Map.Raw[y*u5data.CombatRowStride+x] = tile
+	return true
+}
+
 // CombatUnitAt 回報戰場上某一格站著誰。
 func (c *Combat) CombatUnitAt(x, y int) (*Combatant, bool) {
 	for i := range c.Units {
@@ -534,6 +591,9 @@ func (s *State) EndCombat(won bool) {
 			objs.Remove(s.Combat.fromSlot)
 		}
 	}
+	// 把進戰鬥前的世界座標還回去(原版 `sub_2E364` 尾端把 var_4 / var_8
+	// 寫回 `byte_3E0A6/A7`)。少了這一步,打完架人會出現在戰場的格座標上。
+	s.X, s.Y = s.Combat.savedX, s.Combat.savedY
 	s.Combat = nil
 	s.Prompt = PromptNone
 }

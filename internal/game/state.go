@@ -601,6 +601,17 @@ func (s *State) TileAt(x, y int) byte {
 	if s.Chamber != nil {
 		return s.chamberTileAt(x, y)
 	}
+	// ★ 戰鬥中查的是**戰場**。這不是為了方便而加的分支 —— 原版的
+	// `sub_DB10(x, y)` 第一件事就是 `cmp byte_3E0A3, 7Fh; ja → &byte_3F8F4[y*32+x]`,
+	// 也就是「地點編號 > 0x7F(戰鬥是 0xFF)就讀戰場緩衝」。
+	//
+	// 有了這一條,**Get / Jimmy / Open / Push / Search 那幾支完全不用改**
+	// 就能在戰場上運作 —— 原版就是這樣一套程式跑兩張地圖的。
+	// 先前把戰場拆成獨立的 `CombatTileAt`,結果那幾個指令在戰鬥中
+	// 只能作用在世界地圖上,只好不接。
+	if s.InCombat() {
+		return s.CombatTileAt(x, y)
+	}
 	if s.InScene() {
 		if s.scene == nil || x < 0 || x >= u5data.SceneSide || y < 0 || y >= u5data.SceneSide {
 			return u5data.TileBlank
@@ -955,6 +966,11 @@ func (s *State) Roll(lo, hi int) int {
 // 回傳 false 代表這一層的地圖不支援寫入。⚠ 只改記憶體裡的副本 ——
 // **絕不寫回原版檔案**(CLAUDE.md §3.2 的硬規則:`internal/u5data` 只讀)。
 func (s *State) SetTileAt(x, y int, tile byte) bool {
+	// 戰鬥中寫的是戰場那份副本(同 `TileAt` 的理由:原版 `sub_DB10`
+	// 回的就是戰場緩衝裡那一個位元組的位址,讀寫共用)。
+	if s.InCombat() {
+		return s.SetCombatTileAt(x, y, tile)
+	}
 	if s.InScene() {
 		if s.scene == nil || x < 0 || x >= u5data.SceneSide ||
 			y < 0 || y >= u5data.SceneSide {

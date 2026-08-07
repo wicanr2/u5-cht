@@ -193,7 +193,11 @@ func (s *State) beginDungeonCombat(m *DungeonMonster) bool {
 	for _, slot := range s.dungeonEnemySlots(idx) {
 		arena.EnemyKind[slot] = u5data.CreatureBase + byte(idx)*4
 	}
-	return s.beginRoomCombat(arena, -1)
+	if !s.beginRoomCombat(arena, -1) {
+		return false
+	}
+	s.markArena(u5data.DungeonArenaModeWander)
+	return true
 }
 
 // dungeonEnemySlots 決定這一群怪物佔哪幾個入場點(原版 `sub_FE48` 尾段)。
@@ -231,4 +235,19 @@ func (s *State) dungeonNeighbours() [4]byte {
 		out[i] = s.DungeonTileAt(u5data.DungeonWrap(d.X+dx), u5data.DungeonWrap(d.Y+dy))
 	}
 	return out
+}
+
+// markArena 把戰場的模式與「腳下是不是兩向梯」記到 Combat 上。
+//
+// 原版是兩個全域(`byte_3E0B1` 與 `byte_418DE`),後者由 `sub_FD54` 在畫戰場時
+// 依腳下地牢地形的 kind 是否為 3(兩向梯)設起來 —— 戰鬥中按 K 要不要問
+// 「上還是下」看的就是它。
+func (s *State) markArena(mode int) {
+	if s.Combat == nil {
+		return
+	}
+	s.Combat.ArenaMode = mode
+	if s.Dungeon != nil {
+		s.Combat.LadderBoth = u5data.DungeonKind(s.DungeonTileHere()) == u5data.DungeonLadderBoth
+	}
 }

@@ -285,7 +285,9 @@ func (s *State) campDungeonAmbush(kind byte) {
 		Facing: int(d.Facing),
 	})
 	arena.EnemyKind[0] = kind
-	s.beginRoomCombat(arena, -1)
+	if s.beginRoomCombat(arena, -1) {
+		s.markArena(u5data.DungeonArenaModeCamp)
+	}
 }
 
 // finishCamp 是睡完一整段之後的恢復(原版 `loc_16A33`)。

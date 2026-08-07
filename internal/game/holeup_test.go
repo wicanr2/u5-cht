@@ -290,3 +290,174 @@ func TestCombatRefusalsAreIndividual(t *testing.T) {
 		}
 	}
 }
+
+// 戰鬥中的 Get / Search / Push 那幾支**與地圖上是同一份程式**。
+//
+// 驗的是三件事:(1) 戰鬥中 `TileAt` 讀的是戰場、(2) 行動回合開始時
+// `State.X/Y` 指到行動者身上、(3) 離場時還原成進戰鬥前的世界座標。
+// 這三件湊齊,那九個指令就不需要「戰場版」—— 原版也沒有。
+func TestCombatSharesTheMapAccessors(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Facing = North
+	worldX, worldY := s.X, s.Y
+
+	d.Monster = &DungeonMonster{
+		Kind: 0, Creature: u5data.DungeonMonsterCreature(0),
+		X: 4, Y: 3, PrevX: 4, PrevY: 3,
+	}
+	s.dungeonMonsterAttacks()
+	if !s.InCombat() {
+		t.Fatalf("沒開打:\n%s", s.log())
+	}
+	c := s.Combat
+	if c.Turn < 0 {
+		t.Skip("這一輪先由敵人行動")
+	}
+	u := &c.Units[c.Turn]
+	// (2) 座標借給了行動者。
+	if s.X != u.X || s.Y != u.Y {
+		t.Errorf("隊伍座標是 (%d,%d),行動者在 (%d,%d)", s.X, s.Y, u.X, u.Y)
+	}
+	// (1) TileAt 讀的是戰場;寫進去也只動戰場那份副本。
+	if got, want := s.TileAt(u.X, u.Y), s.CombatTileAt(u.X, u.Y); got != want {
+		t.Errorf("TileAt 在戰鬥中回 0x%02X,戰場上是 0x%02X", got, want)
+	}
+	const probe = 0x44
+	if !s.SetTileAt(u.X, u.Y, probe) {
+		t.Fatal("戰鬥中寫不進戰場")
+	}
+	if s.CombatTileAt(u.X, u.Y) != probe {
+		t.Error("寫進去的沒有落在戰場上")
+	}
+	// 而且沒有污染地牢那一層。
+	if s.Dungeons.At(d.Index, d.Level, u.X, u.Y) == probe && (u.X != 4 || u.Y != 4) {
+		t.Error("戰鬥中的寫入漏到地牢地圖上了")
+	}
+	// (3) 離場還原世界座標。
+	s.EndCombat(true)
+	if s.X != worldX || s.Y != worldY {
+		t.Errorf("離場後座標是 (%d,%d),應還原成 (%d,%d)", s.X, s.Y, worldX, worldY)
+	}
+}
+
+// 戰鬥中不必挑人 —— 輪到誰就是誰。
+func TestCombatPicksTheActingMember(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Monster = &DungeonMonster{
+		Kind: 0, Creature: u5data.DungeonMonsterCreature(0),
+		X: 4, Y: 3, PrevX: 4, PrevY: 3,
+	}
+	s.dungeonMonsterAttacks()
+	if !s.InCombat() || s.Combat.Turn < 0 {
+		t.Skip("這一輪先由敵人行動")
+	}
+	want := s.Combat.Units[s.Combat.Turn].Roster
+	if want < 0 {
+		t.Skip("行動者不是隊員")
+	}
+	if got := s.pickCharacter(""); got != want {
+		t.Errorf("戰鬥中挑到第 %d 位,應是行動者第 %d 位", got, want)
+	}
+}
+
+// 戰鬥中踩在梯子上按 K 會**離場**,而且地牢會換樓層。
+func TestCombatKlimbLeavesViaTheLadder(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Level = 3
+	d.Monster = &DungeonMonster{
+		Kind: 0, Creature: u5data.DungeonMonsterCreature(0),
+		X: 4, Y: 3, PrevX: 4, PrevY: 3,
+	}
+	s.dungeonMonsterAttacks()
+	if !s.InCombat() || s.Combat.Turn < 0 {
+		t.Skip("這一輪先由敵人行動")
+	}
+	c := s.Combat
+	u := &c.Units[c.Turn]
+	// 把行動者腳下換成上行梯。
+	if !s.SetCombatTileAt(u.X, u.Y, CombatLadderUp) {
+		t.Fatal("寫不進戰場")
+	}
+	c.LadderBoth = false
+	before := d.Level
+
+	s.Messages = nil
+	s.CombatKlimb()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgUp) {
+		t.Errorf("踩在梯子上按 K 沒有往上:\n%s", s.log())
+	}
+	if c.ExitDir != CombatExitUp {
+		t.Errorf("出口記成 %d,預期 %d", c.ExitDir, CombatExitUp)
+	}
+	// 隊伍只剩三人時,一個人離場不會馬上結束;真的結束了就要換層。
+	if !s.InCombat() && s.Dungeon != nil && s.Dungeon.Level != before-1 {
+		t.Errorf("離場後樓層是 %d,預期 %d", s.Dungeon.Level, before-1)
+	}
+}
+
+// 不在梯子上按 K 會問方向,而**只有 tile 0x4C 爬得過去**。
+func TestCombatKlimbNeedsAClimbableTile(t *testing.T) {
+	s := dungeonState(t)
+	s.Location = 0
+	e := u5data.DungeonEntrances[0]
+	s.X, s.Y = e.X, e.Y
+	s.Enter()
+	d := s.Dungeon
+	d.X, d.Y = 4, 4
+	d.Monster = &DungeonMonster{
+		Kind: 0, Creature: u5data.DungeonMonsterCreature(0),
+		X: 4, Y: 3, PrevX: 4, PrevY: 3,
+	}
+	s.dungeonMonsterAttacks()
+	if !s.InCombat() || s.Combat.Turn < 0 {
+		t.Skip("這一輪先由敵人行動")
+	}
+	c := s.Combat
+	u := &c.Units[c.Turn]
+	s.SetCombatTileAt(u.X, u.Y, 0x44) // 普通地板 → 不是梯子
+	if u.Y < 1 {
+		t.Skip("行動者貼著上緣,測不到北邊")
+	}
+
+	// 北邊放一塊不能爬的東西。
+	s.SetCombatTileAt(u.X, u.Y-1, 0x44)
+	s.Messages = nil
+	s.CombatKlimb()
+	if !s.AwaitingDirection() {
+		t.Fatalf("不在梯子上按 K 沒有問方向:\n%s", s.log())
+	}
+	bx, by := u.X, u.Y
+	s.AnswerDirection(North)
+	if u.X != bx || u.Y != by {
+		t.Errorf("爬上了不能爬的東西:(%d,%d) → (%d,%d)", bx, by, u.X, u.Y)
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgWhat) {
+		t.Errorf("沒回「%s」:\n%s", MsgWhat, s.log())
+	}
+
+	// 換成 0x4C 就爬得上去。
+	s.SetCombatTileAt(u.X, u.Y-1, CombatClimbable)
+	s.CombatKlimb()
+	s.AnswerDirection(North)
+	if u.Y != by-1 {
+		t.Errorf("0x4C 爬不上去:(%d,%d) → (%d,%d)", bx, by, u.X, u.Y)
+	}
+}

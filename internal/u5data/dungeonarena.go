@@ -64,6 +64,17 @@ const (
 	dungeonArenaFloorB = 0x05
 )
 
+// 戰場模式(原版 `byte_3E0B1`,由 `sub_2E364` 的第一個參數設定)。
+//
+// 帶 bit 2(4 或 6)的走「營地」那種佈局;bit 7(0x80)會啟用
+// 「全隊必須從同一出口」那條規則,而這四個值都不帶它。
+const (
+	DungeonArenaModeEncounter = 0 // 一般遭遇(`sub_2E364(0, …)`)
+	DungeonArenaModeWander    = 2 // 地牢遊蕩怪物(`sub_5008`)
+	DungeonArenaModeCampField = 4 // 地表紮營(`sub_2E8B0`)
+	DungeonArenaModeCamp      = 6 // 地牢紮營(`sub_2B8CC`)
+)
+
 // DungeonArenaAltSet 是用另一組牆地板的三個地牢編號(地點 − 0x20)。
 var DungeonArenaAltSet = [3]int{1, 4, 5}
 

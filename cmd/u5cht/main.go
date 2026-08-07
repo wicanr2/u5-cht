@@ -337,6 +337,35 @@ func (g *game) Update() error {
 			st.CombatPass()
 		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 			st.CombatFlee()
+		// 戰鬥中也能用的字母鍵(`jpt_A5C8` 有實作的那些)。
+		//
+		// ★ 這幾支**與地圖上是同一份程式** —— 原版只有一對座標
+		// (`byte_3E0A6/A7`),戰鬥時借給行動中的單位;`sub_DB10` 再依
+		// 地點編號決定要讀世界、場景還是戰場緩衝。引擎照這個形狀做了
+		// (`TileAt` / `SetTileAt` 加戰鬥分支 + `focusCombatUnit`),
+		// 所以這裡直接呼叫同樣的方法就對了。
+		case inpututil.IsKeyJustPressed(ebiten.KeyG):
+			st.Get()
+		case inpututil.IsKeyJustPressed(ebiten.KeyJ):
+			st.Jimmy()
+		case inpututil.IsKeyJustPressed(ebiten.KeyO):
+			st.OpenChest()
+		case inpututil.IsKeyJustPressed(ebiten.KeyP):
+			st.Push()
+		case inpututil.IsKeyJustPressed(ebiten.KeyR):
+			st.BeginReady()
+		case inpututil.IsKeyJustPressed(ebiten.KeyS):
+			st.Search()
+		case inpututil.IsKeyJustPressed(ebiten.KeyU):
+			st.BeginUse()
+		case inpututil.IsKeyJustPressed(ebiten.KeyY):
+			st.Yell()
+		case inpututil.IsKeyJustPressed(ebiten.KeyZ):
+			st.BeginZtats()
+		// K 在戰鬥中是**另一支**(`sub_16058`):踩在梯子上就離場,
+		// 否則問方向爬過鄰格的 tile 0x4C。
+		case inpututil.IsKeyJustPressed(ebiten.KeyK):
+			st.CombatKlimb()
 		default:
 			for key, dir := range dirs {
 				if inpututil.IsKeyJustPressed(key) {

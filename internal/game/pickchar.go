@@ -29,6 +29,13 @@ func (s *State) pickCharacter(prompt string) int {
 	if prompt != "" {
 		s.Log(prompt)
 	}
+	// 戰鬥中沒有「挑人」這回事 —— **輪到誰就是誰**。
+	//
+	// 原版把「目前是哪個角色」記在 `byte_3E08B`,而 `sub_A360` 進來就
+	// 把它設成行動中的那個單位;所有指令讀的都是它。這裡回行動者的名冊索引。
+	if m := s.actingMember(); m >= 0 {
+		return m
+	}
 	last, n := -1, 0
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		switch s.Roster[i].Status {
@@ -62,3 +69,16 @@ func (s *State) damageMember(i, dmg int) {
 
 // peerAtTheLand 是水晶球看見的全景 —— 與 In Quas Wis 同一支(原版 `sub_EDD4`)。
 func (s *State) peerAtTheLand() { s.Peer() }
+
+// actingMember 回報戰鬥中行動者的名冊索引;不在戰鬥中或行動者不是隊員回 −1。
+func (s *State) actingMember() int {
+	c := s.Combat
+	if c == nil || c.Turn < 0 || c.Turn >= len(c.Units) {
+		return -1
+	}
+	u := &c.Units[c.Turn]
+	if !u.IsParty() || u.Roster < 0 || u.Roster >= len(s.Roster) {
+		return -1
+	}
+	return u.Roster
+}
