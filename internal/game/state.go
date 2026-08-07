@@ -137,6 +137,13 @@ type State struct {
 	TorchTurns int
 	// TimeStop 是 An Tym 還停幾回合(原版 byte_3E09E;byte_3E08A == 'T' 期間)。
 	TimeStop int
+	// CombatMode 是全域的戰鬥模式(原版 byte_3E08A),CombatModeTurns 是剩幾回合。
+	//
+	// 四個咒語共用這一個位元組(`sub_1D31C(模式, 回合, 音效)`):
+	// In Sanct 'P'、Rel Tym 'Q'、Quas An Wis 'C'、In An 'N'、An Tym 'T'。
+	// 後來的會蓋掉前面的 —— 原版就是一個位元組,不是一組旗標。
+	CombatMode      byte
+	CombatModeTurns int
 	// rng 是戰鬥骰子。留空時用固定種子 —— headless 與測試要可重現;
 	// 遊戲啟動時 cmd/u5cht 換成時間種子。
 	rng *rand.Rand

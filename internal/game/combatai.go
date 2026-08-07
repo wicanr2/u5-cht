@@ -23,6 +23,17 @@ func (s *State) aiTurn(idx int) {
 	c := s.Combat
 	u := &c.Units[idx]
 
+	// 全域戰鬥模式先擋一關(原版 `sub_A108` 一開頭的兩個 cmp)。
+	switch s.CombatMode {
+	case CombatModeTimeStop:
+		return
+	case CombatModeSlow:
+		// Rel Tym:這一回合有 1/2 機率整個跳過。
+		if s.Roll(0, 1) == 0 {
+			return
+		}
+	}
+
 	if u.Flags&UnitFleeing != 0 {
 		// 逃跑中的怪物每回合有 1/4 機率回一點血(原版 `sub_A108` 的
 		// `random(0,3) == 3 → inc unit[+0]`;隊員不適用)。
@@ -60,6 +71,19 @@ func (s *State) aiTarget(idx int) (target, dx, dy int) {
 	c := s.Combat
 	u := &c.Units[idx]
 	mine := s.hostile(u)
+	// Quas An Wis:混亂的時候 AI 可能把陣營看反,結果打自己人。
+	//
+	// 原版 `sub_AC40`:`if (byte_3E08A == 'C' && random(0,60)/2 > sub_B398(自己, -1))
+	// mySide = 0` —— 擲得過該單位的某個防禦值就翻面。
+	if s.CombatMode == CombatModeConfuse {
+		def := 0
+		if st := s.creatureOf(u); st != nil {
+			def = int(st.Intel)
+		}
+		if s.AttackRoll() > def {
+			mine = false
+		}
+	}
 	target, best := -1, 99
 	tx, ty := u.X, u.Y
 	// 由 31 往 0 掃 —— 距離平手時槽號小的勝出。
@@ -146,6 +170,11 @@ func (s *State) aiRangedAttack(idx, target int) bool {
 	c := s.Combat
 	u, t := &c.Units[idx], &c.Units[target]
 	st := s.creatureOf(u)
+	// In An:抗魔期間施法者放不出遠程(原版 `sub_9E10` 的
+	// `cmp al, 'N' / jz loc_9F00`)。
+	if st.Has(u5data.CreatureCasts) && s.CombatMode == CombatModeNegate {
+		return false
+	}
 	if u.Creature != u5data.CreatureMimicIdx && s.Roll(0, 255) >= 128 {
 		return false
 	}
@@ -188,7 +217,9 @@ func (s *State) aiMove(idx int) bool {
 		}
 		// 會瞬移的(鬼火)先試瞬移。原版挑落點的 `sub_B1D8` 還沒逆完,
 		// 這裡在戰場上隨機找一格空地,行為等價。
-		if st.Has(u5data.CreatureTeleports) && s.Roll(0, 3) != 3 {
+		// In An 也擋瞬移(原版 `sub_AE20` 的同一個 `cmp dl, 'N'`)。
+		if st.Has(u5data.CreatureTeleports) && s.CombatMode != CombatModeNegate &&
+			s.Roll(0, 3) != 3 {
 			if s.aiTeleport(idx) {
 				return true
 			}

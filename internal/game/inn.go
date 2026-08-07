@@ -250,6 +250,8 @@ func (s *State) SleepUntilMorning() {
 		s.wakeUp(c)
 	}
 	s.Log("天亮了。")
+	// 醒來時有 1/4 機率遇上那位老人(原版 `sub_165C8` 的 `random(0,99) < 25`)。
+	s.MaybeApparition()
 }
 
 // WakeHour 是休息結束的時刻(原版 `cmp byte_3E08F, 6`)。

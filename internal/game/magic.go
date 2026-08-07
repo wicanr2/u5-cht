@@ -163,12 +163,22 @@ const (
 	SpellAnZu       = 2  // 喚醒
 	SpellAnNox      = 3  // 解毒
 	SpellMani       = 4  // 治療
+	SpellRelHur     = 8  // 改風向
+	SpellInWis      = 9  // 定位
+	SpellKalXen     = 10 // 召喚野獸
+	SpellInXenMani  = 11 // 造食物
 	SpellVasLor     = 12 // 大光明
 	SpellVasFlam    = 13 // 火球
+	SpellInSanct    = 19 // 防護
 	SpellUusPor     = 21 // 上樓
 	SpellDesPor     = 22 // 下樓
 	SpellVasMani    = 27 // 大治療
+	SpellRelTym     = 29 // 緩速
+	SpellInVasPorY  = 30 // 能量爆
+	SpellQuasAnWis  = 31 // 混亂
+	SpellInAn       = 32 // 抗魔
 	SpellAnXenEx    = 34 // 魅惑
+	SpellSanctLor   = 36 // 隱形
 	SpellXenCorp    = 37 // 殺
 	SpellInManiCorp = 42 // 復活
 	SpellAnTym      = 47 // 時間停止
@@ -243,14 +253,41 @@ func (s *State) spellEffect(caster, spell int) bool {
 		return s.charmNearest(caster)
 
 	case SpellAnTym: // 時間停止
-		s.TimeStop = TimeStopTurns
 		s.Log("時間靜止了。")
-		return true
+		return s.setCombatMode(CombatModeTimeStop, TimeStopTurns)
 
 	case SpellUusPor:
 		return s.spellChangeFloor(true)
 	case SpellDesPor:
 		return s.spellChangeFloor(false)
+
+	// 五個共用 `byte_3E08A` 的持續效果(`sub_1D31C(模式, 回合, 音效)`)。
+	case SpellInSanct:
+		return s.setCombatMode(CombatModeProtected, 20)
+	case SpellRelTym:
+		return s.setCombatMode(CombatModeSlow, 30)
+	case SpellQuasAnWis:
+		return s.setCombatMode(CombatModeConfuse, 20)
+	case SpellInAn:
+		return s.setCombatMode(CombatModeNegate, 10)
+
+	case SpellInXenMani: // 造食物:糧食 + random(1,3),上限 9999
+		s.Inventory.Food = addCap(s.Inventory.Food, s.Roll(1, 3), 9999)
+		s.Log("糧食憑空出現。")
+		return true
+
+	case SpellInWis: // 定位:報出目前的世界座標
+		s.Log("汝身在 (" + itoa(s.X) + ", " + itoa(s.Y) + ")。")
+		return true
+
+	case SpellSanctLor: // 隱形:掛上隱形位元,選目標時就選不到了
+		return s.hideCaster(caster)
+
+	case SpellInVasPorY: // 能量爆:對場上每個敵人各擲一次
+		return s.energyBlast(caster)
+
+	case SpellKalXen: // 召喚野獸
+		return s.summonCreature(caster, 20) // 巨鼠
 	}
 	s.Log("(此咒語的效果尚未實作 —— 藥草與魔力已照原版消耗)")
 	return false
@@ -586,4 +623,135 @@ func trimSpace(v string) string {
 		j--
 	}
 	return v[i:j]
+}
+
+// 全域戰鬥模式(原版 `byte_3E08A`,由 `sub_1D31C(模式, 回合, 音效)` 設定)
+//
+// 五個咒語共用**同一個位元組** —— 後施的會蓋掉先施的,不是一組可疊加的旗標。
+// 每個模式的讀取處都在別的地方,所以語意是從「誰在讀它」反推的:
+//
+//	'T' An Tym       `sub_A108` 開頭直接 return  → 敵人整個不動
+//	'Q' Rel Tym      `sub_A108` 擲 1/2 才行動    → 敵人只有一半的回合能動
+//	'C' Quas An Wis  `sub_AC40` 可能把陣營看反   → 敵人亂打
+//	'N' In An        `sub_9E10` / `sub_AE20` 擋掉 → 施法者不能放遠程、不能瞬移
+//	'P' In Sanct     讀它的地方還沒找到           → 只記著,沒有效果
+const (
+	CombatModeNone      = 0
+	CombatModeTimeStop  = 'T'
+	CombatModeSlow      = 'Q'
+	CombatModeConfuse   = 'C'
+	CombatModeNegate    = 'N'
+	CombatModeProtected = 'P'
+)
+
+// setCombatMode 設定全域戰鬥模式(原版 `sub_1D31C`)。
+func (s *State) setCombatMode(mode byte, turns int) bool {
+	s.CombatMode, s.CombatModeTurns = mode, turns
+	if mode == CombatModeTimeStop {
+		s.TimeStop = turns
+	}
+	return true
+}
+
+// tickCombatMode 讓模式倒數一回合(原版 `sub_16370`,在玩家單位回合結束時)。
+func (s *State) tickCombatMode() {
+	if s.CombatModeTurns <= 0 {
+		return
+	}
+	s.CombatModeTurns--
+	if s.CombatModeTurns == 0 {
+		s.CombatMode = CombatModeNone
+		s.Log("咒語的效力消退了。")
+	}
+}
+
+
+// hideCaster 是 Sanct Lor(原版 `sub_19674`)。
+//
+// 只做兩件事:給自己掛上隱形位元(0x10)、把地圖物件的 tile 換成 0x1D。
+// 隱形位元就是 `sub_AC40` 選目標時會跳過的那一個 —— 隱形不是減傷,
+// 是**根本不會被鎖定**。
+func (s *State) hideCaster(caster int) bool {
+	slot := s.combatSlotOfRoster(caster)
+	if slot < 0 {
+		return false
+	}
+	s.Combat.Units[slot].Flags |= UnitHidden
+	s.Log(s.unitName(&s.Combat.Units[slot]) + "的身影淡去了。")
+	return true
+}
+
+// energyBlast 是 In Vas Por Ylem(原版 `sub_19440`)。
+//
+// 對場上**每一個**敵人各判一次:擲 1..30 對上該單位的防禦,擲贏才吃
+// `random(1, 20)` 的傷害,而經驗值照樣進施法者的帳。
+func (s *State) energyBlast(caster int) bool {
+	c := s.Combat
+	if c == nil {
+		s.Log("此地無敵可擊。")
+		return false
+	}
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return false
+	}
+	hit := false
+	for i := range c.Units {
+		t := &c.Units[i]
+		if !t.Active() || !s.hostile(t) {
+			continue
+		}
+		def := 0
+		if st := s.creatureOf(t); st != nil {
+			def = int(st.Armour)
+		} else if ch := s.charOf(t); ch != nil {
+			def = s.Stats.DefenceOf(ch)
+		}
+		if s.AttackRoll() < def {
+			continue
+		}
+		s.applyDamage(self, i, s.Roll(1, 20))
+		hit = true
+	}
+	return hit
+}
+
+// summonCreature 是召喚類咒語(Kal Xen / In Bet Xen / Kal Xen Corp,
+// 原版 `sub_18F2C` / `sub_192BC` / `sub_1CE70`)。
+//
+// 三支都是「挑一個空位 → `sub_2EAE4` 生一隻」,差別只在生的是什麼。
+// ⚠ **各自召哪一種還沒逆完** —— `sub_B1D8` 挑位置那段讀懂了,
+// 生物編號那一段沒有。這裡用「Kal Xen 召野獸」這個 U5 常識填 Kal Xen,
+// 另外兩支先不接,文件裡標明是**推測**。
+func (s *State) summonCreature(caster, creature int) bool {
+	c := s.Combat
+	if c == nil {
+		s.Log("此地不可召喚。")
+		return false
+	}
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return false
+	}
+	u := &c.Units[self]
+	for try := 0; try < 16; try++ {
+		x, y := u.X+s.Roll(-1, 1), u.Y+s.Roll(-1, 1)
+		if s.combatBlocked(self, x, y) {
+			continue
+		}
+		for i := u5data.CombatPartySlots; i < CombatUnitSlots; i++ {
+			if c.Units[i].Flags != 0 {
+				continue
+			}
+			s.placeEnemy(c, i-u5data.CombatPartySlots,
+				u5data.CreatureBase+byte(creature*4), creature)
+			c.Units[i].X, c.Units[i].Y = x, y
+			// 召出來的站我方 —— 怪物的陣營反轉位元代表「被馴服」。
+			c.Units[i].Flags |= UnitSideFlip
+			s.Log(s.unitName(&c.Units[i]) + "應召而來!")
+			return true
+		}
+		return false
+	}
+	return false
 }

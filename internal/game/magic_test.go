@@ -274,8 +274,8 @@ func TestXenCorpKills(t *testing.T) {
 func TestUnimplementedSpellsStillCost(t *testing.T) {
 	s := magicState(t)
 	s.Location = 0
-	// In Wis(定位)還沒實作,野外可施。
-	wis := s.Spells.Find("In Wis")
+	// An Sanct(解陷阱 / 開箱)還沒實作,四處皆可施。
+	wis := s.Spells.Find("An Sanct")
 	s.Inventory.Spells[wis] = 1
 	ch := &s.Roster[0]
 	ch.Level, ch.MP = 8, 40
@@ -285,5 +285,90 @@ func TestUnimplementedSpellsStillCost(t *testing.T) {
 	if s.Inventory.Spells[wis] != 0 || ch.MP != 38 {
 		t.Errorf("未實作也該照扣:剩 %d 份、魔力 %d(預期 0 份、38)",
 			s.Inventory.Spells[wis], ch.MP)
+	}
+}
+
+// TestCombatModesSharaeOneByte:五個持續咒語共用同一個位元組,後施的蓋掉先施的。
+//
+// 原版 `sub_1D31C` 就是 `byte_3E08A = 模式; byte_3E09E = 回合` ——
+// 不是旗標集合。寫成可疊加會讓玩家同時吃到緩速 + 混亂 + 抗魔。
+func TestCombatModesShareOneByte(t *testing.T) {
+	s := magicState(t)
+	s.Location = 0
+	ch := &s.Roster[0]
+	ch.Level = 8
+	cast := func(name string) {
+		t.Helper()
+		i := s.Spells.Find(name)
+		s.Inventory.Spells[i] = 1
+		ch.MP = 40
+		if got := s.Cast(0, i); got != MagicSuccess {
+			t.Fatalf("%s 失敗:%v\n%s", name, got, s.log())
+		}
+	}
+	cast("Rel Tym")
+	if s.CombatMode != CombatModeSlow || s.CombatModeTurns != 30 {
+		t.Errorf("Rel Tym 之後模式 %q 剩 %d 回合,預期 'Q' / 30",
+			string(s.CombatMode), s.CombatModeTurns)
+	}
+	// ⚠ Quas An Wis 與 In An 的可施法場合只有「戰鬥」,大地圖上施不動 ——
+	// 所以這裡改用同樣四處皆可的 An Tym 驗「後施的蓋掉先施的」。
+	cast("An Tym")
+	if s.CombatMode != CombatModeTimeStop || s.CombatModeTurns != TimeStopTurns {
+		t.Errorf("An Tym 沒有蓋掉 Rel Tym:模式 %q 剩 %d 回合",
+			string(s.CombatMode), s.CombatModeTurns)
+	}
+	if s.TimeStop != TimeStopTurns {
+		t.Errorf("TimeStop 是 %d,預期 %d", s.TimeStop, TimeStopTurns)
+	}
+	cast("In Sanct")
+	if s.CombatMode != CombatModeProtected || s.CombatModeTurns != 20 {
+		t.Errorf("In Sanct 之後模式 %q 剩 %d 回合,預期 'P' / 20",
+			string(s.CombatMode), s.CombatModeTurns)
+	}
+}
+
+// TestInXenManiMakesFood:造食物一次 1..3 份。
+func TestInXenManiMakesFood(t *testing.T) {
+	s := magicState(t)
+	s.Location = 0
+	ch := &s.Roster[0]
+	ch.Level = 8
+	i := s.Spells.Find("In Xen Man")
+	for n := 0; n < 30; n++ {
+		s.Inventory.Food = 100
+		ch.MP = 40
+		s.Inventory.Spells[i] = 1
+		if got := s.Cast(0, i); got != MagicSuccess {
+			t.Fatalf("造食物失敗:%v", got)
+		}
+		if d := s.Inventory.Food - 100; d < 1 || d > 3 {
+			t.Fatalf("造出 %d 份糧食,預期 1..3", d)
+		}
+	}
+}
+
+// TestSanctLorHidesFromTargeting:隱形之後敵人選不到你。
+func TestSanctLorHidesFromTargeting(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	foe := u5data.CombatPartySlots
+	// 先確認敵人本來選得到某個隊員。
+	before, _, _ := s.aiTarget(foe)
+	if before < 0 {
+		t.Fatal("敵人本來就沒有目標")
+	}
+	// 全隊隱形。
+	for i := 0; i < u5data.CombatPartySlots; i++ {
+		if c.Units[i].Active() {
+			c.Units[i].Flags |= UnitHidden
+		}
+	}
+	if after, _, _ := s.aiTarget(foe); after >= 0 {
+		t.Errorf("全隊隱形之後敵人還鎖定得到第 %d 槽", after)
 	}
 }

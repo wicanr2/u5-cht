@@ -458,11 +458,6 @@ func (s *State) advanceCombat() {
 			c.Turn = i
 			return
 		}
-		// An Tym 期間敵人整個不動(原版 `sub_A108` 一開頭
-		// `cmp byte_3E08A, 'T'` 就直接 return)。
-		if s.TimeStop > 0 {
-			continue
-		}
 		s.aiTurn(i)
 		if s.checkCombatOver() {
 			return
@@ -598,6 +593,7 @@ func (s *State) unitIndex(u *Combatant) int {
 // 時間停止的倒數在這裡走 —— 原版 `sub_16370` 是在**玩家單位的回合結束時**
 // 遞減 `byte_3E09E`,所以 An Tym 是「十個玩家回合」而不是「十分鐘」。
 func (s *State) afterPlayerAction() {
+	s.tickCombatMode()
 	if s.TimeStop > 0 {
 		s.TimeStop--
 		if s.TimeStop == 0 {

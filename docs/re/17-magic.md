@@ -214,3 +214,53 @@ byte_3E0B8[施法者] 記著「上一個攻擊我的是誰」
 中文只出現在說明裡(`CLAUDE.md` §5.2 的硬規則,u4-cht 踩過)。
 
 引擎的 `C` 鍵開一個輸入列,允許空格(「An Tym」),Enter 送出、ESC 作罷。
+
+---
+
+## 7. 續:全域戰鬥模式與再一批效果(2026-08-07 第二輪)
+
+### `byte_3E08A` —— 五個咒語共用一個位元組
+
+`sub_1D31C(模式, 回合, 音效)` 只做兩件事:`byte_3E08A = 模式`、
+`byte_3E09E = 回合`。**不是旗標集合,後施的直接蓋掉先施的。**
+
+| 模式 | 咒語 | 回合 | 誰在讀它 | 效果 |
+|---|---|---|---|---|
+| `'T'` | An Tym | 10 | `sub_A108` 開頭 return | 敵人整個不動;順帶讓火把不燒 |
+| `'Q'` | Rel Tym | 30 | `sub_A108` 擲 1/2 | 敵人只有一半的回合能動 |
+| `'C'` | Quas An Wis | 20 | `sub_AC40` 可能把陣營看反 | 敵人打自己人 |
+| `'N'` | In An | 10 | `sub_9E10` / `sub_AE20` | 施法者放不出遠程、不能瞬移 |
+| `'P'` | In Sanct | 20 | **還沒找到** | 只記著,沒有效果 |
+
+這五條把先前散落各處的線索串起來了:`sub_A108` 開頭那兩個看不出來的
+`cmp byte_3E08A, 'T' / 'Q'`、`sub_AC40` 裡那段莫名其妙的「擲贏就把 mySide
+設成 0」、`sub_9E10` 與 `sub_AE20` 各自的 `cmp dl, 'N'` —— 原來是同一組咒語。
+
+倒數走在 `sub_16370`(玩家單位回合結束時),所以單位是**玩家回合**不是分鐘。
+
+### 這一輪補上的效果
+
+| 咒語 | 原版 | 行為 |
+|---|---|---|
+| In Wis | `sub_18F1C` → `sub_1D0C4` | 報出所在座標 |
+| In Xen Mani | `sub_1904C` | 糧食 `+ random(1,3)`,上限 9999 |
+| In Sanct / Rel Tym / Quas An Wis / In An | `sub_1D31C` | 見上表 |
+| Sanct Lor | `sub_19674` | `unit[+2] \|= 0x10`(隱形)+ 物件 tile 改 0x1D |
+| In Vas Por Ylem | `sub_19440` | 對**每個**敵人擲 1..30 對防禦,擲贏吃 `random(1,20)` |
+| Kal Xen | `sub_18F2C` | 召喚(⚠ 召哪一種還沒逆完,先用巨鼠,標明是推測) |
+
+**隱形不是減傷,是根本不會被鎖定** —— 0x10 就是 `sub_AC40` 選目標時跳過的
+那個位元,與先前從 `docs/re/16` 認出來的一致。
+
+### 仍未實作(22 個)
+
+An Ylem、An Sanct(解陷阱 / 開箱)、An Xen Cor、In Por(瞬移)、
+An Grav(破力場)、Wis Quas、In Bet Xen、An Ex Por / In Ex Por(開鎖)、
+In Zu、Wis An Ylem(顯示地圖)、An Xen Ex 以外的變形類(Rel Xen Bet)、
+In Quas Xen、In Quas Corp、In Mani Corp 以外的高圈、Kal Xen Corp、
+In Nox Hur / In Flam Hur / In Vas Grav Corp(四種風)、Vas Rel Por(大傳送門)、
+Rel Hur(改風向)。
+
+其中好幾個要先有別的系統才做得動:開箱要寶箱、破力場要力場、
+四種風要投射物飛行、大傳送門要月門。這些**照原版扣掉藥草與魔力之後
+誠實回失敗**,不假裝成功。
