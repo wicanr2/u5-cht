@@ -126,9 +126,9 @@ func TestBumpingMonsterStartsCombat(t *testing.T) {
 	if e.X != int(m.EnemyX[0]) || e.Y != int(m.EnemyY[0]) {
 		t.Errorf("敵人在 (%d,%d),圖裡的入場點是 (%d,%d)", e.X, e.Y, m.EnemyX[0], m.EnemyY[0])
 	}
-	// 敵人名字要查得出來(種類 0x40 = Mage)。
-	if c.EnemyName != "Mage" {
-		t.Errorf("敵人名字是 %q,預期 Mage", c.EnemyName)
+	// 敵人名字要查得出來(種類 0x40 = Mage → 法師)。
+	if c.EnemyName != "法師" {
+		t.Errorf("敵人名字是 %q,預期「法師」", c.EnemyName)
 	}
 }
 
@@ -278,11 +278,15 @@ func TestSadujIsAlwaysHostile(t *testing.T) {
 // TestPirateNaming:種類碼 < 0x40 的敵人一律叫 PIRATES(原版 sub_2E58C)。
 func TestPirateNaming(t *testing.T) {
 	s := combatState(t)
-	if got := s.enemyDisplayName(u5data.EnemyShip); got != "PIRATES" {
-		t.Errorf("敵船的名字是 %q,預期 PIRATES", got)
+	if got := s.enemyDisplayName(u5data.EnemyShip); got != "海盜" {
+		t.Errorf("敵船的名字是 %q,預期「海盜」", got)
 	}
-	if got := s.enemyDisplayName(0x40); got != "Mage" {
-		t.Errorf("種類 0x40 的名字是 %q,預期 Mage", got)
+	if got := s.enemyDisplayName(0x40); got != "法師" {
+		t.Errorf("種類 0x40 的名字是 %q,預期「法師」", got)
+	}
+	// ⚠ 顯示名是中文,但**資料層仍是英文** —— 比對與存檔都靠英文原文。
+	if n := s.Creatures.Name(0x40); n != "Mage" {
+		t.Errorf("生物名表回 %q,原文應該還是 Mage", n)
 	}
 }
 

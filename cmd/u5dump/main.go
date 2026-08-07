@@ -726,6 +726,12 @@ func playScript(st *game.State, script string) error {
 			st.Answer(false)
 		case 'P':
 			st.Peer() // In Quas Wis 的 32×32 全景
+		case '!':
+			// 截圖用:在旁邊生一隻怪並開打。**只存在於 dump 工具**,
+			// 遊戲本體沒有這個入口(debug hook 會遮住真 bug,CLAUDE.md §6.1)。
+			if slot, ok := st.CurrentObjects().Spawn(0x40, st.X+1, st.Y, st.Floor); ok {
+				st.BeginCombat(slot)
+			}
 		case 'L':
 			st.LightTorch() // 點火把(地牢沒光是全黑的)
 		case 'f':
@@ -738,7 +744,7 @@ func playScript(st *game.State, script string) error {
 			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、P 全景、L 點火把、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、P 全景、! 開打(截圖用)、L 點火把、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

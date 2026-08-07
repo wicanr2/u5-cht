@@ -1,6 +1,7 @@
 package game
 
 import (
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -123,10 +124,13 @@ func addCap(v, add, cap int) int {
 	return v
 }
 
-// charName 是角色的顯示名;沒名字時退回職業。
+// charName 是角色的**顯示名**;沒名字時退回職業。
+//
+// ⚠ 只用在顯示。入隊比對(`namePrefix`)一律用 `ch.Name` 的英文原文 ——
+// 玩家在對話裡打的是英文名(u4-cht 踩過的坑)。
 func (s *State) charName(ch *u5data.Character) string {
 	if ch.Name != "" {
-		return ch.Name
+		return i18n.Name(ch.Name)
 	}
 	return ch.ClassName()
 }

@@ -3,6 +3,7 @@ package game
 import (
 	"strings"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -165,7 +166,7 @@ func (s *State) answer(word string) {
 	switch b := u5data.MatchBuiltin(word); {
 	case b == u5data.BuiltinName:
 		// 原版:"My name is " + 段 0
-		s.Log("「" + MsgMyNameIs + nonEmpty(c.Name, "?") + "」")
+		s.Log("「" + MsgMyNameIs + nonEmpty(i18n.Name(c.Name), "?") + "」")
 		return
 	case b == u5data.BuiltinJob || b == u5data.BuiltinWork:
 		s.Log("「" + oneLine(nonEmpty(c.Job, MsgNoResponse)) + "」")

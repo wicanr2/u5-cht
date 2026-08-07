@@ -2,15 +2,33 @@
 
 > *Ultima V: Warriors of Destiny*(1988)—— Go + Ebitengine 重寫的跨平台引擎,加上完整繁體中文化。
 
-**現況:早期開發(P0 框架完成)。還不能玩。** 進度見 [`PLAN.md`](PLAN.md);
-玩家向的完整 README(遊戲介紹、操作、畫廊)會在 P8 完稿。
+**現況:可以走完一段路了。** 世界地圖、三十二個地點的場景、對話、八種商店、
+戰鬥、魔法、地牢第一人稱透視都跑得起來;劇情對白尚未翻譯(見下方「還沒到的地方」)。
+進度見 [`WORKLIST.md`](WORKLIST.md)。
 
 ---
+
+## 畫面
+
+以下都是引擎跑出來的實際畫面(640×400,倚天點陣中文)。
+
+| | |
+|---|---|
+| ![世界地圖](docs/screenshots/01-world.png) | ![城鎮](docs/screenshots/02-town.png) |
+| **不列顛尼亞** —— 64×64 的地圖分塊拼成 256×256 的世界,右欄是時間、業報、隊伍狀態 | **不列顛城** —— 三十二個地點各有 32×32 的場景地圖與依時刻表走動的 NPC |
+| ![對話](docs/screenshots/03-talk.png) | ![商店](docs/screenshots/04-shop.png) |
+| **交談** —— 原版的關鍵字對話(`name` / `job` / `join`),NPC 名字已中文化 | **武具店** —— 八種商店的完整交易流程,價格與庫存照原版的表 |
+| ![戰鬥](docs/screenshots/05-combat.png) | ![地牢](docs/screenshots/06-dungeon.png) |
+| **戰鬥** —— 11×11 戰場、敏捷決定的出手順序、原版的命中與傷害公式 | **地牢** —— 第一人稱透視走廊。沒點火把時整片全黑,那是原版行為 |
+| ![全景](docs/screenshots/07-peer.png) | |
+| **全景(In Quas Wis)** —— 咒語把周圍 32×32 格一次攤開 | |
+
+重跑:`tools/shots.sh`(headless,不需要顯示環境 —— 截圖與實機共用同一條 CPU 繪製路徑)。
 
 ## 這是什麼
 
 1988 年,Richard Garriott 讓玩家在《Ultima IV》成為聖者(Avatar)之後,把不列顛尼亞交到一個
-暴君手上 —— Lord British 失蹤,取而代之的是以「美德法典」之名行壓迫的統治,以及三名暗影君主。
+暴君手上 —— 不列顛王失蹤,取而代之的是以「美德法典」之名行壓迫的統治,以及三名影主。
 於是《Ultima V》問的不再是「你願不願意成為有德之人」,而是**當美德變成統治工具時,你怎麼辦**。
 
 本專案不是修補原版執行檔,也不是接手某個開源引擎(U5 沒有可用的)——是**用 Go 從零重寫遊戲引擎**,
@@ -25,44 +43,67 @@
 | 邏輯畫布 | 640×400(原版 320×200 的乾淨 2×),底圖 nearest 整數放大 |
 | 中文字形 | **倚天中文系統(ETEN 3.53)原生點陣字**,16×15 / 24×24 |
 | 行為真值 | IDA Pro 9.4;FM Towns 版是 32-bit Phar Lap `P3`,**Hex-Rays 反編譯可用** |
+| 繪圖 | 全部畫在 `image.NRGBA` 上,Ebiten 只負責上傳紋理與收鍵盤 —— 所以截圖不需要 GPU |
 | 建置 | 全程 Docker |
 
-三個版本的原版素材互為對照組:**DOS 1988**(資料格式主線)、**FM Towns 1992**(未壓縮 tileset、
-英日雙執行檔、英日對照對話、CD 音軌)、**PC-98**(第二組未壓縮素材、YM2203 音樂)。
+原版素材只要 **DOS 版**就夠了:`TILES.16` 與其餘 50 個圖檔的 LZW 壓縮都已破解
+([`docs/formats/03`](docs/formats/03-picture-files.md))。FM Towns 與 PC-98 兩版降為對照組 ——
+前者提供未壓縮 tileset(拿來逐位元組驗證解壓器)、英日雙執行檔、英日對照對話與 CD 音軌。
 細節見 [`CLAUDE.md §2`](CLAUDE.md)(每一條都經一手開檔驗證)與 [`docs/re/`](docs/re/)。
 
-## 譯名與手冊
+## 譯名政策
 
-繁體譯名以 **1990 年代《軟體世界》雜誌「說明書補完計劃」的《創世紀第 V 代》中文說明書**為權威來源,
-並與姊妹專案 [u4-cht](https://github.com/wicanr2/u4-cht) / [u6-cht](https://github.com/wicanr2/u6-cht)
-的《創世紀聖者之書》體系對齊;系列共通名(不列顛王、八德、聖者)不另立新譯。
-逐項決定與理由會整理在 `docs/manual/術語對照.md`。
+繁體譯名的權威順序:
+
+1. 1990 年代《軟體世界》雜誌「說明書補完計劃」的《創世紀第 V 代》中文說明書
+2. **姊妹專案 [u6-cht](https://github.com/wicanr2/u6-cht) / [u4-cht](https://github.com/wicanr2/u4-cht) 的既有譯名 —— 系列共通名一律對齊,不另立新譯**
+3. 現代直觀
+
+第 2 條是硬規則。本專案第一版自己譯了五個地名,後來全部改回 u6-cht 的版本
+(紫杉城 → **尤伊**、月光城 → **月華城**、哲倫 → **傑隆**、史卡拉布雷 → **斯卡拉布雷**、
+黑刺 → **黑棘**)。整張表在 [`internal/i18n/names.go`](internal/i18n/names.go),
+每一條與 u6 有關的都標了出處;`names_test.go` 會逐條核對,漂掉就紅。
+
+⚠ **會拿去跟玩家輸入比對的字串,原文一律維持英文** —— 咒語名(要打得出「An Nox」)、
+`Yes/No`、對話關鍵字(`name` / `job` / `join`)。中文只換顯示。這是 u4-cht 踩過的坑。
 
 > 手冊掃描與轉錄僅供研究與譯名對照之用,著作權屬《軟體世界》雜誌與原譯者;
 > 非商業使用,權利人要求即撤除。
 
+## 還沒到的地方
+
+誠實列出來,免得畫面看起來比實際完整:
+
+- **劇情對白尚未翻譯**。NPC 的名字、物品、地名、怪物名都中文化了,
+  但 `.TLK` 裡的對白本文與 `.DAT` 的系統訊息還是英文(P5)。
+- **音樂與音效還沒接**(P6)。
+- **戰鬥中的力場咒語**回報失敗而不假裝成功 —— 那套目標選取的分派表還沒逆完。
+- **視線遮蔽**還沒做,所以 Wis An Ylem 目前沒有可見效果。
+- 地牢走廊裡的**梯子與寶箱圖**還沒畫(走 `ITEMS.16`,表已 dump)。
+
+逐項現況見 [`WORKLIST.md`](WORKLIST.md);每一條「未做」旁邊都寫了缺什麼證據。
+
 ## 開發
 
 ```bash
-# 建置容器(Go + CGO/GL/X11 + xvfb 軟體 GL + Pillow + 7z)
+# 建置容器(Go + CGO/GL/X11 + Pillow + 7z)
 docker build -t u5cht/dev docker/
 
-# 編譯與測試
-docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
-  --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/work -w /work u5cht/dev \
-  bash -c "go build ./... && go vet ./... && go test ./..."
+# 編譯、靜態檢查、測試
+tools/dev.sh build
+tools/dev.sh vet
+tools/dev.sh test     # 無原版素材也應全綠
+tools/dev.sh itest    # 對 gamedata/ 實測(設 U5_GAMEDATA)
 
 # 烘倚天中文點陣字(自備倚天字庫;產物不入庫)
-docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
-  -v "$PWD":/work -v /path/to/etan_font:/eten:ro -w /work u5cht/dev \
-  python3 tools/build_eten_font.py --eten-dir /eten --iso /eten/ET353S.iso \
-    --size 15 --out assets/fonts/eten-16x15
+tools/dev.sh font 15
 ```
 
 **原版資料由玩家自備**,放進 `gamedata/`(不入庫)。整合測試設 `U5_GAMEDATA` 指向該目錄後才會執行,
 沒設就跳過。
 
-其他工具:`tools/ida.sh`(headless 反組譯)、`tools/fdi_extract.py`(PC-98 磁碟映像抽檔)、
+其他工具:`tools/ida.sh`(headless 反組譯)、`tools/shots.sh`(重跑畫面)、
+`u5dump pictures`(圖檔形狀表目視驗收)、`tools/fdi_extract.py`(PC-98 磁碟映像抽檔)、
 `tools/cdimg_to_iso.py`(CD raw 映像 → ISO)。
 
 ## 文件索引
@@ -70,15 +111,16 @@ docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
 | 文件 | 內容 |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | 專案憲章:硬規則、素材盤點(已驗證事實)、IDA 使用紀律、中文化設計、階段與驗收 |
-| [`PLAN.md`](PLAN.md) | 執行計畫與 backlog |
-| [`WORKLIST.md`](WORKLIST.md) | **遊戲機制還原盤點**:原版有什麼(依 24 個 OVL + DATA.OVL 的 43 個明文表)、做到哪、缺什麼 |
+| [`WORKLIST.md`](WORKLIST.md) | **遊戲機制還原盤點**:原版有什麼、做到哪、缺什麼 |
 | [`CONTEXT.md`](CONTEXT.md) | 語彙(glossary)、與姊妹專案的關係、技術關鍵事實 |
-| [`docs/re/00-hexrays-p3-verified.md`](docs/re/00-hexrays-p3-verified.md) | FM Towns `.EXP`(Phar Lap P3)可反編譯的驗證紀錄 |
+| [`docs/formats/`](docs/formats/) | 資料格式規格(每份附可重跑的解碼腳本與驗證 oracle) |
+| [`docs/re/`](docs/re/) | 逆向筆記(每份標:輸入檔 + IDA 位址 + 被推翻過的斷言) |
 
 ## 授權與邊界
 
 - **程式碼**:MIT。
 - **原版遊戲資料、美術、音樂、字型**:各原權利人所有,**不隨本專案散布**;
   repo 只提供解碼工具與引擎,玩家自備合法副本。
+- 上面的畫面截圖含有原版美術,僅為說明本專案的呈現效果;權利人要求即撤除。
 - *Ultima V: Warriors of Destiny* © 1988 Origin Systems / Richard Garriott。
   本專案與 Origin / EA 無關聯。

@@ -3,6 +3,7 @@ package game
 import (
 	"strconv"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -94,7 +95,8 @@ func (s *State) showTavernMenu() {
 	case ShopModeTavernWine:
 		p := s.Shops.Prices
 		var line string
-		for i, n := range u5data.WineNames {
+		for i, en := range u5data.WineNames {
+			n := i18n.Name(en)
 			if i > 0 {
 				line += "  "
 			}
@@ -146,10 +148,10 @@ func (s *State) tavernChoose(r rune) {
 			return
 		}
 		// 酒**不議價**:原版直接拿 dword_56E44[i] 跟金幣比。
-		sess.Choice = ShopItem{Goods: GoodsDrink, ID: i, Name: u5data.WineNames[i], Qty: 1}
+		sess.Choice = ShopItem{Goods: GoodsDrink, ID: i, Name: i18n.Name(u5data.WineNames[i]), Qty: 1}
 		sess.Price = p.Wine[i]
 		sess.Action = ActionTavern
-		s.Log("「好眼光。" + u5data.WineNames[i] + ",要 " + strconv.Itoa(sess.Price) + " 金。」")
+		s.Log("「好眼光。" + i18n.Name(u5data.WineNames[i]) + ",要 " + strconv.Itoa(sess.Price) + " 金。」")
 		s.Log("「汝要嗎?(Y/N)」")
 		sess.Mode = ShopModeConfirm
 	case ShopModeTavernQty:

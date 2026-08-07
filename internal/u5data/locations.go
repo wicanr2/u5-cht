@@ -1,5 +1,7 @@
 package u5data
 
+import "github.com/wicanr2/u5-cht/internal/i18n"
+
 // 地點表(從原版執行檔取得,2026-08-07)
 //
 // 來源:FM Towns `WORRIORS.EXP` 的三張平行表 ——
@@ -41,7 +43,11 @@ type Location struct {
 	// 算出來會把上一個地點的樓層數灌水、把有地下層的那個算成 1 層(見 docs/re/03 §8)。
 	FloorMin, FloorMax int
 	Name               string // 原版英文名(canonical,玩家輸入比對用這個)
-	NameZH             string // 中文譯名;空字串 = 尚未定案
+	// NameZH 保留給「i18n 表以外的特例」;一般情況留空,走 i18n.Name(Name)。
+	//
+	// ⚠ 譯名不寫在這裡是刻意的:系列共通名要與 u6-cht 對齊,
+	// 散在資料表裡會漂移(本專案第一版就把 Yew 寫成「紫杉城」而 u6 是「尤伊」)。
+	NameZH string
 }
 
 // SceneFiles 是場景檔名,**順序就是原版的 off_4FC44**,不可調換 ——
@@ -61,38 +67,38 @@ func (l *Location) SceneOffset(floor int) int {
 
 // Locations 是原版的 32 個地點。
 var Locations = [32]Location{
-	{X: 232, Y: 135, SceneFile: 0, SceneIndex: 0, FloorMin: 0, FloorMax: 1, Name: "MOONGLOW", NameZH: "月光城"},        // 1
-	{X: 81, Y: 106, SceneFile: 0, SceneIndex: 2, FloorMin: 0, FloorMax: 1, Name: "BRITAIN", NameZH: "不列顛城"},         // 2
-	{X: 36, Y: 222, SceneFile: 0, SceneIndex: 4, FloorMin: 0, FloorMax: 1, Name: "JHELOM", NameZH: "哲倫"},            // 3
-	{X: 58, Y: 43, SceneFile: 0, SceneIndex: 7, FloorMin: -1, FloorMax: 0, Name: "YEW", NameZH: "紫衫城"},              // 4
-	{X: 159, Y: 20, SceneFile: 0, SceneIndex: 8, FloorMin: 0, FloorMax: 1, Name: "MINOC", NameZH: "米諾克"},            // 5
-	{X: 106, Y: 184, SceneFile: 0, SceneIndex: 10, FloorMin: 0, FloorMax: 1, Name: "TRINSIC", NameZH: "特林希克"},       // 6
-	{X: 22, Y: 128, SceneFile: 0, SceneIndex: 12, FloorMin: 0, FloorMax: 1, Name: "SKARA BRAE", NameZH: "史卡拉布雷"},    // 7
-	{X: 187, Y: 169, SceneFile: 0, SceneIndex: 14, FloorMin: 0, FloorMax: 1, Name: "NEW MAGINCIA", NameZH: "新馬精西亞"}, // 8
-	{X: 88, Y: 120, SceneFile: 1, SceneIndex: 0, FloorMin: 0, FloorMax: 2, Name: "FOGSBANE", NameZH: ""},            // 9
-	{X: 152, Y: 24, SceneFile: 1, SceneIndex: 3, FloorMin: 0, FloorMax: 2, Name: "STORMCROW", NameZH: ""},           // 10
-	{X: 104, Y: 216, SceneFile: 1, SceneIndex: 6, FloorMin: 0, FloorMax: 2, Name: "GREYHAVEN", NameZH: ""},          // 11
-	{X: 216, Y: 120, SceneFile: 1, SceneIndex: 9, FloorMin: 0, FloorMax: 2, Name: "WAVEGUIDE", NameZH: ""},          // 12
-	{X: 45, Y: 62, SceneFile: 1, SceneIndex: 12, FloorMin: 0, FloorMax: 0, Name: "IOLO'S HUT", NameZH: ""},          // 13
-	{X: 176, Y: 208, SceneFile: 1, SceneIndex: 13, FloorMin: 0, FloorMax: 0, Name: "", NameZH: ""},                  // 14
-	{X: 201, Y: 59, SceneFile: 1, SceneIndex: 14, FloorMin: 0, FloorMax: 0, Name: "", NameZH: ""},                   // 15
-	{X: 153, Y: 91, SceneFile: 1, SceneIndex: 15, FloorMin: 0, FloorMax: 0, Name: "", NameZH: ""},                   // 16
-	{X: 86, Y: 107, SceneFile: 2, SceneIndex: 1, FloorMin: -1, FloorMax: 3, Name: "", NameZH: ""},                   // 17
-	{X: 196, Y: 245, SceneFile: 2, SceneIndex: 6, FloorMin: -1, FloorMax: 3, Name: "", NameZH: ""},                  // 18
-	{X: 84, Y: 106, SceneFile: 2, SceneIndex: 10, FloorMin: 0, FloorMax: 0, Name: "WEST BRITANNY", NameZH: ""},      // 19
-	{X: 86, Y: 105, SceneFile: 2, SceneIndex: 11, FloorMin: 0, FloorMax: 0, Name: "NORTH BRITANNY", NameZH: ""},     // 20
-	{X: 88, Y: 106, SceneFile: 2, SceneIndex: 12, FloorMin: 0, FloorMax: 0, Name: "EAST BRITANNY", NameZH: ""},      // 21
-	{X: 98, Y: 145, SceneFile: 2, SceneIndex: 13, FloorMin: 0, FloorMax: 0, Name: "PAWS", NameZH: ""},               // 22
-	{X: 136, Y: 90, SceneFile: 2, SceneIndex: 14, FloorMin: 0, FloorMax: 0, Name: "COVE", NameZH: ""},               // 23
-	{X: 136, Y: 158, SceneFile: 2, SceneIndex: 15, FloorMin: 0, FloorMax: 0, Name: "BUCCANEER'S DEN", NameZH: ""},   // 24
-	{X: 49, Y: 58, SceneFile: 3, SceneIndex: 0, FloorMin: 0, FloorMax: 1, Name: "ARARAT", NameZH: ""},               // 25
-	{X: 15, Y: 160, SceneFile: 3, SceneIndex: 2, FloorMin: 0, FloorMax: 1, Name: "BORDERMARCH", NameZH: ""},         // 26
-	{X: 64, Y: 240, SceneFile: 3, SceneIndex: 4, FloorMin: 0, FloorMax: 0, Name: "FARTHING", NameZH: ""},            // 27
-	{X: 248, Y: 8, SceneFile: 3, SceneIndex: 5, FloorMin: 0, FloorMax: 0, Name: "WINDEMERE", NameZH: ""},            // 28
-	{X: 148, Y: 74, SceneFile: 3, SceneIndex: 6, FloorMin: 0, FloorMax: 0, Name: "STONEGATE", NameZH: ""},           // 29
-	{X: 218, Y: 107, SceneFile: 3, SceneIndex: 7, FloorMin: 0, FloorMax: 2, Name: "THE LYCAEUM", NameZH: ""},        // 30
-	{X: 28, Y: 50, SceneFile: 3, SceneIndex: 10, FloorMin: 0, FloorMax: 2, Name: "EMPATH ABBEY", NameZH: ""},        // 31
-	{X: 146, Y: 241, SceneFile: 3, SceneIndex: 14, FloorMin: -1, FloorMax: 1, Name: "SERPENT'S HOLD", NameZH: ""},   // 32
+	{X: 232, Y: 135, SceneFile: 0, SceneIndex: 0, FloorMin: 0, FloorMax: 1, Name: "MOONGLOW"},         // 1
+	{X: 81, Y: 106, SceneFile: 0, SceneIndex: 2, FloorMin: 0, FloorMax: 1, Name: "BRITAIN"},           // 2
+	{X: 36, Y: 222, SceneFile: 0, SceneIndex: 4, FloorMin: 0, FloorMax: 1, Name: "JHELOM"},            // 3
+	{X: 58, Y: 43, SceneFile: 0, SceneIndex: 7, FloorMin: -1, FloorMax: 0, Name: "YEW"},               // 4
+	{X: 159, Y: 20, SceneFile: 0, SceneIndex: 8, FloorMin: 0, FloorMax: 1, Name: "MINOC"},             // 5
+	{X: 106, Y: 184, SceneFile: 0, SceneIndex: 10, FloorMin: 0, FloorMax: 1, Name: "TRINSIC"},         // 6
+	{X: 22, Y: 128, SceneFile: 0, SceneIndex: 12, FloorMin: 0, FloorMax: 1, Name: "SKARA BRAE"},       // 7
+	{X: 187, Y: 169, SceneFile: 0, SceneIndex: 14, FloorMin: 0, FloorMax: 1, Name: "NEW MAGINCIA"},    // 8
+	{X: 88, Y: 120, SceneFile: 1, SceneIndex: 0, FloorMin: 0, FloorMax: 2, Name: "FOGSBANE"},          // 9
+	{X: 152, Y: 24, SceneFile: 1, SceneIndex: 3, FloorMin: 0, FloorMax: 2, Name: "STORMCROW"},         // 10
+	{X: 104, Y: 216, SceneFile: 1, SceneIndex: 6, FloorMin: 0, FloorMax: 2, Name: "GREYHAVEN"},        // 11
+	{X: 216, Y: 120, SceneFile: 1, SceneIndex: 9, FloorMin: 0, FloorMax: 2, Name: "WAVEGUIDE"},        // 12
+	{X: 45, Y: 62, SceneFile: 1, SceneIndex: 12, FloorMin: 0, FloorMax: 0, Name: "IOLO'S HUT"},        // 13
+	{X: 176, Y: 208, SceneFile: 1, SceneIndex: 13, FloorMin: 0, FloorMax: 0, Name: ""},                // 14
+	{X: 201, Y: 59, SceneFile: 1, SceneIndex: 14, FloorMin: 0, FloorMax: 0, Name: ""},                 // 15
+	{X: 153, Y: 91, SceneFile: 1, SceneIndex: 15, FloorMin: 0, FloorMax: 0, Name: ""},                 // 16
+	{X: 86, Y: 107, SceneFile: 2, SceneIndex: 1, FloorMin: -1, FloorMax: 3, Name: ""},                 // 17
+	{X: 196, Y: 245, SceneFile: 2, SceneIndex: 6, FloorMin: -1, FloorMax: 3, Name: ""},                // 18
+	{X: 84, Y: 106, SceneFile: 2, SceneIndex: 10, FloorMin: 0, FloorMax: 0, Name: "WEST BRITANNY"},    // 19
+	{X: 86, Y: 105, SceneFile: 2, SceneIndex: 11, FloorMin: 0, FloorMax: 0, Name: "NORTH BRITANNY"},   // 20
+	{X: 88, Y: 106, SceneFile: 2, SceneIndex: 12, FloorMin: 0, FloorMax: 0, Name: "EAST BRITANNY"},    // 21
+	{X: 98, Y: 145, SceneFile: 2, SceneIndex: 13, FloorMin: 0, FloorMax: 0, Name: "PAWS"},             // 22
+	{X: 136, Y: 90, SceneFile: 2, SceneIndex: 14, FloorMin: 0, FloorMax: 0, Name: "COVE"},             // 23
+	{X: 136, Y: 158, SceneFile: 2, SceneIndex: 15, FloorMin: 0, FloorMax: 0, Name: "BUCCANEER'S DEN"}, // 24
+	{X: 49, Y: 58, SceneFile: 3, SceneIndex: 0, FloorMin: 0, FloorMax: 1, Name: "ARARAT"},             // 25
+	{X: 15, Y: 160, SceneFile: 3, SceneIndex: 2, FloorMin: 0, FloorMax: 1, Name: "BORDERMARCH"},       // 26
+	{X: 64, Y: 240, SceneFile: 3, SceneIndex: 4, FloorMin: 0, FloorMax: 0, Name: "FARTHING"},          // 27
+	{X: 248, Y: 8, SceneFile: 3, SceneIndex: 5, FloorMin: 0, FloorMax: 0, Name: "WINDEMERE"},          // 28
+	{X: 148, Y: 74, SceneFile: 3, SceneIndex: 6, FloorMin: 0, FloorMax: 0, Name: "STONEGATE"},         // 29
+	{X: 218, Y: 107, SceneFile: 3, SceneIndex: 7, FloorMin: 0, FloorMax: 2, Name: "THE LYCAEUM"},      // 30
+	{X: 28, Y: 50, SceneFile: 3, SceneIndex: 10, FloorMin: 0, FloorMax: 2, Name: "EMPATH ABBEY"},      // 31
+	{X: 146, Y: 241, SceneFile: 3, SceneIndex: 14, FloorMin: -1, FloorMax: 1, Name: "SERPENT'S HOLD"}, // 32
 }
 
 // LocationAt 回報世界座標上有沒有地點。
@@ -124,7 +130,8 @@ func (l *Location) DisplayName() string {
 		return l.NameZH
 	}
 	if l.Name != "" {
-		return l.Name
+		// 譯名統一走 i18n 覆蓋層(與 u6-cht 對齊)。
+		return i18n.Name(l.Name)
 	}
 	return "?"
 }

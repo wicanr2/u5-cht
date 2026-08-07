@@ -96,8 +96,8 @@ func TestArmouryPurchase(t *testing.T) {
 	if len(s.Shop.Menu) != 7 {
 		t.Fatalf("貨架有 %d 項,預期 7", len(s.Shop.Menu))
 	}
-	if s.Shop.Menu[0].Name != "Dagger" {
-		t.Fatalf("第一項是 %q,預期 Dagger", s.Shop.Menu[0].Name)
+	if s.Shop.Menu[0].Name != "匕首" {
+		t.Fatalf("第一項是 %q,預期「匕首」", s.Shop.Menu[0].Name)
 	}
 
 	goldBefore := s.Inventory.Gold

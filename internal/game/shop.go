@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -189,7 +190,7 @@ func (s *State) openShop(shop *u5data.Shop) bool {
 	case u5data.ShopReagents:
 		for _, r := range p.ReagentStockList(shop.TypeIndex) {
 			sess.Menu = append(sess.Menu, ShopItem{
-				Goods: GoodsReagent, ID: r, Name: u5data.ReagentNames[r],
+				Goods: GoodsReagent, ID: r, Name: i18n.Name(u5data.ReagentNames[r]),
 				Base:  p.ReagentPrice[shop.TypeIndex][r],
 				Qty:   p.ReagentQty[shop.TypeIndex][r],
 				Pitch: p.ReagentPitch[r],
@@ -198,14 +199,14 @@ func (s *State) openShop(shop *u5data.Shop) bool {
 	case u5data.ShopGuild:
 		for g := 0; g < u5data.GuildGoods; g++ {
 			sess.Menu = append(sess.Menu, ShopItem{
-				Goods: GoodsGuild, ID: g, Name: u5data.GuildGoodsNames[g],
+				Goods: GoodsGuild, ID: g, Name: i18n.Name(u5data.GuildGoodsNames[g]),
 				Base: p.Guild[shop.TypeIndex][g], Qty: u5data.GuildGoodsQty[g],
 				Pitch: p.GuildPitch[g],
 			})
 		}
 	case u5data.ShopStable:
 		sess.Menu = append(sess.Menu, ShopItem{
-			Goods: GoodsHorse, ID: 0, Name: "Horse",
+			Goods: GoodsHorse, ID: 0, Name: i18n.Name("Horse"),
 			Base: p.Stable[shop.TypeIndex], Qty: 1,
 		})
 	case u5data.ShopHealer:
@@ -269,7 +270,7 @@ func (s *State) fillSellMenu() {
 
 func (s *State) itemName(id byte) string {
 	if n := s.Items.Name(id); n != "" {
-		return n
+		return i18n.Name(n)
 	}
 	return "#" + strconv.Itoa(int(id))
 }

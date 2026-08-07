@@ -6,6 +6,7 @@ import (
 	"image/color"
 
 	"github.com/wicanr2/u5-cht/internal/game"
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -188,7 +189,7 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 	y += LineHeight
 	for _, c := range st.Party() {
 		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("%-9s %-4s %3d/%-3d",
-			c.Name, c.ClassName(), c.HP, c.MaxHP))
+			i18n.Name(c.Name), c.ClassName(), c.HP, c.MaxHP))
 		y += LineHeight
 	}
 

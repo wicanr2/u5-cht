@@ -39,35 +39,37 @@ func TestLocationAt(t *testing.T) {
 	}
 }
 
-// TestLocationDisplayNameFallsBack:未定案的譯名要退回英文,不能顯示空白。
+// TestLocationDisplayNameFallsBack:譯名查不到時要退回英文,不能顯示空白。
+//
+// 空白會讓「還沒翻」看起來像「沒有這個地方」—— 反而更難發現。
 func TestLocationDisplayNameFallsBack(t *testing.T) {
-	l := Location{Name: "COVE"}
-	if l.DisplayName() != "COVE" {
-		t.Errorf("沒有中文時應退回英文,實得 %q", l.DisplayName())
+	l := Location{Name: "NOWHERE IN THE TABLE"}
+	if l.DisplayName() != "NOWHERE IN THE TABLE" {
+		t.Errorf("查不到譯名時應退回英文,實得 %q", l.DisplayName())
 	}
 	if (&Location{}).DisplayName() != "?" {
 		t.Error("兩者皆空時應回 ?")
 	}
 }
 
-// TestEightVirtueCitiesHaveChineseNames:八德城市的譯名已定案(對齊聖者之書體系)。
-func TestEightVirtueCitiesHaveChineseNames(t *testing.T) {
-	want := map[string]string{
-		"MOONGLOW": "月光城", "BRITAIN": "不列顛城", "JHELOM": "哲倫", "YEW": "紫衫城",
-		"MINOC": "米諾克", "TRINSIC": "特林希克", "SKARA BRAE": "史卡拉布雷",
-		"NEW MAGINCIA": "新馬精西亞",
-	}
-	got := map[string]string{}
+// TestEveryLocationHasAChineseName:32 個地點全部要有譯名。
+//
+// ⚠ 譯名不再寫在這張表裡,而是走 `internal/i18n`(與 u6-cht 對齊)——
+// 所以這條驗的是「i18n 表沒漏掉任何一個地點」,而不是欄位填了沒。
+// 沒名字的空槽(原版地點表裡有幾個)跳過。
+func TestEveryLocationHasAChineseName(t *testing.T) {
+	missing := []string{}
 	for i := range Locations {
-		if zh, ok := want[Locations[i].Name]; ok {
-			got[Locations[i].Name] = Locations[i].NameZH
-			if Locations[i].NameZH != zh {
-				t.Errorf("%s 的譯名是 %q,應為 %q", Locations[i].Name, Locations[i].NameZH, zh)
-			}
+		en := Locations[i].Name
+		if en == "" {
+			continue
+		}
+		if Locations[i].DisplayName() == en {
+			missing = append(missing, en)
 		}
 	}
-	if len(got) != len(want) {
-		t.Errorf("八德城市只找到 %d 個,預期 %d", len(got), len(want))
+	if len(missing) > 0 {
+		t.Errorf("這些地點還沒有譯名:%v", missing)
 	}
 }
 

@@ -3,6 +3,7 @@ package game
 import (
 	"strconv"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -145,10 +146,10 @@ func (s *State) InCombat() bool { return s.Combat != nil }
 // 其餘查生物名表(索引 = (種類 − 64) / 4,與 docs/re/09 同一條公式)。
 func (s *State) enemyDisplayName(kind byte) string {
 	if kind < u5data.CreatureBase {
-		return "PIRATES"
+		return i18n.Name("Pirates")
 	}
 	if n := s.Creatures.Name(kind); n != "" {
-		return n
+		return i18n.Name(n)
 	}
 	return "#" + strconv.Itoa(int(kind))
 }
@@ -366,7 +367,7 @@ func (s *State) charOf(u *Combatant) *u5data.Character {
 // unitName 是印訊息用的名字。
 func (s *State) unitName(u *Combatant) string {
 	if ch := s.charOf(u); ch != nil {
-		return ch.Name
+		return i18n.Name(ch.Name)
 	}
 	return s.enemyDisplayName(u.Kind)
 }
