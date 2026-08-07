@@ -421,6 +421,14 @@ func (g *game) Update() error {
 			for _, r := range ebiten.AppendInputChars(nil) {
 				st.ShopChoose(r)
 			}
+			// 酒館的打聽消息是**打字**,所以 Enter 與 Backspace 也要送進去。
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+				inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+				st.ShopChoose('\r')
+			case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+				st.ShopChoose(8)
+			}
 		}
 		g.dirty = true
 		return nil
@@ -770,6 +778,7 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
 		Runes:        bundle.Runes,
+		Lore:         bundle.Lore,
 		Story:        bundle.Story,
 		Question:     bundle.Question,
 		Misc:         bundle.Misc,

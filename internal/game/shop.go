@@ -52,6 +52,10 @@ const (
 	ShopModeTavernWine
 	// ShopModeTavernQty 是酒館問「乾糧要幾份」。
 	ShopModeTavernQty
+	// ShopModeTavernLoreAsk 是酒館問「汝想聽哪一樁事」——**打字**,不是按選單字母。
+	ShopModeTavernLoreAsk
+	// ShopModeTavernLoreConfirm 是報過價、等玩家答 Y / N(原版只收這兩鍵)。
+	ShopModeTavernLoreConfirm
 )
 
 // ShopSession 是一次進店的完整狀態。
@@ -60,6 +64,9 @@ type ShopSession struct {
 	Mode ShopMode
 	// Menu 是目前列出的品項,順序就是玩家按鍵 a/b/c… 的順序。
 	Menu []ShopItem
+	// LoreInput 是打聽消息時玩家正在打的字;LoreTopic 是比對出的主題(−1 = 還沒比)。
+	LoreInput string
+	LoreTopic int
 	// Choice 是玩家選中的那一項(Mode 為 ShopModeConfirm 時有效)。
 	Choice ShopItem
 	// Price 是已經套過議價公式、玩家實際要付的錢。
@@ -325,13 +332,19 @@ func (s *State) ShopChoose(r rune) {
 	if sess == nil || s.Prompt != PromptShop {
 		return
 	}
+	// ⚠ 打聽消息是**打字**,不能先轉小寫也不能走選單分派 —— 要在轉大小寫之前接走。
+	if sess.Mode == ShopModeTavernLoreAsk {
+		s.tavernLoreType(r)
+		return
+	}
 	if r >= 'A' && r <= 'Z' {
 		r = r - 'A' + 'a'
 	}
 	switch sess.Mode {
 	case ShopModeInnMenu, ShopModeInnLeave, ShopModeInnPick:
 		s.innChoose(r)
-	case ShopModeTavernMenu, ShopModeTavernWine, ShopModeTavernQty:
+	case ShopModeTavernMenu, ShopModeTavernWine, ShopModeTavernQty,
+		ShopModeTavernLoreConfirm:
 		s.tavernChoose(r)
 	case ShopModeBuySell:
 		switch r {

@@ -41,6 +41,7 @@ type Bundle struct {
 	Stats     *u5data.CombatStats   // 戰鬥數值(怪物三圍、裝備防禦/射程/類別)
 	Spells    *u5data.SpellTable    // 咒語表(名稱 / 圈數 / 藥草 / 可施法場合)
 	Runes     *u5data.RuneTable     // 符文詞與咒語代碼(施法 / 調藥的輸入法)
+	Lore      *u5data.TavernLoreTable // 酒館的打聽消息(26 個主題)
 	Dungeons  *u5data.DungeonSet    // 八座地牢的地圖(DUNGEON.DAT)
 	Moons     *u5data.MoonPhases    // 月相表(DATA.OVL)
 	Look2     *u5data.LookTable     // Look 指令的敘述表(LOOK2.DAT)
@@ -225,6 +226,12 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("符文詞表:%v", err))
 	} else {
 		b.Runes = rt
+	}
+
+	if tl, err := u5data.LoadTavernLore(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("酒館情報表:%v", err))
+	} else {
+		b.Lore = tl
 	}
 
 	if mp, err := u5data.LoadMoonPhases(opts.GameData); err != nil {

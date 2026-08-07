@@ -1,6 +1,8 @@
 package game
 
 import (
+	"fmt"
+
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -25,6 +27,10 @@ func (s *State) TransferFromUltimaIV(path string) bool {
 		s.Log("無法完成轉入。")
 		return false
 	}
+	// ★ 讀進來還沒完 —— 原版 `sub_7594` 接著逐項換算並把變化印出來。
+	// 少了這一步,轉入的角色會帶著 U4 的三圍與經驗值直接進 U5,強得離譜。
+	before := t.Char
+	t.Convert()
 	if len(s.Roster) == 0 {
 		s.Roster = make([]u5data.Character, 1)
 	}
@@ -36,6 +42,13 @@ func (s *State) TransferFromUltimaIV(path string) bool {
 	// 完全由它決定(`docs/re/54` §3)。
 	s.TransferredAvatar = t.Avatar
 	s.Log(t.Char.Name + "自《創世紀 IV》而來。")
+	// 原版逐項報告換算結果(`Experience has been converted` 等)。
+	c := &t.Char
+	s.Log(fmt.Sprintf("經驗 %d → %d,等級 %d", before.Exp, c.Exp, c.Level))
+	s.Log(fmt.Sprintf("生命 %d(等級 × %d)", c.MaxHP, u5data.U4TransferHPPerLevel))
+	s.Log(fmt.Sprintf("力量 %d(50)→ %d(30)", before.Strength, c.Strength))
+	s.Log(fmt.Sprintf("敏捷 %d(50)→ %d(30)", before.Dex, c.Dex))
+	s.Log(fmt.Sprintf("智力 %d(50)→ %d(30),法力同智力", before.Intel, c.Intel))
 	if t.Avatar {
 		s.Log(t.Char.Name + "乃聖者。")
 	}

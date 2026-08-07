@@ -177,3 +177,98 @@ func TestU4TransferRejectsShortFiles(t *testing.T) {
 		t.Error("沒有第二塊卻算成聖者")
 	}
 }
+
+// 三圍換算曲線的三段各驗兩點,加上兩個轉折點(原版 `sub_7564`)。
+//
+// ⚠ 轉折點才是關鍵:9→9 與 10→10 看起來一樣,但走的是不同的分支;
+// 29 與 30 也是。只驗中間值的話,分段條件寫成 `<=` 或 `>` 都會過。
+func TestU4StatCurveHasThreeSegments(t *testing.T) {
+	cases := map[int]int{
+		0: 0, 5: 5, 9: 9, // 第一段:原樣
+		10: 10, 11: 11, 20: 15, 29: 20, // 第二段:(v−9)/2 + 10
+		30: 20, 34: 21, 50: 25, 70: 30, // 第三段:(v−30)/4 + 20
+	}
+	for in, want := range cases {
+		if got := U4TransferStat(in); got != want {
+			t.Errorf("U4TransferStat(%d) = %d,預期 %d", in, got, want)
+		}
+	}
+	// 曲線必須單調不減 —— 分段接不上就會有一段往回掉。
+	prev := -1
+	for v := 0; v <= U4TransferStatMax; v++ {
+		got := U4TransferStat(v)
+		if got < prev {
+			t.Fatalf("v = %d 時曲線往回掉(%d → %d)", v, prev, got)
+		}
+		prev = got
+	}
+}
+
+// 等級是「經驗/100 反覆折半」,而且最高只到 5(U4 經驗上限算出來的)。
+func TestU4LevelIsHalvedFromExperience(t *testing.T) {
+	cases := map[int]int{
+		0: 1, 99: 1, // 經驗/100 == 0 → 1 級
+		100: 2, 199: 2,
+		200: 3, 399: 3,
+		400: 4, 799: 4,
+		800: 5,
+		999: 5, // U4 經驗上限 9999 / 10 = 999
+	}
+	for exp, want := range cases {
+		if got := U4TransferLevel(exp); got != want {
+			t.Errorf("U4TransferLevel(%d) = %d,預期 %d", exp, got, want)
+		}
+	}
+	// U4 的經驗上限換算完最高就是 5 級 —— **算出來的**上限,不是寫死的。
+	if got := U4TransferLevel(U4TransferBigMax / U4TransferExpDivisor); got != 5 {
+		t.Errorf("U4 經驗上限換算出 %d 級,預期 5", got)
+	}
+}
+
+// 整個第二階段:經驗 /10、等級由它算、HP = 等級 × 30、三圍走曲線、法力 = 智力。
+//
+// ⚠ **只有力量有下限 20** —— 敏捷與智力沒有。這條不對稱是原版的,
+// 兩者寫成一樣就錯了(組語裡 `cmp al, 14h` 只出現在力量那一段)。
+func TestU4ConvertRunsTheSecondStage(t *testing.T) {
+	raw := makeU4Save(t, func(r, _ []byte) {
+		binary.LittleEndian.PutUint16(r[u4Exp:], 4000)
+		binary.LittleEndian.PutUint16(r[u4Str:], 12) // 曲線 → 11,低於 20 → 夾成 20
+		binary.LittleEndian.PutUint16(r[u4Dex:], 12) // 曲線 → 11,**不夾**
+		binary.LittleEndian.PutUint16(r[u4Intel:], 50)
+	})
+	got, err := ParseU4Transfer(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 第一階段:原樣搬進來。
+	if got.Char.Exp != 4000 || got.Char.Strength != 12 {
+		t.Fatalf("第一階段就不對:經驗 %d 力量 %d", got.Char.Exp, got.Char.Strength)
+	}
+	got.Convert()
+	c := &got.Char
+	if c.Exp != 400 {
+		t.Errorf("經驗換算成 %d,預期 400(/10)", c.Exp)
+	}
+	if c.Level != 4 {
+		t.Errorf("等級是 %d,預期 4(400/100 = 4 → 折半三次)", c.Level)
+	}
+	if c.HP != 120 || c.MaxHP != 120 {
+		t.Errorf("生命是 %d/%d,預期 120(4 級 × 30)", c.HP, c.MaxHP)
+	}
+	if c.Strength != U4TransferStrengthMin {
+		t.Errorf("力量是 %d,預期夾到下限 %d", c.Strength, U4TransferStrengthMin)
+	}
+	if c.Dex != 11 {
+		t.Errorf("敏捷是 %d,預期 11(曲線值,**不夾**)", c.Dex)
+	}
+	if c.Intel != 25 || c.MP != 25 {
+		t.Errorf("智力 / 法力是 %d / %d,預期都是 25", c.Intel, c.MP)
+	}
+	// Raw 要跟著換,否則存檔寫回換算前的值。
+	if c.Raw[CharLevel] != c.Level || c.Raw[CharStrength] != c.Strength {
+		t.Error("Raw 沒有跟著換算")
+	}
+	if binary.LittleEndian.Uint16(c.Raw[CharMaxHP:]) != c.MaxHP {
+		t.Error("Raw 的最大 HP 沒跟著換")
+	}
+}

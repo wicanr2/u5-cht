@@ -218,3 +218,102 @@ func u4IsAvatar(raw []byte) bool {
 	}
 	return true
 }
+
+// 轉入的第二階段:換算(原版 `sub_7594`)
+//
+// ★ `sub_71D0`(上面那一段)只是**把 U4 的存檔讀進來**;主選單真正呼叫的是
+// `sub_7594`,它在讀完之後還會逐項換算,並把每一項的變化印在畫面上
+//(`Exp:` `Level:` `STR:` … 加上「Experience has been converted」之類的說明)。
+//
+// 所以 `docs/re/55` 記的東西沒有錯,只是**少了一半**:
+// 「等級 = 最大 HP / 100」是第一階段的產物,而它接著就被第二階段蓋掉了。
+//
+//	經驗值 = U4 經驗值 / 10
+//	等級   = 1,然後 n = 經驗值/10 後的值 / 100;while (n > 0) { 等級++; n >>= 1 }
+//	HP = 最大 HP = 等級 × 30
+//	力量 = curve(力量),**下限 20**
+//	敏捷 = curve(敏捷)          ← 沒有下限
+//	智力 = curve(智力),法力 = 智力  ← 沒有下限
+//
+// ⚠ **只有力量有下限** —— `cmp al, 14h; jnb; mov …, 14h` 只出現在力量那一段,
+// 敏捷與智力沒有。這種不對稱憑印象一定寫不出來,而且它與建角時的
+// `CreateMinStrength`(同樣是 20)是同一條規則的兩個出口。
+
+// U4TransferExpDivisor 是經驗值要除以多少(原版 `idiv 10`)。
+const U4TransferExpDivisor = 10
+
+// U4TransferStrengthMin 是**力量**的下限(原版 `cmp al, 14h`)。
+const U4TransferStrengthMin = 0x14
+
+// U4TransferHPPerLevel 是每級給多少 HP(原版 `eax*5*3*2`)。
+const U4TransferHPPerLevel = 30
+
+// U4TransferStat 是三圍的換算曲線(原版 `sub_7564`)。
+//
+// 三段式,而 U4 的上限 50 對到 25:
+//
+//	v < 10   → v                    (原樣)
+//	10..29   → (v − 9) / 2 + 10
+//	v ≥ 30   → (v − 30) / 4 + 20
+//
+// ⚠ 除法是**朝零截斷**的(組語用 `cdq; sub eax,edx; sar eax,1` 這個慣用法),
+// 對非負值就是向下取整。
+//
+// ⚠ 把它與力量的下限 20 合起來看,中間那一段其實**幾乎沒有作用**:
+// 任何 v < 30 算出來都 ≤ 20,力量會被夾成 20。但敏捷與智力沒有下限,
+// 所以那一段對它們是實際生效的 —— 不能因為「力量看不出差別」就把它簡化掉。
+func U4TransferStat(v int) int {
+	switch {
+	case v < 10:
+		return v
+	case v >= 30:
+		return (v-30)/4 + 20
+	}
+	return (v-9)/2 + 10
+}
+
+// U4TransferLevel 依**換算後**的經驗值算等級(原版的 while 迴圈)。
+//
+//	等級 = 1;n = 經驗 / 100;while (n > 0) { 等級++; n >>= 1 }
+//
+// ⚠ 沒有上限。U4 的經驗上限 9999 → /10 = 999 → /100 = 9 → 等級 5,
+// 所以轉入進來的角色最高就是 5 級 —— 這是**算出來的**上限,不是寫死的。
+func U4TransferLevel(exp int) int {
+	level := 1
+	for n := exp / 100; n > 0; n >>= 1 {
+		level++
+	}
+	return level
+}
+
+// Convert 跑第二階段的換算,就地改寫 Char。
+//
+// 順序照原版的畫面順序(經驗 → 等級 → HP → 力量 → 敏捷 → 智力),
+// 而且**等級用的是換算後的經驗值** —— 順序反了等級會偏。
+func (t *U4Transfer) Convert() {
+	c := &t.Char
+	c.Exp = uint16(int(c.Exp) / U4TransferExpDivisor)
+	c.Level = byte(U4TransferLevel(int(c.Exp)))
+	hp := uint16(int(c.Level) * U4TransferHPPerLevel)
+	c.HP, c.MaxHP = hp, hp
+
+	str := U4TransferStat(int(c.Strength))
+	if str < U4TransferStrengthMin {
+		str = U4TransferStrengthMin
+	}
+	c.Strength = byte(str)
+	c.Dex = byte(U4TransferStat(int(c.Dex)))
+	c.Intel = byte(U4TransferStat(int(c.Intel)))
+	// 法力就是換算後的智力(原版 `mov byte_3DDC2, al; mov byte_3DDC3, al`)。
+	c.MP = c.Intel
+
+	// 32 B 的原始記錄要跟著更新,否則存檔會寫回換算前的值。
+	binary.LittleEndian.PutUint16(c.Raw[CharExp:], c.Exp)
+	c.Raw[CharLevel] = c.Level
+	binary.LittleEndian.PutUint16(c.Raw[CharHP:], c.HP)
+	binary.LittleEndian.PutUint16(c.Raw[CharMaxHP:], c.MaxHP)
+	c.Raw[CharStrength] = c.Strength
+	c.Raw[CharDex] = c.Dex
+	c.Raw[CharIntel] = c.Intel
+	c.Raw[CharMP] = c.MP
+}

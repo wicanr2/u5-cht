@@ -62,9 +62,15 @@ func shopState(t *testing.T, location int) *State {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// 酒館的打聽消息要這張表 —— 少了它那一欄會走「表未載入」那條路,
+	// 於是整條流程的測試會靜靜地測不到東西。
+	lore, err := u5data.LoadTavernLore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &State{
 		Shops: shops, Items: items, Scenes: scenes, World: world, NPCs: npcs,
-		Objects: sur, UnderObjects: und,
+		Objects: sur, UnderObjects: und, Lore: lore,
 		Clock: NewClock(), MaxMessages: 64,
 	}
 	s.LoadFrom(sv)
@@ -841,5 +847,107 @@ func TestShopSpeaksChinese(t *testing.T) {
 	// 店名與店主要被代換掉,不能留佔位符。
 	if strings.ContainsAny(got, "#$@") {
 		t.Errorf("佔位符沒代換乾淨:%q", got)
+	}
+}
+
+// 酒館的打聽消息:打關鍵字 → 報價 → 付錢 → 得到「去某地找某人」。
+//
+// 走完整條原版流程(`sub_21500`),而且用真的資料表。
+func TestTavernLoreTellsYouWhereToLook(t *testing.T) {
+	s := shopState(t, 2)
+	shop, ok := s.Shops.At(2, u5data.ShopTavern)
+	if !ok {
+		t.Fatal("地點 2 沒有酒館")
+	}
+	if !s.openShop(shop) {
+		t.Fatal("酒館開不起來")
+	}
+	keys := s.tavernHotkeys()
+	if keys[TavernLore] == ' ' {
+		t.Skip("這家酒館沒有打聽消息那一欄")
+	}
+	s.SeedRandom(1)
+	s.Inventory.Gold = 999
+	s.ShopChoose(rune(keys[TavernLore]))
+	if s.Shop.Mode != ShopModeTavernLoreAsk {
+		t.Fatalf("按下打聽消息之後停在 %v,預期等打字", s.Shop.Mode)
+	}
+	// 打「crown」→ 對到 crow 那一題,價格 200。
+	for _, r := range "crown" {
+		s.ShopChoose(r)
+	}
+	s.ShopChoose('\r')
+	if s.Shop.Mode != ShopModeTavernLoreConfirm {
+		t.Fatalf("送出關鍵字之後停在 %v,預期等 Y/N:%s", s.Shop.Mode, s.log())
+	}
+	if s.Shop.Price != 200 {
+		t.Errorf("報價 %d,預期 200", s.Shop.Price)
+	}
+	gold := s.Inventory.Gold
+	s.ShopChoose('y')
+	if gold-s.Inventory.Gold != 200 {
+		t.Errorf("扣了 %d 金,預期 200", gold-s.Inventory.Gold)
+	}
+	// 線索裡要出現那一題的人名與地名(有譯名就是譯名)。
+	e := s.Lore.Entries[s.Lore.Match("crown")]
+	out := s.log()
+	if !strings.Contains(out, s.loreWho(e.Who)) {
+		t.Errorf("線索裡沒有人名 %q:%s", s.loreWho(e.Who), out)
+	}
+	if !strings.Contains(out, s.lorePlace(e.Where)) {
+		t.Errorf("線索裡沒有地名 %q:%s", s.lorePlace(e.Where), out)
+	}
+}
+
+// 打不出關鍵字要**回到問題本身**,不是回菜單 —— 原版可以一直猜。
+func TestTavernLoreAsksAgainWhenItCannotHelp(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopTavern)
+	s.openShop(shop)
+	keys := s.tavernHotkeys()
+	if keys[TavernLore] == ' ' {
+		t.Skip("這家酒館沒有打聽消息那一欄")
+	}
+	s.ShopChoose(rune(keys[TavernLore]))
+	for _, r := range "xyzzy" {
+		s.ShopChoose(r)
+	}
+	s.ShopChoose('\r')
+	if s.Shop.Mode != ShopModeTavernLoreAsk {
+		t.Errorf("猜錯之後停在 %v,預期又問一次", s.Shop.Mode)
+	}
+}
+
+// 金幣不夠:不扣錢、不給線索。
+//
+// ⚠ 原版比的是 `jle`,所以**剛好等於價格是付得出來的** —— 這條同時釘住界線。
+func TestTavernLoreRefusesWhenYouCannotPay(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopTavern)
+	s.openShop(shop)
+	keys := s.tavernHotkeys()
+	if keys[TavernLore] == ' ' {
+		t.Skip("這家酒館沒有打聽消息那一欄")
+	}
+	for _, c := range []struct {
+		gold int
+		paid bool
+	}{{199, false}, {200, true}} {
+		s.openShop(shop)
+		s.SeedRandom(1)
+		s.Inventory.Gold = c.gold
+		s.ShopChoose(rune(keys[TavernLore]))
+		for _, r := range "crown" {
+			s.ShopChoose(r)
+		}
+		s.ShopChoose('\r')
+		s.ShopChoose('y')
+		got := c.gold - s.Inventory.Gold
+		if c.paid && got != 200 {
+			t.Errorf("身上 %d 金卻扣了 %d", c.gold, got)
+		}
+		if !c.paid && got != 0 {
+			t.Errorf("身上 %d 金付不出來卻扣了 %d", c.gold, got)
+		}
 	}
 }

@@ -167,6 +167,8 @@ type State struct {
 	Spells *u5data.SpellTable
 	// Runes 是符文詞與咒語代碼 —— 施法與調藥的輸入法靠它;可為 nil。
 	Runes *u5data.RuneTable
+	// Lore 是酒館的打聽消息表(26 個主題);可為 nil。
+	Lore *u5data.TavernLoreTable
 	// Dungeons 是八座地牢的地圖(DUNGEON.DAT);可為 nil。
 	Dungeons *u5data.DungeonSet
 	// DungeonRooms 是地牢房間(DUNGEON.CBT,格式同地表戰鬥地圖);可為 nil。

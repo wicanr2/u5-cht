@@ -135,9 +135,7 @@ func (s *State) tavernChoose(r rune) {
 			sess.Mode = ShopModeTavernQty
 			s.showTavernMenu()
 		case TavernLore:
-			// sub_21500:打聽八德與地牢的所在。關鍵字表與人名/地名對照還沒解。
-			s.Log("(打聽消息 —— 情報系統尚未實作)")
-			s.backToMenu()
+			s.askTavernLore()
 		default:
 			s.LeaveShop()
 		}
@@ -154,6 +152,8 @@ func (s *State) tavernChoose(r rune) {
 		s.Log("「好眼光。" + i18n.Name(u5data.WineNames[i]) + ",要 " + strconv.Itoa(sess.Price) + " 金。」")
 		s.Log("「汝要嗎?(Y/N)」")
 		sess.Mode = ShopModeConfirm
+	case ShopModeTavernLoreConfirm:
+		s.answerTavernLore(r)
 	case ShopModeTavernQty:
 		n := int(r - '0')
 		if n < 1 || n > 9 {
@@ -212,4 +212,129 @@ func (s *State) settleTavern() {
 		s.Shop.drinks++
 		s.Log("「請慢用。」")
 	}
+}
+
+// ---------------------------------------------------------------- 打聽消息
+
+// 原版 `sub_21500`。26 個主題、四句隨機模板,表在 `DATA.OVL` 0x4C84 起
+//(見 `u5data/tavernlore.go` 與 `docs/re/61`)。
+//
+// ⚠ 這是**打字**的一步,不是按選單字母:玩家打進去的字要跟 26 個四字母關鍵字
+// 做子字串比對。所以 canonical 值一律維持英文(CLAUDE.md §5.2)——
+// 打「honesty」「hone」都問得到誠實,而中文提示只出現在旁邊的說明裡。
+
+// askTavernLore 問「汝想聽哪一樁事」。
+func (s *State) askTavernLore() {
+	sess := s.Shop
+	if s.Lore == nil {
+		// 表沒載進來就誠實說,不要假裝談成了(CLAUDE.md §3.0)。
+		s.Log("(情報表未載入 —— 缺 DATA.OVL 的酒館表)")
+		s.backToMenu()
+		return
+	}
+	sess.LoreInput = ""
+	sess.LoreTopic = -1
+	sess.Mode = ShopModeTavernLoreAsk
+	s.Log("「" + s.AvatarName() + "啊,汝想聽我說哪一樁事?」")
+	s.Log("(打英文關鍵字,如 honesty / crown / deceit)")
+}
+
+// tavernLoreType 收打聽消息的輸入(最多 15 個字,Enter 送出)。
+func (s *State) tavernLoreType(r rune) {
+	sess := s.Shop
+	switch {
+	case r == '\r' || r == '\n':
+		s.submitTavernLore()
+	case r == 8 || r == 127:
+		if sess.LoreInput != "" {
+			sess.LoreInput = sess.LoreInput[:len(sess.LoreInput)-1]
+		}
+	case r >= ' ' && r < 0x7F:
+		if len(sess.LoreInput) < u5data.TavernLoreAnswerMax {
+			sess.LoreInput += string(r)
+		}
+	}
+}
+
+// submitTavernLore 比對關鍵字並報價。
+func (s *State) submitTavernLore() {
+	sess := s.Shop
+	answer := sess.LoreInput
+	sess.LoreInput = ""
+	// 什麼都沒打就結束 —— 原版 `cmp byte_55F38, 0; jz` 直接回 0。
+	if answer == "" {
+		s.backToMenu()
+		return
+	}
+	topic := s.Lore.Match(answer)
+	if topic < 0 {
+		s.Log("「這一樁,我幫不上汝。」")
+		// 原版跳回**問題本身**,不是回菜單 —— 可以一直問到猜中。
+		s.askTavernLore()
+		return
+	}
+	sess.LoreTopic = topic
+	sess.Price = s.Lore.Entries[topic].Price
+	sess.Mode = ShopModeTavernLoreConfirm
+	if line := s.pitch(u5data.TavernLorePriceLine, sess.Price, 0); line != "" {
+		s.Log(line)
+	}
+	s.Log("「這樣可以吧?(Y/N)」")
+}
+
+// answerTavernLore 是報價之後的 Y / N(原版只收這兩鍵,其餘繼續等)。
+func (s *State) answerTavernLore(r rune) {
+	switch r {
+	case 'n':
+		s.Log("否。")
+		s.backToMenu()
+	case 'y':
+		s.payTavernLore()
+	}
+	// 其他鍵:原版 `call sub_29EEC` 迴圈繼續等,所以這裡什麼都不做。
+}
+
+// payTavernLore 收錢並說出線索。
+func (s *State) payTavernLore() {
+	sess := s.Shop
+	e := s.Lore.Entries[sess.LoreTopic]
+	// 金幣不夠:「Sorry, <隊長>」+ 0x146A。⚠ 原版比的是 `jle`,
+	// 所以**剛好等於價格是付得出來的**。
+	if s.Inventory.Gold < e.Price {
+		s.Log("「抱歉," + s.AvatarName())
+		if line := s.pitch(u5data.TavernLoreCannotAfford, 0, 0); line != "" {
+			s.Log(line)
+		}
+		s.backToMenu()
+		return
+	}
+	s.Inventory.Gold -= e.Price
+	// 四句模板隨機挑一句(原版 `random(0, 3)`),`&` 填人名、`*` 填地名。
+	say := u5data.TavernLoreSay[s.Roll(0, len(u5data.TavernLoreSay)-1)]
+	if line := s.loreSay(say, s.loreWho(e.Who), s.lorePlace(e.Where)); line != "" {
+		s.Log(line)
+	}
+	s.Log("—— " + s.Shop.Shop.Owner + "如是說。")
+	s.backToMenu()
+}
+
+// loreWho / lorePlace 有譯名就用譯名,沒有就照原樣顯示英文。
+func (s *State) loreWho(en string) string {
+	if zh := i18n.Name(en); zh != "" {
+		return zh
+	}
+	return en
+}
+
+func (s *State) lorePlace(en string) string { return s.loreWho(en) }
+
+// loreSay 取一句線索模板:& 填人名、* 填地名。
+func (s *State) loreSay(off int, who, place string) string {
+	if off == 0 || s.Shops == nil || s.Shop == nil {
+		return ""
+	}
+	return oneLine(s.Shops.SayWith(off, s.Shop.Shop, u5data.Placeholders{
+		Hour: s.Clock.Hour, Item: who, Place: place,
+		TimeWord: i18n.TimeOfDay(s.Clock.Hour),
+	}))
 }
