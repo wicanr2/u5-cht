@@ -46,7 +46,7 @@ func TestTalkFlowWithRealData(t *testing.T) {
 	}
 	s.X, s.Y = target.X, target.Y-1 // 站在他北邊,他就在南邊
 
-	s.Talk()
+	talkAround(s)
 	if s.Prompt != PromptTalk || s.Conv == nil {
 		t.Fatalf("按 T 沒有進入對話:%v", s.Messages)
 	}
@@ -152,7 +152,7 @@ func TestGwennoJoinsParty(t *testing.T) {
 	before := s.PartySize
 	seen := len(s.VisibleNPCs())
 
-	s.Talk()
+	talkAround(s)
 	if s.Conv == nil || s.Conv.Name != "Gwenno" {
 		t.Fatalf("沒跟 Gwenno 說到話:%v", s.Messages)
 	}
@@ -184,7 +184,7 @@ func TestGwennoYesNoBranch(t *testing.T) {
 			t.Fatal(err)
 		}
 		s.Clock.Hour = 12
-		s.Talk()
+		talkAround(s)
 		typeWord(s, "yew") // 這句的回應會拋出提問碼 0x91
 		if s.Prompt != PromptAnswer {
 			t.Fatalf("問 yew 之後沒有進入回答模式:%v", s.Messages)
@@ -207,7 +207,7 @@ func TestProfanityGetsRebuke(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Clock.Hour = 12
-	s.Talk()
+	talkAround(s)
 	typeWord(s, "damn")
 	if last := s.Messages[len(s.Messages)-1]; last != "「"+MsgFoulLanguage+"」" {
 		t.Errorf("罵髒話得到 %q,預期 %q", last, MsgFoulLanguage)
@@ -235,4 +235,23 @@ func realState(t *testing.T, dir string) *State {
 	s := &State{Scenes: scenes, NPCs: npcs, Talks: talks, MaxMessages: 64}
 	s.LoadFrom(sv)
 	return s
+}
+
+// talkAround 是測試用的便利函式。
+//
+// 原版的 Talk 會**先問方向**(見 `TalkToward`),而多數測試只關心
+// 「跟旁邊那個人說到話」,不關心方向選單。這裡四個方向試一輪。
+func talkAround(s *State) {
+	for _, d := range []Direction{North, East, South, West} {
+		s.Talk()
+		if !s.AwaitingDirection() {
+			return
+		}
+		s.AnswerDirection(d)
+		// 只要不是「無人在此」就當作談到了(可能進對話、進盤查,
+		// 也可能只是被回一句「滾開,害蟲!」)。
+		if len(s.Messages) > 0 && s.Messages[len(s.Messages)-1] != MsgNobodyHere {
+			return
+		}
+	}
 }

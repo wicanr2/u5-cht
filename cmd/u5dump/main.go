@@ -763,8 +763,29 @@ func playScript(st *game.State, script string) error {
 			st.Enter()
 		case 'K':
 			st.Klimb()
+		// `Tn` / `Ts` / `Te` / `Tw`:交談,後面接一個方向(原版會先問方向)。
+		// 沒接方向時四個方向試一輪 —— 舊腳本沿用。
 		case 'T':
-			st.Talk()
+			if i+1 < len(rs) {
+				if d, ok := scriptDirection(rs[i+1]); ok {
+					i++
+					st.Talk()
+					if st.AwaitingDirection() {
+						st.AnswerDirection(d)
+					}
+					break
+				}
+			}
+			for _, d := range []game.Direction{game.North, game.East, game.South, game.West} {
+				st.Talk()
+				if !st.AwaitingDirection() {
+					break
+				}
+				st.AnswerDirection(d)
+				if st.Prompt != game.PromptNone {
+					break
+				}
+			}
 		case 'B':
 			st.Board()
 		case 'X':

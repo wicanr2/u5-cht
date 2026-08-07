@@ -45,7 +45,7 @@ func allLogs(s *State) string { return strings.Join(s.Messages, "\n") }
 // 一般城鎮:每個活著的隊員 10 gp 貢金。
 func TestGuardDemandsTenGoldPerLivingMember(t *testing.T) {
 	s := guardScene(t, britain)
-	s.Talk()
+	talkAround(s)
 	if s.Prompt != PromptGuard {
 		t.Fatalf("跟攔路衛兵說話後 Prompt 是 %v,應該進盤查", s.Prompt)
 	}
@@ -68,7 +68,7 @@ func TestGuardDemandsTenGoldPerLivingMember(t *testing.T) {
 func TestDeadCompanionsPayNoTribute(t *testing.T) {
 	s := guardScene(t, britain)
 	s.Roster[2].Status = u5data.StatusDead
-	s.Talk()
+	talkAround(s)
 	if s.Guard == nil || s.Guard.Tribute != 20 {
 		t.Fatalf("兩個活人應該要 20 gp,實得 %+v", s.Guard)
 	}
@@ -77,7 +77,7 @@ func TestDeadCompanionsPayNoTribute(t *testing.T) {
 // 不付 → 當場逮捕。
 func TestRefusingTheTributeGetsThouArrested(t *testing.T) {
 	s := guardScene(t, britain)
-	s.Talk()
+	talkAround(s)
 	s.AnswerGuard(false)
 	if s.Prompt != PromptArrest {
 		t.Fatalf("拒繳之後 Prompt 是 %v,應該是 %v", s.Prompt, PromptArrest)
@@ -91,7 +91,7 @@ func TestRefusingTheTributeGetsThouArrested(t *testing.T) {
 func TestWillingButBrokeIsStillArrested(t *testing.T) {
 	s := guardScene(t, britain)
 	s.Inventory.Gold = 5
-	s.Talk()
+	talkAround(s)
 	s.AnswerGuard(true)
 	if s.Prompt != PromptArrest {
 		t.Fatalf("錢不夠時 Prompt 是 %v,應該還是被抓", s.Prompt)
@@ -104,7 +104,7 @@ func TestWillingButBrokeIsStillArrested(t *testing.T) {
 // 米諾克要的是一半家財,不是人頭稅。
 func TestMinocTakesHalfThyGold(t *testing.T) {
 	s := guardScene(t, u5data.GuardHalfGoldLocation)
-	s.Talk()
+	talkAround(s)
 	if s.Guard == nil || s.Guard.Tribute != 500 {
 		t.Fatalf("1000 gp 的一半應該是 500,實得 %+v", s.Guard)
 	}
@@ -115,7 +115,7 @@ func TestMinocTakesHalfThyGold(t *testing.T) {
 	// 而且不是人頭稅 —— 換個隊伍人數,金額不該變。
 	s2 := guardScene(t, u5data.GuardHalfGoldLocation)
 	s2.PartySize = 1
-	s2.Talk()
+	talkAround(s2)
 	if s2.Guard.Tribute != 500 {
 		t.Errorf("米諾克的金額不該隨人數變,實得 %d", s2.Guard.Tribute)
 	}
@@ -124,7 +124,7 @@ func TestMinocTakesHalfThyGold(t *testing.T) {
 // 黑棘的宮殿:沒戴徽章連問都不問。
 func TestNoBadgeMeansNoQuestionsJustArrest(t *testing.T) {
 	s := guardScene(t, u5data.BlackthornLocation)
-	s.Talk()
+	talkAround(s)
 	if s.Prompt == PromptGuard {
 		t.Fatal("沒戴徽章不該進到問密語那一步")
 	}
@@ -139,7 +139,7 @@ func TestTheBadgeBuysAQuestionNotAPass(t *testing.T) {
 	ask := func() *State {
 		s := guardScene(t, u5data.BlackthornLocation)
 		s.CombatMode = u5data.BadgeMode
-		s.Talk()
+		talkAround(s)
 		if s.Prompt != PromptGuard || s.Guard == nil || !s.Guard.Password {
 			t.Fatalf("戴著徽章應該被問密語,Prompt=%v Guard=%+v", s.Prompt, s.Guard)
 		}
@@ -195,7 +195,7 @@ func TestTheBadgeSharesItsByteWithCombatModeSpells(t *testing.T) {
 	s.CombatMode = u5data.BadgeMode
 	// 施一個戰鬥模式咒語會蓋掉徽章。
 	s.CombatMode = 'T' // An Tym
-	s.Talk()
+	talkAround(s)
 	if s.Prompt == PromptGuard {
 		t.Error("咒語蓋掉徽章之後,衛兵不該再問密語 —— 應該直接抓")
 	}
@@ -207,7 +207,7 @@ func TestBegoneVerminMakesThemFlee(t *testing.T) {
 	n := &s.npcs[1]
 	n.Creature = 0x50 // 一般居民(在 0x40..0x73 內)
 	n.Dialogue = u5data.DialogueSpecialFE
-	s.Talk()
+	talkAround(s)
 	if !strings.Contains(lastLog(s), "滾開") {
 		t.Errorf("訊息是 %q,應該是「滾開,害蟲!」", lastLog(s))
 	}
@@ -227,7 +227,7 @@ func TestOnlyPeopleFlee(t *testing.T) {
 	n := &s.npcs[1]
 	n.Creature = 0x20 // 動物 / 怪物
 	n.Dialogue = u5data.DialogueSpecialFE
-	s.Talk()
+	talkAround(s)
 	if n.Dialogue != u5data.DialogueSpecialFE {
 		t.Errorf("生物編號 0x20 不該被改成怕你,實得 %02X", n.Dialogue)
 	}

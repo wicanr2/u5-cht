@@ -86,6 +86,9 @@ const (
 	MsgGuardPass     = "「過去吧,朋友!」"
 	MsgBegoneVermin  = "「滾開,害蟲!」"
 
+	// 那個人在床上睡著(原版地形 0xAB → 「Zzzzzz」)。
+	MsgAsleep = "呼……呼……"
+
 	// 豎琴(原版 `sub_11E0`)。原版只發聲不印字。
 	MsgSecretDoor = "牆上有東西動了……"
 

@@ -200,3 +200,28 @@ func (s *NPCSet) At(num int) (*[NPCsPerLocation]NPC, error) {
 	}
 	return &s.Files[loc.SceneFile][(num-1)%8], nil
 }
+
+// 交談時「伸手夠得到」的地形(原版 `sub_1B18C`)
+//
+// 對面沒人時,如果中間隔的是這些東西,就**再往同一個方向看一格** ——
+// 櫃檯後面的店主、桌子對面的人都是這樣談到的。少了這一段,
+// 隔著櫃檯的店主根本叫不到。
+var TalkReachTiles = map[byte]bool{
+	0x29: true,
+	0x94: true, 0x95: true, 0x96: true, 0x97: true,
+	0x98: true, 0x99: true, 0x9A: true, 0x9B: true, 0x9C: true,
+	0xA5: true, 0xAE: true,
+	0xBA: true, 0xBB: true, 0xBE: true,
+	0xCA: true, 0xCB: true,
+}
+
+// TalkReaches 回報隔著這個地形談不談得到對面。
+func TalkReaches(tile byte) bool { return TalkReachTiles[tile] }
+
+// 交談時會擋下來的兩個地形(原版 `sub_1B658` 的 `cmp edx, 9Dh` / `0ABh`)。
+const (
+	// TileNoResponse 站著的人不理汝(0x9D)。
+	TileNoResponse = 0x9D
+	// TileAsleep 那個人在床上睡著(0xAB)—— 原版印「Zzzzzz」。
+	TileAsleep = 0xAB
+)

@@ -27,16 +27,39 @@ func (s *State) Talk() {
 		s.Log(MsgNobodyHere)
 		return
 	}
-	var found *VisibleNPC
-	for _, d := range []Direction{North, East, South, West} {
-		dx, dy := d.Delta()
-		if v, ok := s.NPCAt(s.X+dx, s.Y+dy); ok {
-			found = v
-			break
-		}
-	}
-	if found == nil {
+	// ⚠ 原版**先問方向**(`sub_1B658` 開頭的 `sub_2B2AC`),不是自己找四周。
+	// 差別在兩個人分別站在不同方向時 —— 由玩家決定跟誰說話。
+	s.AskDirection(func(d Direction) { s.TalkToward(d) })
+}
+
+// TalkToward 跟某個方向的人說話(原版 `sub_1B658` 選完方向之後那一段)。
+func (s *State) TalkToward(d Direction) {
+	if !s.InScene() {
 		s.Log(MsgNobodyHere)
+		return
+	}
+	dx, dy := d.Delta()
+	x, y := s.X+dx, s.Y+dy
+
+	// 對面沒人時,隔著櫃檯 / 桌子 / 窗口再看一格(原版 `sub_1B18C`)。
+	// 少了這一段,櫃檯後面的店主根本叫不到。
+	if _, ok := s.NPCAt(x, y); !ok && u5data.TalkReaches(s.TileAt(x, y)) {
+		x, y = x+dx, y+dy
+	}
+
+	found, ok := s.NPCAt(x, y)
+	if !ok {
+		s.Log(MsgNobodyHere)
+		return
+	}
+	// 兩個地形會把話擋下來,而且**在查對話號碼之前**就擋
+	//(原版 `sub_1B658` 的 `cmp edx, 9Dh` / `cmp edx, 0ABh`)。
+	switch s.TileAt(x, y) {
+	case u5data.TileNoResponse:
+		s.Log(MsgNoResponse)
+		return
+	case u5data.TileAsleep:
+		s.Log(MsgAsleep)
 		return
 	}
 	s.talkToNPC(found.Index)

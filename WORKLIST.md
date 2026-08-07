@@ -194,6 +194,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 |---|---|---|
 | 主選單 | `DATA.OVL` 0x3115:`Journey Onward / Create New Character / Transfer from Ultima IV / Ultima V Introduction / Acknowledgements / Return to the View` | ⬜ |
 | 存讀檔 | `SAVED.GAM` 4,192 B / `INIT.GAM`;`SAVED.OOL`;`sub_27D24`(讀)/ `sub_284CC`(寫) | ✅ **已實作**(`docs/re/07` + `docs/re/26` §6):可由原版存檔開局,寫回設定目錄的檔原版也讀得起來;未解欄位以讀進來的那份當底稿保留 |
+| **交談流程** | `sub_1B658` → `sub_1B18C`(伸手夠得到的地形)、`sub_1B52C` | ✅ **已補齊**(`docs/re/35` §6):先問方向、隔著櫃檯再看一格、地形 0x9D / 0xAB 擋話 |
 | **豎琴與暗門** | `sub_11E0`;音階 `dword_478C8`、曲子 `byte_4FC80` | ✅ **已實作**(`docs/re/35`):十鍵大調音階、十三音的曲子、KMP 式回退、不列顛王城堡二樓 (17,13) 的暗門 |
 | 指令系統 | `CMDS.OVL` 7,440 B | 🔶 已接:E 進入 / K 攀爬 / T 交談 / B・X 上下載具 / C 施法 / I 火把 / **Y 喊** / O 開箱 / **G 撿**;Look・Push 等未接 |
 | **Get(撿東西)** | `sub_15A94` → `sub_154BC`;地牢走 `sub_15930` + 三張表 `byte_55DD4/DDC/DE4` | ✅ **已實作**(`docs/re/33`):物件與地形兩條路、碎片 / 檀香木盒 / 王冠 / 權杖 / 寶珠 / 圖紙 / 魔毯、偷食物扣業報、盤子的方向規矩、地牢寶箱獎品(開箱與取物分兩步)。⬜ 藥水 / 卷軸 / 裝備三張表未接進背包 |
