@@ -171,4 +171,33 @@ const (
 	// "\nWhat town?\n" —— 原版在按下「進入」卻不站在地點上時的回應。
 	// 直譯「什麼城鎮?」在中文裡像在反問玩家,改成敘述句。
 	MsgNothingToEnter = "此處無可進入之地。"
+
+	// Look 指令(原版 `sub_D9C4` / `sub_D258` / `sub_CE78`)
+	//
+	// "\nThou dost see\n"
+	MsgThouDostSee = "汝所見為"
+	// "a deep well"。原版接著問「Drop a coin?」但**不管答什麼都沒有後續** ——
+	// 組語裡沒有任何寫入,所以這裡也不做成互動,一句話帶過。
+	MsgLookWell = "一口深井。"
+	// "a gurgling fountain!" / "Who will drink?" / "None!" /
+	// "Incapacitated!" / "Refreshing..."
+	//
+	// ⚠ 噴泉在原版**沒有療效**,只有這幾句話。不要補。
+	MsgFountain      = "一座汩汩作響的噴泉!"
+	MsgWhoWillDrink  = "何人飲之?"
+	MsgNobodyDrinks  = "無人飲用。"
+	MsgIncapacitated = "此人動彈不得。"
+	MsgRefreshing    = "沁涼舒暢……"
+	// "Strange vision!" / "Death vision!" —— 凝視水晶球的兩種結果。
+	MsgStrangeVision = "奇異的幻象!"
+	MsgDeathVision   = "死亡的幻象!"
+	// " AM.\n" / " PM.\n" —— 老爺鐘的時刻後綴。
+	MsgClockAM = " 上午。"
+	MsgClockPM = " 下午。"
+	// 招牌查不到時原版印的那一塊(`sub_D544(-1)`):寫死的「LIVE BY THE
+	// EIGHT LAWS」告示板。它是**預設值不是錯誤**,所以照樣印出來。
+	MsgSignDefault = "「謹遵八律而行」"
+	// "the sun!" / "the night sky! " —— 抬頭看天的兩種結果。
+	MsgTheSun   = "烈日當空!"
+	MsgNightSky = "滿天星斗!"
 )

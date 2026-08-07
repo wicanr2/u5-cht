@@ -159,6 +159,10 @@ type State struct {
 	Dungeon *DungeonState
 	// Moons 是月相表(DATA.OVL);可為 nil。
 	Moons *u5data.MoonPhases
+	// Look2 是 Look 指令的敘述表(LOOK2.DAT);可為 nil。
+	Look2 *u5data.LookTable
+	// Signs 是城鎮招牌與墓碑(SIGNS.DAT);可為 nil。
+	Signs *u5data.SignSet
 	// WindDelay 是 4 朝向 × 5 風的航行延遲表(DATA.OVL);可為 nil。
 	WindDelay *u5data.WindDelay
 	// Wind 是目前的風向(原版 byte_3E0A2),windTimer 是頂風的累計拍數。

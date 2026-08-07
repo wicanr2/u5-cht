@@ -15,8 +15,8 @@ import (
 //	MISCMSG.DAT    2,745 B  系統訊息      NUL 48 · LF 77
 //	ENDMSG.DAT       786 B  結局訊息      NUL 11 · LF 25
 //	SHOPPE.DAT    10,135 B  商店對白      NUL 195 + **大量高位元組(詞典 token)**
-//	LOOK2.DAT      3,622 B  觀察敘述      NUL 218 + 0x01–0x1F 控制碼 → 格式不同,另案
-//	SIGNS.DAT      8,364 B  城鎮招牌      u16 offset 表 + 用字元畫的框線 → 另案
+//	LOOK2.DAT      3,622 B  觀察敘述      u16 × 512 位移表 + NUL 字串 → 見 look.go
+//	SIGNS.DAT      8,364 B  城鎮招牌      u16 × 33 位移表 + 座標記錄 → 見 signs.go
 //
 // ⚠ **更正**:一開始記載「`|` 分隔記錄」,那是錯的 —— `STORY.DAT` 裡 0x7C 出現 **0 次**。
 // 錯誤來源是當初用 `strings … | tr '\n' '|'` 檢視輸出,`|` 是那個 `tr` 自己加的,

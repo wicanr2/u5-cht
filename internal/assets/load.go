@@ -42,6 +42,8 @@ type Bundle struct {
 	Spells    *u5data.SpellTable    // 咒語表(名稱 / 圈數 / 藥草 / 可施法場合)
 	Dungeons  *u5data.DungeonSet    // 八座地牢的地圖(DUNGEON.DAT)
 	Moons     *u5data.MoonPhases    // 月相表(DATA.OVL)
+	Look2     *u5data.LookTable     // Look 指令的敘述表(LOOK2.DAT)
+	Signs     *u5data.SignSet       // 城鎮招牌與墓碑(SIGNS.DAT)
 	WindDelay *u5data.WindDelay     // 航行延遲表(DATA.OVL)
 	DngRooms  *u5data.CombatMapSet  // 地牢房間(DUNGEON.CBT)
 	Objects   *u5data.ObjectSet     // 地表的地圖物件(BRIT.OOL)
@@ -205,6 +207,18 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("月相表:%v", err))
 	} else {
 		b.Moons = mp
+	}
+
+	if lk, err := u5data.LoadLook(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("Look 敘述表(LOOK2.DAT):%v", err))
+	} else {
+		b.Look2 = lk
+	}
+
+	if sn, err := u5data.LoadSigns(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("招牌(SIGNS.DAT):%v", err))
+	} else {
+		b.Signs = sn
 	}
 
 	if wd, err := u5data.LoadWindDelay(opts.GameData); err != nil {

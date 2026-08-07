@@ -379,6 +379,10 @@ func (g *game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
 			st.Talk()
 		}
+		// L 是原版的 Look:先問方向,再看那一格(LOOK2.DAT / SIGNS.DAT)。
+		if inpututil.IsKeyJustPressed(ebiten.KeyL) {
+			st.Look()
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 			st.Board()
 		}
@@ -517,6 +521,8 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		MiscMaps:     bundle.MiscMaps,
 		Dungeons:     bundle.Dungeons,
 		Moons:        bundle.Moons,
+		Look2:        bundle.Look2,
+		Signs:        bundle.Signs,
 		WindDelay:    bundle.WindDelay,
 		DungeonRooms: bundle.DngRooms,
 		Creatures:    bundle.Creatures,
