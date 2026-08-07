@@ -471,6 +471,10 @@ func (g *game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyS) {
 			st.Search()
 		}
+		// F 開砲(船上打舷側 / 陸上要緊鄰大砲)。
+		if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+			st.Fire()
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 			st.Board()
 		}

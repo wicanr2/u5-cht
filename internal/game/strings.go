@@ -224,6 +224,16 @@ const (
 	// "You have none!" —— 沒有寶石可看。
 	MsgYouHaveNone = "汝一顆也沒有!"
 
+	// Fire(F)與 Mix(M)。
+	MsgBroadsidesOnly       = "只能打舷側!"
+	MsgBooom                = "轟隆!"
+	MsgNoReagents           = "沒有藥草!"
+	MsgNoSuchSpell          = "沒有那個咒語。"
+	MsgInsufficientReagents = "藥草不足!"
+	MsgMixing               = "調配中……"
+	MsgMixDone              = "完成!"
+	MsgMixFailed            = "調配失敗 —— 藥草浪費了。"
+
 	// Use(U)—— 原版 `sub_1A5E8`。
 	MsgNoUsableItems    = "沒有可用的道具。"
 	MsgUseAmulet        = "戴上不列顛王的護符……"

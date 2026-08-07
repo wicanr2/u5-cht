@@ -608,17 +608,22 @@ func (s *State) Mix(spell, count int, reagents []int) bool {
 		}
 		picked |= u5data.ReagentBit(r)
 	}
-	// 份數受限於最少的那一種藥草。
+	// 藥草不夠就**拒絕**,不是把份數調低。
+	//
+	// ⚠ 原版 `sub_18698` 印「Insufficient reagents!」然後**重問一次份數** ——
+	// 它不會替玩家改成調得出來的份數。靜靜調低看起來很體貼,但玩家會以為
+	// 自己調到了要的份數,而實際上少了 —— 那種落差要等到施法時才發現。
 	for r := 0; r < u5data.ReagentCount; r++ {
 		if picked&u5data.ReagentBit(r) == 0 {
 			continue
 		}
-		if have := s.Inventory.Reagents[r]; have < count {
-			count = have
+		if s.Inventory.Reagents[r] < count {
+			s.Log(MsgInsufficientReagents)
+			return false
 		}
 	}
-	if count <= 0 {
-		s.Log("藥草不足。")
+	if picked == 0 {
+		s.Log(MsgInsufficientReagents)
 		return false
 	}
 	// ★ 先扣藥草 —— 配錯了也不退。

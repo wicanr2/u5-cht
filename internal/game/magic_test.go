@@ -51,18 +51,39 @@ func TestMixNeedsTheExactRecipe(t *testing.T) {
 	}
 }
 
-// TestMixLimitedByScarcestReagent:份數受限於最少的那一味。
-func TestMixLimitedByScarcestReagent(t *testing.T) {
+// TestMixRefusesWhenReagentsAreShort:藥草不足是**拒絕**,不是把份數調低。
+//
+// ⚠ 這條原本寫成「份數受限於最少的那一味」,而那是錯的。
+// 原版 `sub_18698`:要的份數超過任一種選中藥草的存量就印
+// 「Insufficient reagents!」、把 `var_4` 設 0,然後在 `loc_186F6`
+// `jz loc_1869F` **跳回去重問份數**。它不會替玩家改成調得出來的份數。
+//
+// 靜靜調低看起來很體貼,但玩家會以為自己調到了要的份數而實際上少了 ——
+// 那種落差要等到施法時才發現,而那時已經回推不了原因。
+func TestMixRefusesWhenReagentsAreShort(t *testing.T) {
 	s := magicState(t)
 	mani := s.Spells.Find("Mani")
 	s.Inventory.Spells[mani] = 0
 	s.Inventory.Reagents[u5data.ReagentGinseng] = 9
 	s.Inventory.Reagents[u5data.ReagentSpiderSilk] = 2
-	if !s.MixByRecipe(mani, 5) {
-		t.Fatalf("配不出來:\n%s", s.log())
+
+	if s.MixByRecipe(mani, 5) {
+		t.Error("蛛絲只有 2 份卻配出了 5 份")
+	}
+	if s.Inventory.Spells[mani] != 0 {
+		t.Errorf("配出 %d 份,該一份都沒有", s.Inventory.Spells[mani])
+	}
+	// 拒絕的時候**一株藥草都不該扣** —— 扣除發生在成敗判定之前,
+	// 但那是「份數已經確定」之後的事。
+	if s.Inventory.Reagents[u5data.ReagentGinseng] != 9 {
+		t.Errorf("被拒絕卻扣了人參:剩 %d", s.Inventory.Reagents[u5data.ReagentGinseng])
+	}
+	// 改成調得出來的份數就成功。
+	if !s.MixByRecipe(mani, 2) {
+		t.Fatalf("兩份該配得出來:\n%s", s.log())
 	}
 	if s.Inventory.Spells[mani] != 2 {
-		t.Errorf("配出 %d 份,蛛絲只有 2 份時上限就是 2", s.Inventory.Spells[mani])
+		t.Errorf("配出 %d 份,預期 2", s.Inventory.Spells[mani])
 	}
 	if s.Inventory.Reagents[u5data.ReagentGinseng] != 7 {
 		t.Errorf("人參剩 %d,預期 9 − 2 = 7", s.Inventory.Reagents[u5data.ReagentGinseng])
