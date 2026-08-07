@@ -12,6 +12,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -57,6 +58,8 @@ func main() {
 		err = cmdNPC(os.Args[2:])
 	case "town":
 		err = cmdTown(os.Args[2:])
+	case "cbt":
+		err = cmdCBT(os.Args[2:])
 	default:
 		fmt.Fprint(os.Stderr, usage)
 		os.Exit(2)
@@ -79,6 +82,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y]
   u5dump scenemaps     <場景檔.DAT> <U5_E> <out.png>  16 張 32×32 場景地圖
   u5dump town          <gamedata> <U5_E> <地名> <out.png>  依原版地點表進城,畫出每一層
+  u5dump cbt           <.CBT 檔> <U5_E> <out.png> [--max N]  戰鬥地圖 11×11 + 入場位置
                                                遊戲畫面 headless 截圖(純 CPU,不需 GPU)
 `
 
@@ -792,4 +796,82 @@ func cmdTown(args []string) error {
 		loc.Name, loc.DisplayName(), loc.X, loc.Y,
 		u5data.SceneFiles[loc.SceneFile], loc.SceneIndex, loc.FloorMax-loc.FloorMin+1, args[3])
 	return nil
+}
+
+// cmdCBT 把戰鬥地圖畫出來,並在格子上標出入場位置。
+//
+// 驗收方式:地形要看得出是草原 / 森林 / 沼澤 / 橋 這類戰場,
+// 而且隊員(藍框)聚在中間、敵人(紅框)散在外圍 —— 那是 U5 戰鬥的擺法。
+func cmdCBT(args []string) error {
+	if len(args) < 3 {
+		return fmt.Errorf("用法:u5dump cbt <.CBT 檔> <U5_E 目錄> <out.png> [--max N]")
+	}
+	max := 0
+	for i := 3; i+1 < len(args); i++ {
+		if args[i] == "--max" {
+			max, _ = strconv.Atoi(args[i+1])
+		}
+	}
+	tiles, err := u5data.LoadFMTownsTileSet(fmTownsTilePaths(args[1]))
+	if err != nil {
+		return err
+	}
+	set, err := u5data.LoadCombatMaps(args[0])
+	if err != nil {
+		return err
+	}
+	maps := set.Maps
+	if max > 0 && max < len(maps) {
+		maps = maps[:max]
+	}
+	const cell = u5data.TileSize
+	cols := 4
+	if len(maps) < cols {
+		cols = len(maps)
+	}
+	rows := (len(maps) + cols - 1) / cols
+	side := u5data.CombatSide * cell
+	img := image.NewNRGBA(image.Rect(0, 0, cols*(side+8), rows*(side+8)))
+	for i := range maps {
+		m := &maps[i]
+		ox, oy := (i%cols)*(side+8), (i/cols)*(side+8)
+		for y := 0; y < u5data.CombatSide; y++ {
+			for x := 0; x < u5data.CombatSide; x++ {
+				t := int(m.At(x, y))
+				if t < len(tiles) {
+					drawTileAt(img, &tiles[t], ox+x*cell, oy+y*cell)
+				}
+			}
+		}
+		for k := 0; k < u5data.CombatPartySlots; k++ {
+			outline(img, ox+int(m.PartyX[k])*cell, oy+int(m.PartyY[k])*cell, cell,
+				color.NRGBA{R: 80, G: 160, B: 255, A: 255})
+		}
+		for k := 0; k < u5data.CombatEnemySlots; k++ {
+			outline(img, ox+int(m.EnemyX[k])*cell, oy+int(m.EnemyY[k])*cell, cell,
+				color.NRGBA{R: 255, G: 80, B: 80, A: 255})
+		}
+	}
+	if err := writePNG(args[2], img); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %d 張戰鬥地圖 → %s(藍框=隊員入場、紅框=敵人入場)\n", len(maps), args[2])
+	return nil
+}
+
+func drawTileAt(dst *image.NRGBA, t *u5data.Tile, ox, oy int) {
+	for y := 0; y < u5data.TileSize; y++ {
+		for x := 0; x < u5data.TileSize; x++ {
+			dst.SetNRGBA(ox+x, oy+y, u5data.EGAPalette[t.At(x, y)])
+		}
+	}
+}
+
+func outline(dst *image.NRGBA, ox, oy, n int, c color.NRGBA) {
+	for i := 0; i < n; i++ {
+		dst.SetNRGBA(ox+i, oy, c)
+		dst.SetNRGBA(ox+i, oy+n-1, c)
+		dst.SetNRGBA(ox, oy+i, c)
+		dst.SetNRGBA(ox+n-1, oy+i, c)
+	}
 }
