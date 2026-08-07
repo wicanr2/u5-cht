@@ -319,6 +319,10 @@ func (s *State) spellEffect(caster, spell int) bool {
 
 	case SpellAnSanct: // 解陷阱 / 開箱 / 開鎖
 		return s.disarmOrUnlock()
+	case SpellRelHur: // 改風向 —— 原版問方向
+		s.AskDirection(func(d Direction) { s.ChangeWind(d) })
+		return true
+
 	case SpellInExPor: // 開鎖 —— 原版問方向
 		s.AskDirection(func(d Direction) { s.UnlockAhead(d) })
 		return true

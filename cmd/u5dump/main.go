@@ -406,7 +406,7 @@ func cmdScene(args []string) error {
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
 		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Items: bundle.Items,
 		CombatMaps: bundle.Combat, Creatures: bundle.Creatures, Stats: bundle.Stats,
-		Spells: bundle.Spells, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons,
+		Spells: bundle.Spells, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
 		Objects: bundle.Objects, UnderObjects: bundle.UnderObjs,
 		Clock: game.NewClock(), MaxMessages: 8,
 	}

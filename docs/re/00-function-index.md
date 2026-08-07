@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **388** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **395** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -18,6 +18,7 @@
 | `sub_1678` | 0  /  空槽  /  `sub_1678` 清表寫 0;`sub_118CC` 用 `!= 0` 找空槽  / | `11-map-objects.md` |
 | `sub_1DC8` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md` |
 | `sub_23FC` | 船的四個朝向 tile 0x2C..0x2F 確實存在(`sub_23FC` 的轉向),但那是 | `11-map-objects.md` |
+| `sub_2D38` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md` |
 | `sub_3ED0` | `sub_3F34(±1)` → `sub_3ED0(目標層, 1)`: | `18-dungeons.md` |
 | `sub_3F34` | Uus Por / Des Por  /  `sub_3F34(∓1, 1)`  /  地牢上 / 下一層  / | `17-magic.md`, `18-dungeons.md` |
 | `sub_417C` | 對落點 `or 8`。而 `sub_417C` 的 Klimb 往上就是看這一位元 —— 外加 | `18-dungeons.md` |
@@ -145,6 +146,7 @@
 | `sub_1CA0C` | 原版問「Spell name:」,玩家把**上古語**打進去(`sub_1CA0C`)。 | `17-magic.md` |
 | `sub_1CC50` | 原版每個要方向的咒語都先呼叫 `sub_1CC50`(印「Direction-」讀一個方向鍵)。 | `17-magic.md`, `20-projectiles.md`, `21-chests-fields-locks.md` |
 | `sub_1CD3C` | Mani  /  `sub_1CD3C`  /  回 **1..30**(與命中骰同一顆 `sub_2B724`),上限 MaxHP,死人無效  / | `17-magic.md` |
+| `sub_1CDA4` | Rel Hur 的跳表(`sub_1CDA4`)把方向鍵換成風值,對應就是上表。 | `23-wind-and-sailing.md` |
 | `sub_1CE0C` | Wis An Ylem(顯示地圖,`sub_1CE0C`)、In Quas Xen(幻影,`sub_196A4`)、 | `17-magic.md` |
 | `sub_1CE70` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md` |
 | `sub_1CFC8` | In Mani Corp  /  `sub_1CFC8`  /  復活(對活人印「Not dead!」)  / | `17-magic.md` |
@@ -196,6 +198,7 @@
 | `sub_2A610` | case 2: return (tile & 0xF0) == 0x60  /  /  sub_2A674(tile)  /  /  sub_2A610(mover, tile);  // 水陸兩棲 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md` |
 | `sub_2A674` | tile 0 為何被歸進「水」  /  `sub_2A674` 的 `tile < 4` 把 0 併進來。**視覺上 tile 0 根本不是水**(算繪出來是一團紅黃爆裂圖案,tile 1–3 才是藍色水面),所以這不是… | `02-movement-and-tile-flags.md` |
 | `sub_2A694` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md` |
+| `sub_2A984` | sub_2A984(風)   設 byte_3E0A2,把變化計時器 byte_3E093 歸零 | `23-wind-and-sailing.md` |
 | `sub_2B360` | obj  = sub_2B360(x+dx, y+dy, 樓層);      // 這一格有沒有 NPC / 物件 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md` |
 | `sub_2B3DC` | 別的 NPC  /  離目標 **≥ 4 格**才算障礙  /  `sub_2B3DC`:有人就是不能走  / | `12-npc-movement.md` |
 | `sub_2B710` | `sub_2B710(60)` → `sub_28E14(0, 60)`,而 `sub_28E14` 算範圍時是 | `15-combat-formulas.md` |
@@ -209,6 +212,7 @@
 | `sub_2C740` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `11-map-objects.md`, `14-combat-maps.md`, `18-dungeons.md` |
 | `sub_2CBEC` | An Ylem(`sub_18C00` 的 32-case 消除表)、In Por(瞬移,`sub_2CBEC`)、 | `17-magic.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md` |
+| `sub_2D2D0` | (`sub_2D2D0` 的 `switch (風 − 1)`)算 (dx, dy) 讀出來的: | `23-wind-and-sailing.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md` |
 | `sub_2D72C` | (其餘地點的編號要把 `sub_2D72C` 的每個 case 讀完才齊。) | `03-scene-entry-and-tile-semantics.md` |
 | `sub_2E364` | 地點 > 0x7F      → 測 0x01   戰鬥中(sub_2E364 把 byte_3E0A3 設成 −1) | `16-combat-turns-and-ai.md`, `17-magic.md` |
@@ -269,12 +273,14 @@
 | `byte_3E08F` | `@` 0x40  /  `byte_3E08F`  /  時段:< 12 morning、< 18 afternoon、其餘 evening  / | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md` |
 | `byte_3E091` | byte_3E091 分   += minutes;  > 59 → 減 60 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E092` | 每 10 個單位行動 = 遊戲內 1 分鐘**(`byte_3E092` 數到 10 → `sub_29304(1)`)。 | `16-combat-turns-and-ai.md` |
+| `byte_3E093` | sub_2A984(風)   設 byte_3E0A2,把變化計時器 byte_3E093 歸零 | `23-wind-and-sailing.md` |
 | `byte_3E095` | byte_3E095 = byte_41142[日 * 2]      ← 特拉梅爾 Trammel | `22-moongates.md` |
 | `byte_3E096` | byte_3E096 = byte_41143[日 * 2]      ← 費盧卡 Felucca | `22-moongates.md` |
 | `byte_3E098` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md`, `19-levelup.md` |
 | `byte_3E09E` | An Tym  /  `sub_198E0`  /  `byte_3E08A = 'T'`、`byte_3E09E = 10`  / | `17-magic.md` |
 | `byte_3E09F` | 判斷依據是 cdecl 的壓棧順序:`push esi(武器); push -byte_3E09F; | `15-combat-formulas.md` |
 | `byte_3E0A0` | 傷害減半(0x0020)      → 除以 2(除非 byte_3E0A0 成立,那個旗標還沒解) | `16-combat-turns-and-ai.md` |
+| `byte_3E0A2` | sub_2A984(風)   設 byte_3E0A2,把變化計時器 byte_3E093 歸零 | `23-wind-and-sailing.md` |
 | `byte_3E0A3` | esi = byte_3E0A3 >> 3            ; 檔案 = {TOWNE,DWELLING,CASTLE,KEEP}.NPC[(編號-1)/8] | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `17-magic.md`, `18-dungeons.md` |
 | `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `18-dungeons.md` |
 | `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md` |
@@ -370,6 +376,7 @@
 | `dword_41794` | 它對 `b >= 0x80` 查 `dword_41794[b*4]`,而 `0x41794 + 0x80*4 = 0x41994`, | `05-text-compression.md`, `08-shops.md` |
 | `dword_41990` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_1C3F8`(展開)與 `dword_41990`(槽表); | `05-text-compression.md`, `08-shops.md` |
 | `dword_41D28` | │    └─ 啟動初始化:載 towns.fnt(17,280 B → dword_41D28)與 u5.fnt(0x4000 B → dword_4FFB8); | `01-tileset-and-dot16-loader.md` |
+| `dword_4FD50` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md` |
 | `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md` |
 | `dword_552C4` | mov  ax, word ptr dword_552C4[edi*4]  ; base | `10-shop-prices-and-trade.md` |
 | `dword_553CC` | `dword_553CC[店種][4]` 是四句問候語在 `SHOPPE.DAT` 裡的**位元組位移**, | `08-shops.md` |

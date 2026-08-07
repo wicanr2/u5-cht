@@ -135,6 +135,11 @@ type State struct {
 	Dungeon *DungeonState
 	// Moons 是月相表(DATA.OVL);可為 nil。
 	Moons *u5data.MoonPhases
+	// WindDelay 是 4 朝向 × 5 風的航行延遲表(DATA.OVL);可為 nil。
+	WindDelay *u5data.WindDelay
+	// Wind 是目前的風向(原版 byte_3E0A2),windTimer 是頂風的累計拍數。
+	Wind      int
+	windTimer int
 	// Moongates 是八個月相各自的目的地(從存檔讀進來)。
 	Moongates [u5data.MoonPhaseCount]u5data.MoongateDest
 	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。
@@ -456,6 +461,11 @@ func (s *State) moveInWorld(d Direction) {
 	}
 	if u5data.TileBlocksWalking(int(s.TileAt(nx, ny))) {
 		s.Log(MsgBlocked)
+		return
+	}
+	// 駕船時風向決定走不走得動(原版 `sub_2D38` 的延遲表)。
+	if s.IsSailing() && !s.InScene() && !s.CanSail(dx, dy) {
+		s.tick()
 		return
 	}
 	s.X, s.Y = nx, ny
