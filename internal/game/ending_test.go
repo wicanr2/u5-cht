@@ -257,8 +257,10 @@ func TestStandingBelowACastleGateEndsTheGame(t *testing.T) {
 		t.Fatal("開不了戰鬥")
 	}
 	c := s.Combat
-	// 把城門放在 (5,1),讓第一個行動的單位站到 (5,2)。
-	c.Map.Tiles[1][5] = 0x3E
+	// 把一個疊圖位元組落在 0x3C..0x3F 的單位放在 (5,1),
+	// 讓第一個行動的單位站到它正南。
+	// ⚠ 查的是**疊圖層**(物件 / 單位),不是地形 —— 見 docs/re/34 §4。
+	putOverlay(c, 31, 0x3E, 5, 1)
 	u := &c.Units[c.Turn]
 	u.X, u.Y = 5, u5data.AbsorbRow
 	if !s.checkAbsorbed() {
@@ -287,15 +289,20 @@ func TestTheAbsorbCheckLooksNorthNotUnderfoot(t *testing.T) {
 	}
 	s.beginRoomCombat(&s.CombatMaps.Maps[0], 0)
 	c := s.Combat
-	// 城門放在單位**腳下**那一格 → 不該觸發。
-	c.Map.Tiles[u5data.AbsorbRow][5] = 0x3E
+	// 地形是城門**不算** —— 疊圖層與地形是兩層,原版查的是疊圖層。
+	c.Map.Tiles[1][5] = 0x3E
 	u := &c.Units[c.Turn]
 	u.X, u.Y = 5, u5data.AbsorbRow
 	if s.checkAbsorbed() {
-		t.Error("腳下是城門不該觸發 —— 查的是正北那一格")
+		t.Error("地形是城門不該觸發 —— byte_3F844 是疊圖層,地形進不去")
+	}
+	// 疊圖在腳下那一格也不算。
+	putOverlay(c, 31, 0x3E, 5, u5data.AbsorbRow+1)
+	if s.checkAbsorbed() {
+		t.Error("正南有疊圖不該觸發 —— 查的是正北")
 	}
 	// 列數不是 2 也不算。
-	c.Map.Tiles[3][5] = 0x3E
+	c.Units[31].X, c.Units[31].Y = 5, 3
 	u.Y = 4
 	if s.checkAbsorbed() {
 		t.Error("第 4 列不該觸發 —— 原版寫死了第 2 列")
@@ -313,5 +320,16 @@ func TestAbsorbTileGroup(t *testing.T) {
 		if u5data.AbsorbTile(t2) {
 			t.Errorf("%02X 不該算城堡", t2)
 		}
+	}
+}
+
+// putOverlay 在戰場某一槽塞一個單位,用來造出疊圖層的內容。
+//
+// 原版的疊圖是 `byte_3F844`(物件與 NPC 的 tile 位元組畫上去);
+// 本引擎在戰鬥中的等價物就是站在那一格的單位。
+func putOverlay(c *Combat, slot int, kind byte, x, y int) {
+	c.Units[slot] = Combatant{
+		Roster: -1, Creature: -1, Kind: kind, X: x, Y: y, HP: 5,
+		Flags: UnitMonster,
 	}
 }

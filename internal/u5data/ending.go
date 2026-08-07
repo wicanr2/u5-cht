@@ -123,5 +123,10 @@ const (
 	AbsorbTileGroup = 0x3C
 )
 
-// AbsorbTile 回報這個地形會不會把站在它南邊的人吸進去。
+// OverlayEmpty 是疊圖層的空值(原版 `sub_29D64` / `sub_C778` 用 `rep stosd` 填的 0xFF)。
+//
+// ★ `0xFF & 0xFC = 0xFC`,剛好不等於 0x3C —— 空格不會誤觸吸收判定。
+const OverlayEmpty = 0xFF
+
+// AbsorbTile 回報疊圖層的這個位元組會不會把站在它南邊的人吸進去。
 func AbsorbTile(t byte) bool { return t&0xFC == AbsorbTileGroup }

@@ -208,16 +208,18 @@ func elapsedText(years, months, days int) string {
 
 // checkAbsorbed 是 `sub_161E4`:每個單位行動完檢查一次。
 //
-// 條件見 `u5data.AbsorbRow` / `AbsorbTile` —— 活著的單位站在戰場第 2 列、
-// **正北**那一格是城堡外牆或城門,就會被「吸收」,而戰鬥結束時
-// (`sub_42CC` 與 `sub_163B0` 兩處都查 `byte_3E0B0 == 'M'`)播結局。
+//	活著的單位站在第 2 列,而**正北**那一格的疊圖是 0x3C..0x3F → 被吸收 → 結局
 //
-// ⚠ **目前引擎的戰場地形全部來自 `BRIT.CBT` / `DUNGEON.CBT` 的固定地圖,
-// 而那兩個檔一格 0x3C..0x3F 都沒有**(全檔掃過:BRIT.CBT 0 次,
-// DUNGEON.CBT 唯一一次落在第 111 張的中繼資料區,不在 11×11 的格子裡)。
-// 城堡地形只存在於**世界地圖**,所以這條規則要真的能觸發,
-// 得先做「在野外開打時用周遭地形當場組戰場」那條路(原版 `sub_295AC`)。
-// 那一段還沒逆完 —— 規則先照原版放進來,並在 docs/re/34 記下缺口。
+// ★ 查的是**疊圖層**(原版 `byte_3F844`),不是地形。這一點繞了兩圈才確定,
+// 見 `docs/re/34` §4:那個緩衝區由 `sub_29D64` / `sub_C778` 整塊填 0xFF,
+// 只有三種東西進得去 —— 石室地圖(`MISCMAPS.DAT` 整份載入)、
+// 物件與 NPC 的 tile 位元組(`sub_295AC` / `sub_297F4` 逐格畫上去)。
+// **世界地圖與戰場的地形從來不進這個緩衝區。**
+//
+// ⚠⚠ **以出貨的資料而言這一條打不到**(`docs/re/34` §5 逐項掃過):
+// 四張石室沒有 0x3C..0x3F、四份 `.OOL` 沒有、`.NPC` 的生物編號也沒有。
+// 規則照原版放進來,但它在這個版本是**死碼** —— 這不是引擎缺東西,
+// 是原版自己就走不到。真結局目前只能由王座廳那一幕直接進入。
 func (s *State) checkAbsorbed() bool {
 	c := s.Combat
 	if c == nil || c.Over || c.Turn < 0 || c.Turn >= len(c.Units) {
@@ -227,7 +229,7 @@ func (s *State) checkAbsorbed() bool {
 	if !u.Active() || u.Y != u5data.AbsorbRow {
 		return false
 	}
-	if !u5data.AbsorbTile(c.Map.At(u.X, u5data.AbsorbRow-1)) {
+	if !u5data.AbsorbTile(s.absorbOverlayAt(u.X, u5data.AbsorbRow-1)) {
 		return false
 	}
 	s.Log(s.unitName(u) + MsgIsAbsorbed)
@@ -235,4 +237,21 @@ func (s *State) checkAbsorbed() bool {
 	s.EndCombat(true)
 	s.BeginEnding()
 	return true
+}
+
+// absorbOverlayAt 回傳疊圖層在 (x, y) 的位元組(原版 `byte_3F844[y*16 + x]`)。
+//
+// 空的是 0xFF —— 與原版 `rep stosd` 填的初值相同,而 `0xFF & 0xFC = 0xFC`
+// 剛好不會誤觸 0x3C 那一組。
+func (s *State) absorbOverlayAt(x, y int) byte {
+	if s.Chamber != nil {
+		// 石室是整份載進疊圖層的。
+		return s.chamberTileAt(x, y)
+	}
+	if c := s.Combat; c != nil {
+		if u, ok := c.CombatUnitAt(x, y); ok {
+			return u.Kind
+		}
+	}
+	return u5data.OverlayEmpty
 }
