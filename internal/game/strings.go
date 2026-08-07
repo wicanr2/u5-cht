@@ -205,6 +205,16 @@ const (
 	MsgSlowProgress = "步履維艱!"
 	MsgVerySlow     = "寸步難行!"
 
+	// Push 指令(原版 `sub_18154`)。
+	// "Pushed!" / "Pulled!" / "Won't budge!"
+	MsgPushed    = "推開了!"
+	MsgPulled    = "拉過來了!"
+	MsgWontBudge = "紋風不動!"
+
+	// 主選單裡還沒實作的兩項 —— 照實說,不要做一個假裝有用的分支。
+	MsgTransferNotImplemented        = "(從創世紀 IV 轉入尚未實作 —— 轉換規則未逆)"
+	MsgAcknowledgementsNotImplemented = "(製作群畫面尚未實作 —— 原版是一張圖,素材未對到)"
+
 	// 建立新角色(原版主選單的 `Create New Character`)。
 	MsgCreateName   = "汝之名為何?"
 	MsgCreateGender = "汝為男(M)或女(F)?"

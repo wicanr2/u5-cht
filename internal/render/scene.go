@@ -78,11 +78,41 @@ func (s *Scene) Render() *image.NRGBA {
 		s.drawIntro(dst)
 		return dst
 	}
+	// 主選單也佔滿整個畫面 —— 原版是在那張「窗外景色」上疊選單,
+	// 這一層還沒有那張圖,先用單獨一頁,不要疊在地圖上讓玩家分心。
+	if s.State != nil && s.State.InMainMenu() {
+		s.drawMainMenu(dst)
+		s.drawHints(dst)
+		return dst
+	}
 	s.drawMapView(dst)
 	s.drawPanel(dst)
 	s.drawMessages(dst)
 	s.drawHints(dst)
 	return dst
+}
+
+// drawMainMenu 畫主選單的六個項目。游標那一項前面加箭頭 ——
+// 反白需要另一套繪製路徑,而箭頭在點陣字下反而更清楚。
+func (s *Scene) drawMainMenu(dst *image.NRGBA) {
+	if s.Text == nil || s.State.Menu == nil {
+		return
+	}
+	const top = 96
+	s.Text.Draw(dst, MapOriginX, top-LineHeight*2, "創世紀 V:命運勇士")
+	for i, label := range game.MenuLabels {
+		mark := "  "
+		if game.MenuItem(i) == s.State.Menu.Cursor {
+			mark = "→"
+		}
+		s.Text.Draw(dst, MapOriginX, top+i*LineHeight, mark+label)
+	}
+	// 選了未實作的項目時訊息會留在 Messages 裡 —— 選單頁沒有訊息欄,
+	// 所以在這裡把最後一句畫出來,不然玩家按了 Enter 完全沒有反應。
+	if n := len(s.State.Messages); n > 0 {
+		s.Text.Draw(dst, MapOriginX, top+int(game.MenuItemCount)*LineHeight+LineHeight,
+			s.State.Messages[n-1])
+	}
 }
 
 func (s *Scene) drawMapView(dst *image.NRGBA) {
@@ -250,6 +280,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "Y 付 / N 不付"
 	case game.PromptCreate:
 		hint = creationHint(s.State)
+	case game.PromptMenu:
+		hint = "↑↓ 移動,Enter 選定"
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
 		}

@@ -171,6 +171,24 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 主選單:上下移動、Enter 選定、ESC 收起(等同「回到景色」)。
+	if st.Prompt == gamestate.PromptMenu {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowUp):
+			st.MenuMove(-1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowDown):
+			st.MenuMove(1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.MenuChoose()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.MenuMove(int(gamestate.MenuReturnToView) - int(st.Menu.Cursor))
+			st.MenuChoose()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 建立新角色:開場白 / 結語按任意鍵,七題只收 A / B,名字打字,性別 M / F。
 	if st.Prompt == gamestate.PromptCreate {
 		switch st.Create.Stage {
@@ -420,6 +438,10 @@ func (g *game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyL) {
 			st.Look()
 		}
+		// P 是原版的 Push:推家具,推不動就改拉。
+		if inpututil.IsKeyJustPressed(ebiten.KeyP) {
+			st.Push()
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 			st.Board()
 		}
@@ -503,7 +525,8 @@ func main() {
 	showVersion := flag.Bool("version", false, "印出版本後結束")
 	playIntro := flag.Bool("intro", false, "強制播開場動畫(沒有存檔時本來就會播)")
 	newChar := flag.Bool("create", false,
-		"走建角流程(吉普賽的七題八德),覆寫載入的那名聖者")
+		"直接走建角流程(吉普賽的七題八德),覆寫載入的那名聖者")
+	showMenu := flag.Bool("menu", false, "開機先進主選單(原版的六個項目)")
 	flag.Parse()
 
 	if *showVersion {
@@ -599,6 +622,8 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	// ⚠ 開場動畫還在播的時候不能同時建角,兩者都吃「任意鍵」。
 	if *newChar && st.Prompt == gamestate.PromptNone {
 		st.BeginCreation()
+	} else if *showMenu && st.Prompt == gamestate.PromptNone {
+		st.BeginMainMenu()
 	}
 
 	g := &game{

@@ -127,6 +127,8 @@ const (
 	PromptYell
 	// PromptCreate 是建立新角色:吉普賽的七題、打名字、選性別。
 	PromptCreate
+	// PromptMenu 是主選單:上下移動、Enter 選定。
+	PromptMenu
 	// PromptGuard 是衛兵的盤查:多數地方是 Y / N(要不要繳),
 	// 黑棘的宮殿是打字答密語。
 	PromptGuard
@@ -302,6 +304,8 @@ type State struct {
 	Question *u5data.TextFile
 	// Create 是進行中的建角(Prompt == PromptCreate 時有效)。
 	Create *Creation
+	// Menu 是進行中的主選單(Prompt == PromptMenu 時有效)。
+	Menu *MainMenu
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
 	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。
