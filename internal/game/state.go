@@ -161,6 +161,10 @@ type State struct {
 	// sceneObjects 是場景裡的物件槽;進場景時清空(原版 sub_1678)。
 	sceneObjects *u5data.ObjectSet
 
+	// rtNPCs 是 NPC 的執行期狀態(原版 word_3E770)。位置由它決定,
+	// 不是每次現算排程 —— NPC 是一步一步走過去的。
+	rtNPCs []RuntimeNPC
+
 	scene *u5data.SceneMap                    // 目前這一層的場景地圖快取
 	npcs  *[u5data.NPCsPerLocation]u5data.NPC // 目前地點的 NPC 槽
 }
@@ -244,12 +248,14 @@ type VisibleNPC struct {
 
 // VisibleNPCs 回傳此時此層看得到的 NPC。
 //
-// 位置完全由排程 + 時鐘決定(原版就是這樣:sub_9C7C 拿當前小時去挑 slot)。
-// NPC 走路的動畫與尋路是另一回事 —— 原版每回合會讓 NPC 往目標移動一步,
-// 這裡先直接放到排程位置。
+// 位置取自**執行期狀態**(原版 word_3E770),不是每次拿時鐘現算排程 ——
+// NPC 是一步一步走向排程位置的,中途會停在路上。
 func (s *State) VisibleNPCs() []VisibleNPC {
 	if !s.InScene() || s.npcs == nil {
 		return nil
+	}
+	if len(s.rtNPCs) != u5data.NPCsPerLocation {
+		s.initRuntimeNPCs()
 	}
 	var out []VisibleNPC
 	for i := range s.npcs {
@@ -260,11 +266,14 @@ func (s *State) VisibleNPCs() []VisibleNPC {
 		if !n.Present() || s.removed[s.Location<<8|i] {
 			continue
 		}
-		x, y, floor := n.At(s.Clock.Hour)
-		if floor != s.Floor || x < 0 || x >= u5data.SceneSide || y < 0 || y >= u5data.SceneSide {
+		rt := &s.rtNPCs[i]
+		if rt.Mode == ModeAbsent || rt.Floor != s.Floor {
 			continue
 		}
-		out = append(out, VisibleNPC{Index: i, X: x, Y: y, Tile: n.TileIndex(), NPC: n})
+		if rt.X < 0 || rt.X >= u5data.SceneSide || rt.Y < 0 || rt.Y >= u5data.SceneSide {
+			continue
+		}
+		out = append(out, VisibleNPC{Index: i, X: rt.X, Y: rt.Y, Tile: n.TileIndex(), NPC: n})
 	}
 	return out
 }
@@ -291,8 +300,14 @@ func (s *State) loadNPCs() {
 	}
 }
 
-// tick 推進遊戲時間。原版一般行動每回合 1 分鐘(sub_1DC8 → sub_29304(1))。
-func (s *State) tick() { s.Clock.Advance(MinutesPerTurn) }
+// tick 推進遊戲時間,然後讓 NPC 走一回合。
+//
+// 原版一般行動每回合 1 分鐘(sub_1DC8 → sub_29304(1)),之後才輪到
+// `sub_9690` 讓 NPC 動。順序不能反 —— NPC 的模式判定要看新的小時。
+func (s *State) tick() {
+	s.Clock.Advance(MinutesPerTurn)
+	s.advanceNPCs()
+}
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。
 func (s *State) InScene() bool { return s.Location != 0 }
@@ -491,7 +506,11 @@ func (s *State) Enter() {
 	s.Floor = 0
 	s.X, s.Y = SceneEntryX, SceneEntryY
 	s.scene = m
+	s.sceneObjects = &u5data.ObjectSet{}
 	s.loadNPCs()
+	// 原版 sub_8924 只在**進場景**時建立執行期狀態;換樓層不重建
+	// (NPC 還在原本走到的位置上,只是玩家換層了)。
+	s.initRuntimeNPCs()
 	s.Log("進入" + loc.DisplayName() + "。")
 }
 
@@ -523,6 +542,8 @@ func (s *State) leaveScene() {
 	s.Location = 0
 	s.scene = nil
 	s.npcs = nil
+	s.rtNPCs = nil
+	s.sceneObjects = nil
 	if underworld {
 		s.Floor = -1
 		s.Log(MsgExitTo + MsgUnderworld)
@@ -591,5 +612,6 @@ func (s *State) SetScene(num, floor, x, y int) error {
 	// 進場景要清空物件槽(原版 sub_1678 把槽 1..31 歸零再載入場景)。
 	s.sceneObjects = &u5data.ObjectSet{}
 	s.loadNPCs()
+	s.initRuntimeNPCs()
 	return nil
 }

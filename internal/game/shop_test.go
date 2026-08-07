@@ -35,6 +35,10 @@ func shopState(t *testing.T, location int) *State {
 	if err != nil {
 		t.Fatal(err)
 	}
+	npcs, err := u5data.LoadNPCSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sur, und, err := u5data.LoadWorldObjects(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +62,7 @@ func shopState(t *testing.T, location int) *State {
 		t.Fatal(err)
 	}
 	s := &State{
-		Shops: shops, Items: items, Scenes: scenes, World: world,
+		Shops: shops, Items: items, Scenes: scenes, World: world, NPCs: npcs,
 		Objects: sur, UnderObjects: und,
 		Clock: NewClock(), MaxMessages: 64,
 	}
