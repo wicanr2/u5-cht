@@ -61,6 +61,13 @@ func cmdTalkWork(args []string) error {
 		for i := range tf.Records {
 			r := &tf.Records[i]
 			c := u5data.ParseConversation(r, set.Dict)
+			// ★ 讓玩家名字的位置在工作單上**看得見**。
+			//
+			// 不設的話 opcode 0x81 展開成空的,工作單上是
+			// `A fine day to thee, .` —— 譯者看不出那裡有個名字要留,
+			// 譯文就把它吃掉了(第 05 批真的發生了)。用 `%A` 當標記,
+			// 與譯文表的寫法一致,譯者照抄就對。
+			c.AvatarName = i18n.AvatarToken
 			var ja [][]byte
 			if jf != nil {
 				if jr, ok := recordByID(jf, r.NPCIndex); ok {

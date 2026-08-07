@@ -136,10 +136,12 @@ def main() -> None:
             if c in zh:
                 bad.append("%s:用了半形標點 %r → %s" % (k, c, zh))
                 break
-        if ("%A" in zh) != ("%A" in en or "<名字>" in en):
-            # 英文那邊玩家名字已經被展開成佔位字串,所以只在譯文多打時抓。
-            if "%A" in zh:
-                bad.append("%s:譯文多了 %%A(原文沒有玩家名字)→ %s" % (k, zh))
+        # `%A` 要**兩邊一致**。原本只查「多打」,漏了「少打」——
+        # 而少打才是會被看見的那一種:招呼語裡的玩家名字整個不見了。
+        if "%A" in en and "%A" not in zh:
+            bad.append("%s:原文有玩家名字 %%A,譯文漏了 → %s" % (k, zh))
+        if "%A" not in en and "%A" in zh:
+            bad.append("%s:譯文多了 %%A(原文沒有玩家名字)→ %s" % (k, zh))
         if not has_cjk(zh) and any(ch.isalpha() for ch in en):
             bad.append("%s:整段沒有中文,像是漏翻 → %s" % (k, zh))
         if has_kana(zh):
@@ -153,7 +155,12 @@ def main() -> None:
         for term, want_zh in glossary.items():
             if want_zh in zh:
                 continue
-            if re.search(r"\b%ss?\b" % re.escape(term), en):
+            # ⚠ **句首的大寫不算專有名詞。** 英文每一句的第一個字都大寫,
+            # 於是 `Guard it well!` 的 `Guard` 會被當成生物名「衛兵」
+            # (實際誤報過)。要求它**不在句首**:前面得是字母、逗號或空格,
+            # 而不是字串開頭、引號或 `.!?` 之後。
+            if re.search(r"(?<![.!?\"'\n]\s)(?<![.!?\"'])(?<!^)\b%ss?\b"
+                         % re.escape(term), en):
                 bad.append("%s:原文有 %r,定譯是 %r,譯文沒用 → %s"
                            % (k, term, want_zh, zh))
                 break

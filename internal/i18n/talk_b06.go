@@ -60,7 +60,7 @@ func init() {
 		"DWELLING.TLK#13#q0":   "嘿……汝看起來很熟悉，吾們見過面嗎？",
 		"DWELLING.TLK#13#q1":   "噢……",
 		"DWELLING.TLK#13#q2":   "吾就知道……",
-		"DWELLING.TLK#13#q3":   "你好，聖者……汝知道嗎？",
+		"DWELLING.TLK#13#q3":   "你好,%A……」「汝知道嗎?",
 		"DWELLING.TLK#13#q4":   "不列顛王要吾問汝，汝可在享受此遊戲？",
 		"DWELLING.TLK#13#q4y":  "若汝有怨言，寫信予 Origin 之彼。彼甚願聞知。",
 
@@ -100,7 +100,7 @@ func init() {
 		"CASTLE.TLK#3#e0":      "不列顛王之馬廄棲居眾多上等馬種。",
 		"CASTLE.TLK#3#e3":      "唉，彼已離吾等而去。",
 		"CASTLE.TLK#3#e4":      "吾等擁有大多數主要馬種之傑出代表。",
-		"CASTLE.TLK#3#q0":      "幸會，聖者，久未見汝。",
+		"CASTLE.TLK#3#q0":      "問安,%A,久未見汝。",
 		"CASTLE.TLK#3#q1":      "汝最喜愛何種馬？",
 		"CASTLE.TLK#3#q1n":     "未曾聽聞，必是黑棘之新創種！",
 		"CASTLE.TLK#3#q1y":     "嘿，那也是吾之至愛！",
