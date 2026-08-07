@@ -26,6 +26,8 @@ type Options struct {
 	SaveFile string
 	// WaterTile 是世界地圖全水 chunk 要填的 tile 索引。
 	WaterTile byte
+	// Display 是顯示模式(原版四個 `.DRV` 的其中一個)。預設 EGA。
+	Display u5data.DisplayMode
 }
 
 // Bundle 是載好的素材。任一欄位都可能是 nil —— 呼叫端要能在缺件時繼續跑。
@@ -94,7 +96,7 @@ func Load(opts Options) (*Bundle, []string) {
 	// 而兩份資料的解碼結果**逐位元組相同**(`TestDOSTilesMatchFMTowns`)——
 	// 所以沒有理由再要求玩家準備 FM Towns 光碟。
 	// FM Towns 那條保留當後援與 oracle。
-	if tiles, err := u5data.LoadDOSTileSet(opts.GameData); err == nil {
+	if tiles, err := u5data.LoadTileSetFor(opts.GameData, opts.Display); err == nil {
 		b.Tiles = tiles
 	} else if opts.FMTowns != "" {
 		paths := []string{"EGA0.TIL", "EGA1.TIL", "EGA2.TIL", "EGA3.TIL"}

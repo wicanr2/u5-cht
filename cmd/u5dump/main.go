@@ -36,6 +36,8 @@ func main() {
 		err = cmdTilesFMTowns(os.Args[2:])
 	case "tiles-raw":
 		err = cmdTilesRaw(os.Args[2:])
+	case "tiles-cga":
+		err = cmdTilesCGA(os.Args[2:])
 	case "charset":
 		err = cmdCharset(os.Args[2:])
 	case "tlk":
@@ -119,6 +121,32 @@ func cmdTilesFMTowns(args []string) error {
 	}
 	fmt.Printf("✓ %d 個 tile → %s(32 個一列,16×16 每格)\n", len(tiles), args[1])
 	fmt.Println("  驗收方式:與 DOSBox 跑原版的畫面逐格比對(水、草、樹、城牆、人物…)")
+	return nil
+}
+
+// cmdTilesCGA 把 DOS 的 CGA tileset(`TILES.4`,2bpp)畫成一張 PNG。
+//
+// 驗收方式:與 EGA 那張(`u5dump tiles-fmtowns` 或原版截圖)**逐格比形狀** ——
+// 圖案要一樣,只是色數從十六色掉到青 / 洋紅 / 淺灰 / 黑四色。
+func cmdTilesCGA(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump tiles-cga <gamedata 目錄> <out.png>")
+	}
+	tiles, err := u5data.LoadCGATileSet(args[0])
+	if err != nil {
+		return err
+	}
+	// 色號換成十六色盤的,才能與 EGA 那張共用同一個 TileSheet。
+	for i := range tiles {
+		for j, p := range tiles[i].Pix {
+			tiles[i].Pix[j] = u5data.CGAToEGA(p)
+		}
+	}
+	if err := writePNG(args[1], u5data.TileSheet(tiles, 32)); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %d 個 CGA tile → %s(32 個一列)\n", len(tiles), args[1])
+	fmt.Println("  驗收方式:與 EGA 那張逐格比形狀 —— 圖案相同,只是四色")
 	return nil
 }
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/wicanr2/u5-cht/internal/assets"
 	gamestate "github.com/wicanr2/u5-cht/internal/game"
+	"github.com/wicanr2/u5-cht/internal/u5data"
 	"github.com/wicanr2/u5-cht/internal/render"
 )
 
@@ -717,6 +718,8 @@ func main() {
 	saveFile := flag.String("save", "",
 		"要載入的存檔;留空則依序試 gamedata/SAVED.GAM、INIT.GAM")
 	scale := flag.Int("scale", 2, "視窗放大倍率(整數;邏輯畫布固定 640×400)")
+	display := flag.String("display", "EGA",
+		"顯示模式:EGA(.16 十六色)/ CGA(.4 四色)/ Tandy(同 EGA 素材);Hercules 尚未實作")
 	showVersion := flag.Bool("version", false, "印出版本後結束")
 	playIntro := flag.Bool("intro", false, "強制播開場動畫(沒有存檔時本來就會播)")
 	newChar := flag.Bool("create", false,
@@ -735,11 +738,23 @@ func main() {
 
 	// 素材缺件不致命:優雅降級並明說缺什麼(CLAUDE.md §3.0)。
 	// headless 截圖請用 `u5dump scene`(純 CPU,不需要 GPU)。
+	mode, err := u5data.ParseDisplayMode(*display)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(2)
+	}
+	// Hercules 的素材還沒解(它沒有自己的 tileset,而且不走 BIOS)——
+	// 照實說明並退回 EGA,而不是拿 EGA 冒充 Hercules 的畫面。
+	if !mode.Implemented() {
+		fmt.Fprintf(os.Stderr, "⚠ %s 模式尚未實作(見 docs/re/62),改用 EGA\n", mode.Name())
+		mode = u5data.DisplayEGA
+	}
 	bundle, warns := assets.Load(assets.Options{
 		GameData:   *gamedata,
 		FMTowns:    *fmtowns,
 		FontPrefix: *fontPrefix,
 		SaveFile:   *saveFile,
+		Display:    mode,
 	})
 	for _, w := range warns {
 		fmt.Fprintf(os.Stderr, "⚠ %s\n", w)

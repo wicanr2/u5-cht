@@ -1,6 +1,7 @@
 package u5data
 
 import (
+	"strings"
 	"fmt"
 	"image"
 	"image/color"
@@ -250,4 +251,163 @@ func LoadDOSTileSet(dir string) ([]Tile, error) {
 		return nil, fmt.Errorf("TILES.16: %w", err)
 	}
 	return ParseDOSTiles(out)
+}
+
+// DOS 版 TILES.4 —— CGA 的 2bpp tileset
+//
+// 四種顯示模式的驅動程式一開頭就把答案講完了(`CGA.DRV` / `EGA.DRV` /
+// `T1K.DRV` 各自的 `int 10h` 序列,`HER.DRV` 直接寫 CRTC):
+//
+//	CGA.DRV   mov ah,0 / mov al,4  / int 10h   → 模式 4(320×200 四色)
+//	          mov bl,1 / mov bh,1  / mov ah,0Bh / int 10h  → **調色盤 1**
+//	          xor bl,bl / xor bh,bh / mov ah,0Bh / int 10h → 背景 / 邊框 = 黑
+//	          mov ah,5 / xor al,al / int 10h              → 顯示頁 0
+//	EGA.DRV   mov al,0Dh → 模式 0Dh(320×200 十六色),再 AH=10h/AL=02h 載調色盤
+//	T1K.DRV   mov al,09h → 模式 9(Tandy 320×200 十六色),同樣 AH=10h/AL=02h
+//	HER.DRV   沒有 int 10h;直接寫 0x3B4 / 0x3B8 / 0x3BF(Hercules 單色 720×348)
+//
+// ⇒ **Tandy 與 EGA 讀同一批 `.16` 素材**(都是十六色、都用 BIOS 載調色盤),
+// 差別在硬體調色盤;CGA 讀 `.4`;Hercules 是單色,沒有自己的 tileset
+//(`IBM.HCS` / `RUNES.HCS` 各 3,072 B 是**字型**,不是圖磚)。
+//
+// `TILES.4` 的檔頭宣稱解壓後 32,768 B = 512 tile × 64 B = 16×16 的 **2bpp**,
+// 剛好是 `TILES.16` 的一半 —— 兩個數字互相印證,壓縮格式與 `.16` 相同。
+
+// tileBytesCGA 是一個 CGA tile 的位元組數(16×16 × 2bpp)。
+const tileBytesCGA = TileSize * TileSize / 4
+
+// CGAColorCount 是 CGA 模式 4 的色數。
+const CGAColorCount = 4
+
+// CGAPaletteIndex 是 CGA 調色盤 1(低亮度)在十六色盤裡的色號。
+//
+// `int 10h` AH=0Bh 的兩次呼叫:BH=1/BL=1 選調色盤 1、BH=0/BL=0 把背景設成黑
+//(BL 的 bit 3 是亮度位元,這裡是 0 → **低亮度**)。
+// 調色盤 1 低亮度的三個前景色就是十六色盤的青(3)、洋紅(5)、淺灰(7)。
+//
+// ⚠ 不要寫成高亮度的 11 / 13 / 15 —— 那要 BL 帶 bit 3,而原版沒有。
+var CGAPaletteIndex = [CGAColorCount]byte{0, 3, 5, 7}
+
+// CGAPalette 是 CGA 的四個顏色,直接從十六色盤取 —— 兩者共用同一份 RGB。
+var CGAPalette = [CGAColorCount]color.NRGBA{
+	EGAPalette[CGAPaletteIndex[0]],
+	EGAPalette[CGAPaletteIndex[1]],
+	EGAPalette[CGAPaletteIndex[2]],
+	EGAPalette[CGAPaletteIndex[3]],
+}
+
+// ParseCGATiles 把解壓後的 TILES.4 內容切成 512 個 tile。
+//
+// 色號是 0..3(CGA 的四色),**不是** EGA 的 0..15 —— 要畫出來請用 CGAPalette,
+// 或用 CGAToEGA 轉成十六色盤的色號。
+func ParseCGATiles(raw []byte) ([]Tile, error) {
+	want := TileCount * tileBytesCGA
+	if len(raw) != want {
+		return nil, fmt.Errorf("解壓後 %d B,預期 %d B(%d tile × %d B)",
+			len(raw), want, TileCount, tileBytesCGA)
+	}
+	tiles := make([]Tile, TileCount)
+	for i := range tiles {
+		base := i * tileBytesCGA
+		for y := 0; y < TileSize; y++ {
+			for x := 0; x < TileSize; x += 4 {
+				b := raw[base+y*TileSize/4+x/4]
+				// 一個位元組四個像素,**高位在左**(與 4bpp 的 hi/lo 同一個方向)。
+				tiles[i].Pix[y*TileSize+x] = (b >> 6) & 3
+				tiles[i].Pix[y*TileSize+x+1] = (b >> 4) & 3
+				tiles[i].Pix[y*TileSize+x+2] = (b >> 2) & 3
+				tiles[i].Pix[y*TileSize+x+3] = b & 3
+			}
+		}
+	}
+	return tiles, nil
+}
+
+// LoadCGATileSet 從 gamedata 目錄讀 TILES.4 並解壓成 512 個 CGA tile。
+func LoadCGATileSet(dir string) ([]Tile, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, "TILES.4"))
+	if err != nil {
+		return nil, err
+	}
+	out, err := Decompress(raw)
+	if err != nil {
+		return nil, fmt.Errorf("TILES.4: %w", err)
+	}
+	return ParseCGATiles(out)
+}
+
+// CGAToEGA 把 CGA 色號(0..3)換成十六色盤的色號,方便與 EGA 走同一條算繪路徑。
+func CGAToEGA(c byte) byte { return CGAPaletteIndex[c&3] }
+
+// DisplayMode 是原版的四種顯示模式(對應四個 `.DRV`)。
+//
+// 只有前兩種在素材上分得開:EGA / Tandy 讀 `.16`(十六色),CGA 讀 `.4`(四色)。
+// Hercules 是單色而且沒有自己的 tileset,所以還沒實作 —— 見 `docs/re/62`。
+type DisplayMode int
+
+const (
+	// DisplayEGA 是 `EGA.DRV`:BIOS 模式 0Dh,320×200 十六色。
+	DisplayEGA DisplayMode = iota
+	// DisplayCGA 是 `CGA.DRV`:BIOS 模式 4,320×200 四色(調色盤 1、低亮度)。
+	DisplayCGA
+	// DisplayTandy 是 `T1K.DRV`:BIOS 模式 9,320×200 十六色。
+	//
+	// ⚠ 素材與 EGA **同一批 `.16`**,兩者都用 `int 10h` AH=10h/AL=02h 載調色盤;
+	// 差別在硬體調色盤的內容,還沒抽出來,所以目前與 EGA 同畫面。
+	DisplayTandy
+	// DisplayHercules 是 `HER.DRV`:不走 BIOS,直接寫 0x3B4 / 0x3B8 / 0x3BF。
+	// 單色 720×348,**尚未實作**。
+	DisplayHercules
+	// DisplayModeCount 是模式數。
+	DisplayModeCount
+)
+
+// Name 回傳模式的顯示名。
+func (m DisplayMode) Name() string {
+	switch m {
+	case DisplayEGA:
+		return "EGA"
+	case DisplayCGA:
+		return "CGA"
+	case DisplayTandy:
+		return "Tandy"
+	case DisplayHercules:
+		return "Hercules"
+	}
+	return "?"
+}
+
+// Implemented 回報這個模式的素材解得出來沒有。
+func (m DisplayMode) Implemented() bool {
+	return m == DisplayEGA || m == DisplayCGA || m == DisplayTandy
+}
+
+// ParseDisplayMode 把命令列上的字串轉成模式(不分大小寫)。
+func ParseDisplayMode(s string) (DisplayMode, error) {
+	for m := DisplayMode(0); m < DisplayModeCount; m++ {
+		if strings.EqualFold(s, m.Name()) {
+			return m, nil
+		}
+	}
+	return DisplayEGA, fmt.Errorf("不認得的顯示模式 %q(可用:EGA / CGA / Tandy / Hercules)", s)
+}
+
+// LoadTileSetFor 依顯示模式讀 tileset,色號一律回十六色盤的 0..15。
+//
+// CGA 的 tile 本身只有 0..3,這裡透過 CGAToEGA 換成十六色色號 ——
+// 這樣算繪層只需要一條路徑,不必為四色模式另寫一份。
+func LoadTileSetFor(dir string, m DisplayMode) ([]Tile, error) {
+	if m != DisplayCGA {
+		return LoadDOSTileSet(dir)
+	}
+	tiles, err := LoadCGATileSet(dir)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tiles {
+		for j, p := range tiles[i].Pix {
+			tiles[i].Pix[j] = CGAToEGA(p)
+		}
+	}
+	return tiles, nil
 }
