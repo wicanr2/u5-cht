@@ -102,6 +102,8 @@ const (
 	PromptCombat
 	// PromptSpell 是在打咒語名:輸入的是上古語,不是指令鍵。
 	PromptSpell
+	// PromptDirection 是原版的「Direction-」:等一個方向鍵。
+	PromptDirection
 )
 
 // State 是一局遊戲的位置狀態。
@@ -156,6 +158,9 @@ type State struct {
 	// castReturn 是打完咒語名要回到哪個 Prompt,castBy 是誰在施法。
 	castReturn Prompt
 	castBy     int
+	// dirReturn 是選完方向要回到哪個 Prompt,dirThen 是拿到方向之後做什麼。
+	dirReturn Prompt
+	dirThen   func(Direction)
 
 	// BaseSave 是讀進來的那份存檔,存檔時當底稿用 —— 引擎還沒解出來的欄位
 	// (魔法、任務旗標、地牢狀態…)靠它原樣保留。見 savegame.go。

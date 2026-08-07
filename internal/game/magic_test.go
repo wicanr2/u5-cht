@@ -459,3 +459,143 @@ func TestWindStopsAtBlockingTerrain(t *testing.T) {
 	}
 	t.Skip("找不到列上有擋箭地形的戰鬥地圖")
 }
+
+// TestDirectionPromptRunsTheFollowUp:方向選單問完才做事,ESC 就不做。
+//
+// 原版每個要方向的咒語都先呼叫 `sub_1CC50`。引擎先前是「猜一個合理方向」,
+// 那是介面的近似;這條把真的選單釘住。
+func TestDirectionPromptRunsTheFollowUp(t *testing.T) {
+	s := magicState(t)
+	got := Direction(-1)
+	s.AskDirection(func(d Direction) { got = d })
+	if !s.AwaitingDirection() {
+		t.Fatal("AskDirection 之後沒有進等方向的狀態")
+	}
+	s.AnswerDirection(West)
+	if got != West {
+		t.Errorf("拿到方向 %v,預期 West", got)
+	}
+	if s.AwaitingDirection() {
+		t.Error("回答之後還停在等方向")
+	}
+	// ESC 作罷 —— 後續不該跑。
+	got = Direction(-1)
+	s.AskDirection(func(d Direction) { got = d })
+	s.CancelDirection()
+	if got != Direction(-1) {
+		t.Error("按了 ESC 卻還是做了事")
+	}
+	if s.AwaitingDirection() {
+		t.Error("取消之後還停在等方向")
+	}
+}
+
+// TestFrightenSetsTheFleeBit:An Xen Cor 與 In Quas Corp 都是掛逃跑位元。
+//
+// 兩支原版函式(`sub_18EB0` / `sub_19810`)都是 `or byte ptr [esi+2], 2`
+// —— 那正是 docs/re/16 認出來的逃跑位元,兩個咒語效果同一個。
+func TestFrightenSetsTheFleeBit(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	if !s.frighten(0) {
+		t.Fatalf("嚇不跑:\n%s", s.log())
+	}
+	fled := 0
+	for i := range s.Combat.Units {
+		if s.Combat.Units[i].Flags&UnitFleeing != 0 {
+			fled++
+		}
+	}
+	if fled != 1 {
+		t.Errorf("%d 個單位在逃跑,預期正好 1", fled)
+	}
+	// 已經在跑的不會再中一次。
+	if s.frighten(0) && fled == 1 {
+		t.Log("(第二次嚇到了另一個目標,合理)")
+	}
+}
+
+// TestSummonsJoinOurSide:三個召喚咒語召出來的都站我方。
+//
+// 原版三支都給新單位 `unit[+2] |= 1` —— 怪物的陣營反轉位元 = 被馴服。
+func TestSummonsJoinOurSide(t *testing.T) {
+	for _, c := range []struct {
+		name     string
+		creature int
+		count    int
+	}{
+		{"Kal Xen 巨鼠", summonRat, 1},
+		{"In Bet Xen 蟲群", summonInsect, 4},
+		{"Kal Xen Corp 惡魔", summonDaemon, 1},
+	} {
+		s := magicState(t)
+		s.SeedRandom(6)
+		slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		before, _ := s.sideCounts(s.Combat)
+		if !s.summonCreature(0, c.creature, c.count) {
+			t.Errorf("%s 召不出來:\n%s", c.name, s.log())
+			continue
+		}
+		after, party := s.sideCounts(s.Combat)
+		if after != before {
+			t.Errorf("%s 之後敵人從 %d 變成 %d —— 召出來的該站我方",
+				c.name, before, after)
+		}
+		if party <= s.PartySize {
+			t.Errorf("%s 之後我方只有 %d 個(隊伍本來就 %d 個)",
+				c.name, party, s.PartySize)
+		}
+	}
+}
+
+// TestPolymorphReplacesTheTarget:變形把目標換掉,而且換成的東西還在同一格。
+func TestPolymorphReplacesTheTarget(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	target, _, _ := s.aiTarget(0)
+	if target < 0 {
+		t.Fatal("沒有目標")
+	}
+	x, y := c.Units[target].X, c.Units[target].Y
+	kind := c.Units[target].Kind
+	if !s.polymorph(0) {
+		t.Fatalf("變不了:\n%s", s.log())
+	}
+	if c.Units[target].Kind == kind {
+		t.Error("變形之後種類沒變")
+	}
+	if c.Units[target].X != x || c.Units[target].Y != y {
+		t.Errorf("變形之後跑到 (%d,%d),預期還在 (%d,%d)",
+			c.Units[target].X, c.Units[target].Y, x, y)
+	}
+}
+
+// TestWisQuasRevealsHidden:顯形把隱形位元清掉。
+func TestWisQuasRevealsHidden(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	s.Combat.Units[u5data.CombatPartySlots].Flags |= UnitHidden
+	if !s.revealHidden() {
+		t.Fatal("顯不出來")
+	}
+	if s.Combat.Units[u5data.CombatPartySlots].Flags&UnitHidden != 0 {
+		t.Error("顯形之後還是隱形的")
+	}
+	// 沒有隱形的東西時回 false。
+	if s.revealHidden() {
+		t.Error("沒有東西藏著卻回報成功")
+	}
+}

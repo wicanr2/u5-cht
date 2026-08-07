@@ -56,6 +56,25 @@ func (g *game) Update() error {
 	snapshot := g.key()
 
 	// 對話中鍵盤打的是關鍵字,不是指令鍵。ESC 退出對話(不是離開遊戲)。
+	// 等方向:方向鍵決定,ESC 作罷(原版的「Direction-」)。
+	if st.Prompt == gamestate.PromptDirection {
+		for key, dir := range map[ebiten.Key]gamestate.Direction{
+			ebiten.KeyArrowUp:    gamestate.North,
+			ebiten.KeyArrowDown:  gamestate.South,
+			ebiten.KeyArrowLeft:  gamestate.West,
+			ebiten.KeyArrowRight: gamestate.East,
+		} {
+			if inpututil.IsKeyJustPressed(key) {
+				st.AnswerDirection(dir)
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			st.CancelDirection()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 打咒語名:上古語(含空格),Enter 送出、ESC 作罷。
 	if st.Prompt == gamestate.PromptSpell {
 		for _, r := range ebiten.AppendInputChars(nil) {

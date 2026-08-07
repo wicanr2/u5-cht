@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **383** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **388** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -40,6 +40,7 @@
 | `sub_94E0` | `sub_94E0`** —— 尋路失敗時的 fallback(疑似隨機遊走),還沒讀。 | `12-npc-movement.md` |
 | `sub_9690` | ⚠ 還有一條容易漏的:`sub_9690` 用 `cmp word ptr [ebx], 1 / jg` 判斷 —— | `11-map-objects.md`, `12-npc-movement.md` |
 | `sub_9C7C` | 來源:FM Towns `WORRIORS.EXP`。相關函式 `sub_8858`(載入)、`sub_9C7C`(排程 slot)、 | `04-npc-schedule-and-clock.md`, `08-shops.md` |
+| `sub_9CE8` | ⚠ **同一支函式裡兩個參數用兩套編號**:`sub_9CE8` 吃 tile 碼、 | `17-magic.md` |
 | `sub_9E10` | `'N'`  /  In An  /  10  /  `sub_9E10` / `sub_AE20`  /  施法者放不出遠程、不能瞬移  / | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_9F08` | 0x8000  /  施法  /  `sub_9E10` / `sub_9F08`  /  法師、注視者、收割者、惡魔、海馬  / | `16-combat-turns-and-ai.md` |
 | `sub_A108` | `'T'`  /  An Tym  /  10  /  `sub_A108` 開頭 return  /  敵人整個不動;順帶讓火把不燒  / | `16-combat-turns-and-ai.md`, `17-magic.md` |
@@ -47,6 +48,7 @@
 | `sub_A9EC` | `sub_A9EC` 是一個 0..31 的無窮掃描: | `16-combat-turns-and-ai.md` |
 | `sub_AC40` | `cmp byte_3E08A, 'T' / 'Q'`、`sub_AC40` 裡那段莫名其妙的「擲贏就把 mySide | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_AE20` | `'N'`  /  In An  /  10  /  `sub_9E10` / `sub_AE20`  /  施法者放不出遠程、不能瞬移  / | `16-combat-turns-and-ai.md`, `17-magic.md` |
+| `sub_B210` | `sub_195C0`:抗性過了就 `sub_B210(-(目標+1))` 把目標移除, | `17-magic.md` |
 | `sub_B274` | `sub_B274` 對角色讀 `byte_3DDCC[角色*32]`,而 `0x3DDCC − 0x3DDB4 = 0x18`。 | `15-combat-formulas.md`, `16-combat-turns-and-ai.md` |
 | `sub_B35C` | │       ├ sub_B35C   戰場單位的 +1 欄位 | `15-combat-formulas.md` |
 | `sub_B398` | `sub_B398` 印證了這件事:它取 `byte_3F050[生物*8]` 當「力量那一項」、 | `15-combat-formulas.md` |
@@ -85,7 +87,7 @@
 | `sub_15108` | `sub_15108` 拿的是寶箱**物件**的品質位元組(`var_5`,bit 7 是陷阱), | `21-chests-fields-locks.md` |
 | `sub_15DD4` | `sub_15DD4` 每次行動後重數兩邊。⚠ 它用的兩個全域 `word_3E086` / `word_3E088` | `16-combat-turns-and-ai.md` |
 | `sub_16370` | 倒數走在 `sub_16370`(玩家單位回合結束時),所以單位是**玩家回合**不是分鐘。 | `17-magic.md` |
-| `sub_16454` | 0x02  /  逃跑中  /  `sub_AC40` 反轉方向、`sub_16454` 放行出界  / | `16-combat-turns-and-ai.md` |
+| `sub_16454` | 0x02  /  逃跑中  /  `sub_AC40` 反轉方向、`sub_16454` 放行出界  / | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_16538` | 我方全滅時原版**不會立刻判負**:先叫 `sub_16538` 找一個被魅惑的隊員, | `16-combat-turns-and-ai.md` |
 | `sub_165C8` | sub_165C8   紮營 / 休息 | `19-levelup.md` |
 | `sub_16DA4` | 上馬 / 上毯 / 上小艇都要求**先下來走路**(`sub_16DA4` 判 `byte_3E08C` ∈ {0x1C, 0x1D}) | `11-map-objects.md` |
@@ -141,9 +143,9 @@
 | `sub_1C3F8` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_1C3F8`(展開)與 `dword_41990`(槽表); | `05-text-compression.md`, `06-conversation-script.md` |
 | `sub_1C840` | 帶一張 31 路跳表;周邊有 `sub_1C840`(載入記錄)、`sub_1B52C`(分派)、 | `05-text-compression.md`, `06-conversation-script.md` |
 | `sub_1CA0C` | 原版問「Spell name:」,玩家把**上古語**打進去(`sub_1CA0C`)。 | `17-magic.md` |
-| `sub_1CC50` | 幻影(In Quas Xen)這幾套獨立系統,以及 `sub_1CC50` 的方向選單 —— | `20-projectiles.md`, `21-chests-fields-locks.md` |
+| `sub_1CC50` | 原版每個要方向的咒語都先呼叫 `sub_1CC50`(印「Direction-」讀一個方向鍵)。 | `17-magic.md`, `20-projectiles.md`, `21-chests-fields-locks.md` |
 | `sub_1CD3C` | Mani  /  `sub_1CD3C`  /  回 **1..30**(與命中骰同一顆 `sub_2B724`),上限 MaxHP,死人無效  / | `17-magic.md` |
-| `sub_1CE0C` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md` |
+| `sub_1CE0C` | Wis An Ylem(顯示地圖,`sub_1CE0C`)、In Quas Xen(幻影,`sub_196A4`)、 | `17-magic.md` |
 | `sub_1CE70` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md` |
 | `sub_1CFC8` | In Mani Corp  /  `sub_1CFC8`  /  復活(對活人印「Not dead!」)  / | `17-magic.md` |
 | `sub_1D0C4` | In Wis  /  `sub_18F1C` → `sub_1D0C4`  /  報出所在座標  / | `17-magic.md` |
@@ -153,6 +155,7 @@
 | `sub_1D31C` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
 | `sub_1DA10` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md` |
 | `sub_1E9A0` | sub_1E9A0       Z-stats 畫面(咒語 / 藥草 / 裝備 / 物品四張清單) | `17-magic.md` |
+| `sub_1F48C` | An Ex Por(上鎖)、In Zu 以外的 `sub_1F48C` 抗性細節、 | `17-magic.md` |
 | `sub_1F5A4` | `sub_1F5A4`:魅惑(0x0040)與另外兩個位元(0x0400 / 0x0800)的遠程特殊行為。 | `16-combat-turns-and-ai.md` |
 | `sub_1F9CC` | 距離是 `sub_1F9F8`:`sub_1F9CC` 算出 dx²+dy² 之後用「連續減奇數」 | `16-combat-turns-and-ai.md` |
 | `sub_1F9F8` | 距離是 `sub_1F9F8`:`sub_1F9CC` 算出 dx²+dy² 之後用「連續減奇數」 | `16-combat-turns-and-ai.md` |
@@ -204,12 +207,14 @@
 | `sub_2BC70` | ├ sub_2BC70   把像素座標換回格子,順便判出不出界 | `20-projectiles.md` |
 | `sub_2C4F4` | } else { "Blocked!"; 嗶一聲 sub_2C4F4(165, 200); } | `03-scene-entry-and-tile-semantics.md` |
 | `sub_2C740` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `11-map-objects.md`, `14-combat-maps.md`, `18-dungeons.md` |
+| `sub_2CBEC` | An Ylem(`sub_18C00` 的 32-case 消除表)、In Por(瞬移,`sub_2CBEC`)、 | `17-magic.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md` |
 | `sub_2D72C` | (其餘地點的編號要把 `sub_2D72C` 的每個 case 讀完才齊。) | `03-scene-entry-and-tile-semantics.md` |
 | `sub_2E364` | 地點 > 0x7F      → 測 0x01   戰鬥中(sub_2E364 把 byte_3E0A3 設成 −1) | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_2E51C` | 格式看起來像「另一種入場方向」的位置,但 `sub_2E51C` 沒有搬它們 —— | `14-combat-maps.md` |
 | `sub_2E58C` | 3. 進入戰鬥(`sub_2E58C`) | `14-combat-maps.md`, `16-combat-turns-and-ai.md` |
+| `sub_2EAE4` | ⚠ `0x14` 那個數字有兩種讀法:當生物索引是 **20 = 巨鼠**(而 `sub_2EAE4` | `17-magic.md` |
 | `sub_2F0EC` | 從 `sub_2F0EC` 得到的結論一字不差,兩處互相印證。 | `16-combat-turns-and-ai.md`, `18-dungeons.md` |
 | `sub_2F2BC` | │       └ sub_2F2BC  角色的裝備防禦加總 | `15-combat-formulas.md` |
 | `sub_3181C` | ⇒ **`sub_3181C(n)` = 播第 n 首 BGM**;`dword_65334` = 當前曲目、`dword_65338` = 前一首。 | `03-scene-entry-and-tile-semantics.md` |

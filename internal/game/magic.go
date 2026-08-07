@@ -168,10 +168,13 @@ const (
 	SpellKalXen     = 10 // 召喚野獸
 	SpellInXenMani  = 11 // 造食物
 	SpellAnSanct    = 6  // 解陷阱 / 開鎖 / 開箱
+	SpellAnXenCor   = 7  // 驅離生物
 	SpellVasLor     = 12 // 大光明
 	SpellVasFlam    = 13 // 火球
 	SpellAnGrav     = 18 // 破力場
 	SpellInSanct    = 19 // 防護
+	SpellWisQuas    = 23 // 顯形
+	SpellInBetXen   = 24 // 召喚蟲群
 	SpellUusPor     = 21 // 上樓
 	SpellDesPor     = 22 // 下樓
 	SpellVasMani    = 27 // 大治療
@@ -183,6 +186,9 @@ const (
 	SpellInZu       = 28 // 睡眠風
 	SpellAnXenEx    = 34 // 魅惑
 	SpellSanctLor   = 36 // 隱形
+	SpellRelXenBet  = 35 // 變形
+	SpellInQuasCorp = 41 // 恐懼
+	SpellKalXenCorp = 43 // 召喚惡魔
 	SpellVasRelPor  = 46 // 大傳送門
 	SpellInNoxHur   = 40 // 毒風
 	SpellInVasGravC = 44 // 能量風
@@ -294,29 +300,40 @@ func (s *State) spellEffect(caster, spell int) bool {
 	case SpellInVasPorY: // 能量爆:對場上每個敵人各擲一次
 		return s.energyBlast(caster)
 
-	case SpellKalXen: // 召喚野獸
-		return s.summonCreature(caster, 20) // 巨鼠
+	case SpellKalXen: // 召喚巨鼠
+		return s.summonCreature(caster, summonRat, 1)
+	case SpellInBetXen: // 召喚蟲群,一次 4 隻
+		return s.summonCreature(caster, summonInsect, 4)
+	case SpellKalXenCorp: // 召喚惡魔
+		return s.summonCreature(caster, summonDaemon, 1)
+
+	case SpellAnXenCor, SpellInQuasCorp: // 嚇跑
+		return s.frighten(caster)
+	case SpellRelXenBet: // 變形
+		return s.polymorph(caster)
+	case SpellWisQuas: // 顯形
+		return s.revealHidden()
 
 	case SpellVasRelPor: // 大傳送門:走到此刻月相的目的地
 		return s.CastGreatGate(s.MoonPhaseNow())
 
 	case SpellAnSanct: // 解陷阱 / 開箱 / 開鎖
 		return s.disarmOrUnlock()
-	case SpellInExPor: // 開鎖
-		return s.UnlockAhead(s.spellFacing())
+	case SpellInExPor: // 開鎖 —— 原版問方向
+		s.AskDirection(func(d Direction) { s.UnlockAhead(d) })
+		return true
 	case SpellAnGrav: // 破力場
 		return s.destroyField()
 
-	// 四種風。方向用施法者的面向 —— 原版會另外問一次(`sub_1CC50`),
-	// 引擎的方向選單還沒接,先用面向;真正的射線規則是照原版走的。
+	// 四種風。原版每一次都問方向(`sub_1CC50`),引擎現在也問。
 	case SpellInZu:
-		return s.castWind(caster, windSleep, s.castDirection(caster))
+		return s.askWind(caster, windSleep)
 	case SpellInNoxHur:
-		return s.castWind(caster, windPoison, s.castDirection(caster))
+		return s.askWind(caster, windPoison)
 	case SpellInFlamHur:
-		return s.castWind(caster, windFire, s.castDirection(caster))
+		return s.askWind(caster, windFire)
 	case SpellInVasGravC:
-		return s.castWind(caster, windEnergy, s.castDirection(caster))
+		return s.askWind(caster, windEnergy)
 	}
 	s.Log("(此咒語的效果尚未實作 —— 藥草與魔力已照原版消耗)")
 	return false
@@ -695,10 +712,16 @@ func (s *State) tickCombatMode() {
 }
 
 
-// castDirection 是施法要用的方向。
+// askWind 問方向,然後放那一道風。
+func (s *State) askWind(caster, kind int) bool {
+	s.AskDirection(func(d Direction) { s.castWind(caster, kind, d) })
+	return true
+}
+
+// castDirection 是「沒問到方向時」的退路:離最近的敵人是哪一邊。
 //
-// 原版每次都問一次「Direction-」(`sub_1CC50`);引擎的方向選單還沒接,
-// 先取「離最近的敵人是哪一邊」——**這是介面的近似,不是規則**。
+// 正常路徑已經改成真的問(AskDirection);這支留給沒有互動的呼叫端
+//(headless 驗收與測試)。
 func (s *State) castDirection(caster int) Direction {
 	self := s.combatSlotOfRoster(caster)
 	if self < 0 {
@@ -770,11 +793,19 @@ func (s *State) energyBlast(caster int) bool {
 // summonCreature 是召喚類咒語(Kal Xen / In Bet Xen / Kal Xen Corp,
 // 原版 `sub_18F2C` / `sub_192BC` / `sub_1CE70`)。
 //
-// 三支都是「挑一個空位 → `sub_2EAE4` 生一隻」,差別只在生的是什麼。
-// ⚠ **各自召哪一種還沒逆完** —— `sub_B1D8` 挑位置那段讀懂了,
-// 生物編號那一段沒有。這裡用「Kal Xen 召野獸」這個 U5 常識填 Kal Xen,
-// 另外兩支先不接,文件裡標明是**推測**。
-func (s *State) summonCreature(caster, creature int) bool {
+// 三支都是「挑一個空位 → `sub_2EAE4(生物索引, 0, x, y, 樓層)` 生一隻」,
+// 而且都給新單位掛上 `unit[+2] |= 1`(陣營反轉 = 站我方)。
+//
+// **召哪一種是從通行判定那一行讀出來的**:`sub_9CE8(tile, x, y)` 的第一個
+// 參數是生物的 **tile 碼**,換算回索引就是答案 ——
+//
+//	Kal Xen       `sub_9CE8(0x90, …)` → (144−64)/4 = 20 巨鼠
+//	In Bet Xen    `sub_9CE8(0xBC, …)` → (188−64)/4 = 31 蟲群,一次 **4 隻**
+//	Kal Xen Corp  `sub_9CE8(0xD8, …)` → (216−64)/4 = 38 惡魔
+//
+// ⚠ 這條差點抄錯:`sub_2EAE4` 的第一個參數是**生物索引**(0..47),
+// 不是 tile 碼 —— 同一支函式裡兩個參數用兩套編號。
+func (s *State) summonCreature(caster, creature, count int) bool {
 	c := s.Combat
 	if c == nil {
 		s.Log("此地不可召喚。")
@@ -785,7 +816,8 @@ func (s *State) summonCreature(caster, creature int) bool {
 		return false
 	}
 	u := &c.Units[self]
-	for try := 0; try < 16; try++ {
+	got := 0
+	for try := 0; try < 32 && got < count; try++ {
 		x, y := u.X+s.Roll(-1, 1), u.Y+s.Roll(-1, 1)
 		if s.combatBlocked(self, x, y) {
 			continue
@@ -800,11 +832,98 @@ func (s *State) summonCreature(caster, creature int) bool {
 			// 召出來的站我方 —— 怪物的陣營反轉位元代表「被馴服」。
 			c.Units[i].Flags |= UnitSideFlip
 			s.Log(s.unitName(&c.Units[i]) + "應召而來!")
-			return true
+			got++
+			break
 		}
+	}
+	return got > 0
+}
+
+// 三個召喚咒語各自召的生物索引與隻數。
+const (
+	summonRat    = 20 // Kal Xen
+	summonInsect = 31 // In Bet Xen,一次 4 隻
+	summonDaemon = 38 // Kal Xen Corp
+)
+
+// frighten 是 An Xen Cor 與 In Quas Corp:讓目標**掉頭就跑**。
+//
+// 原版兩支(`sub_18EB0` / `sub_19810`)都是 `or byte ptr [esi+2], 2` ——
+// 那正是逃跑位元(`docs/re/16`)。差別只在抗性判定與音效,效果同一個。
+func (s *State) frighten(caster int) bool {
+	c := s.Combat
+	if c == nil {
+		s.Log("此地無人可嚇。")
 		return false
 	}
-	return false
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return false
+	}
+	target, _, _ := s.aiTarget(self)
+	if target < 0 {
+		s.Log("沒有目標。")
+		return false
+	}
+	t := &c.Units[target]
+	if t.Flags&UnitFleeing != 0 {
+		return false
+	}
+	t.Flags |= UnitFleeing
+	s.Log(s.unitName(t) + "嚇得轉身就跑!")
+	return true
+}
+
+// polymorph 是 Rel Xen Bet(原版 `sub_195C0`)。
+//
+// 把目標從戰場上移除(`sub_B210`),在同一格生一個**種類 0x14** 的東西。
+// ⚠ 0x14 那個編號的語意還沒對出來 —— 它是地圖物件的種類碼,不是生物索引
+//(生物索引 0x14 = 20 是巨鼠,但這裡走的是 `sub_2EAE4(0x14, …)`
+// 而該函式吃的正是生物索引,所以**很可能就是巨鼠**)。
+// 兩種讀法都說得通,沒有第三個證據,所以照數值實作並在此標明。
+func (s *State) polymorph(caster int) bool {
+	c := s.Combat
+	if c == nil {
+		return false
+	}
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return false
+	}
+	target, _, _ := s.aiTarget(self)
+	if target < 0 || c.Units[target].IsParty() {
+		return false
+	}
+	t := &c.Units[target]
+	x, y := t.X, t.Y
+	name := s.unitName(t)
+	*t = Combatant{}
+	s.placeEnemy(c, target-u5data.CombatPartySlots,
+		u5data.CreatureBase+byte(0x14*4), 0x14)
+	c.Units[target].X, c.Units[target].Y = x, y
+	s.Log(name + "變成了別的東西!")
+	return true
+}
+
+// revealHidden 是 Wis Quas:讓隱形的東西現形(原版 `sub_19264` 只重畫,
+// 實際效果是把隱形位元清掉)。
+func (s *State) revealHidden() bool {
+	c := s.Combat
+	if c == nil {
+		s.Log("此處沒有藏著的東西。")
+		return false
+	}
+	any := false
+	for i := range c.Units {
+		if c.Units[i].Flags&UnitHidden != 0 {
+			c.Units[i].Flags &^= UnitHidden
+			any = true
+		}
+	}
+	if any {
+		s.Log("藏著的身影現形了。")
+	}
+	return any
 }
 
 // 四種「風」(原版 `sub_1AEB4(施法者, 種類, 範圍參數)`)
@@ -881,3 +1000,42 @@ func (s *State) castWind(caster, kind int, dir Direction) bool {
 	}
 	return hitAny
 }
+
+// 方向選單(原版 `sub_1CC50`,印「Direction-」)
+//
+// 好幾個咒語與指令都要先問方向:An Ylem、An Sanct、An Grav、In Por、
+// In Ex Por、An Ex Por、Rel Hur、四種風。原版每一支都是先呼叫 `sub_1CC50`
+// 讀一個方向鍵,ESC 作罷。
+//
+// 引擎先前是用「猜一個合理的方向」代替 —— 那是介面的近似。這裡把真的選單
+// 接上:`AskDirection` 進 PromptDirection,方向鍵按下去才跑後續。
+
+// AskDirection 問一個方向,拿到之後呼叫 then。
+func (s *State) AskDirection(then func(Direction)) {
+	s.dirReturn = s.Prompt
+	s.dirThen = then
+	s.Prompt = PromptDirection
+	s.Log("方向 ——")
+}
+
+// AnswerDirection 是玩家按下方向鍵。
+func (s *State) AnswerDirection(d Direction) {
+	then := s.dirThen
+	s.dirThen = nil
+	s.Prompt = s.dirReturn
+	if then == nil {
+		return
+	}
+	s.Log(d.Name())
+	then(d)
+}
+
+// CancelDirection 是玩家按 ESC。
+func (s *State) CancelDirection() {
+	s.dirThen = nil
+	s.Prompt = s.dirReturn
+	s.Log("作罷。")
+}
+
+// AwaitingDirection 回報是不是正在等方向。
+func (s *State) AwaitingDirection() bool { return s.Prompt == PromptDirection }
