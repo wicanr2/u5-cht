@@ -28,8 +28,16 @@ func TestEveryPlainTextRecordIsTranslated(t *testing.T) {
 	if len(missing) > 0 {
 		t.Errorf("%d / %d 筆沒翻:%v", len(missing), total, missing)
 	}
-	if TextCount() != total {
-		t.Errorf("譯文表有 %d 筆,五個檔加起來是 %d —— 有多餘或重複的 key", TextCount(), total)
+	// 另外兩筆是開場第 6 頁那兩句 —— 它們寫死在原版執行檔裡,不在任何 .DAT。
+	const hardcoded = 2
+	if TextCount() != total+hardcoded {
+		t.Errorf("譯文表有 %d 筆,五個檔 %d + 寫死 %d = %d —— 有多餘或重複的 key",
+			TextCount(), total, hardcoded, total+hardcoded)
+	}
+	for i := 0; i < hardcoded; i++ {
+		if !TextTranslated("INTRO", i) {
+			t.Errorf("開場寫死的第 %d 句沒翻", i)
+		}
 	}
 }
 

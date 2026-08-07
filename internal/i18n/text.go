@@ -49,6 +49,7 @@ func TextTranslated(file string, index int) bool {
 func TextCount() int { return len(texts) }
 
 func init() {
+	addText(introText)
 	addText(karmaText)
 	addText(endText)
 	addText(miscText)
@@ -60,6 +61,15 @@ func addText(m map[string]string) {
 	for k, v := range m {
 		texts[k] = v
 	}
+}
+
+// introText 是開場第 6 頁那兩句 —— 它們**寫死在執行檔裡**,不在 `STORY.DAT`。
+//
+// 只看 `STORY.DAT` 會漏掉這一頁,而頁表裡它的位移是 0,
+// 照抄的話會把第 0 頁的文字重播一次。
+var introText = map[string]string{
+	"INTRO#0": "剎那間,一道微微閃動的藍色門扉憑空升起!",
+	"INTRO#1": "心跳如擂鼓,你踏了進去。",
 }
 
 // karmaText 是業報訊息(死而復生時不列顛王說的話),依業報高低六段。

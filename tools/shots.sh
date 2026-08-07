@@ -14,6 +14,7 @@ OUT="docs/screenshots"
 mkdir -p "$ROOT/$OUT"
 run() { "$ROOT/tools/dev.sh" go run ./cmd/u5dump scene "$GD" "$FM" "$@"; }
 
+run "$OUT/00-intro.png"   --script "I.."
 run "$OUT/01-world.png"   --at 81 108
 run "$OUT/02-town.png"    --scene BRITAIN 0 15 15
 run "$OUT/03-talk.png"    --scene BRITAIN 0 30 6 --script 'T"name"'

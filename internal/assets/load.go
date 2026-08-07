@@ -53,7 +53,10 @@ type Bundle struct {
 	DungeonViews []u5data.PictureSet
 	// DungeonItems 是 ITEMS.16(走廊裡的梯子、寶箱、噴泉、陷阱)。
 	DungeonItems u5data.PictureSet
-	CJK          *cjk.Font
+	// Story 是 STORY.DAT,IntroArt 是六個 STORY*.16。
+	Story    *u5data.TextFile
+	IntroArt []u5data.PictureSet
+	CJK      *cjk.Font
 }
 
 // Load 依 opts 載入素材,回傳 bundle 與「哪些沒載到」的警告。
@@ -102,6 +105,21 @@ func Load(opts Options) (*Bundle, []string) {
 		}
 		b.DungeonViews = append(b.DungeonViews, set)
 	}
+	// 開場:STORY.DAT 的二十段文字 + 六個插圖檔。
+	if tf, err := u5data.LoadText(filepath.Join(opts.GameData, "STORY.DAT")); err != nil {
+		warn = append(warn, fmt.Sprintf("STORY.DAT:%v", err))
+	} else {
+		b.Story = tf
+	}
+	for _, name := range u5data.IntroStoryFiles {
+		set, err := u5data.LoadPictures(filepath.Join(opts.GameData, name))
+		if err != nil {
+			warn = append(warn, fmt.Sprintf("%s:%v", name, err))
+			set = nil
+		}
+		b.IntroArt = append(b.IntroArt, set)
+	}
+
 	if set, err := u5data.LoadPictures(filepath.Join(opts.GameData, "ITEMS.16")); err != nil {
 		warn = append(warn, fmt.Sprintf("ITEMS.16:%v", err))
 	} else {

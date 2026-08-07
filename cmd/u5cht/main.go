@@ -75,6 +75,18 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 開場動畫:任意鍵翻頁,ESC 跳過整段。
+	if st.Prompt == gamestate.PromptIntro {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			st.SkipIntro()
+			g.dirty = true
+		} else if len(inpututil.AppendJustPressedKeys(nil)) > 0 {
+			st.AdvanceIntro()
+			g.dirty = true
+		}
+		return nil
+	}
+
 	// In Quas Wis 的全景:原版畫完就卡著等一個按鍵,按什麼都收起來。
 	if st.Prompt == gamestate.PromptPeer {
 		if len(inpututil.AppendPressedKeys(nil)) > 0 {
@@ -315,6 +327,7 @@ func main() {
 		"要載入的存檔;留空則依序試 gamedata/SAVED.GAM、INIT.GAM")
 	scale := flag.Int("scale", 2, "視窗放大倍率(整數;邏輯畫布固定 640×400)")
 	showVersion := flag.Bool("version", false, "印出版本後結束")
+	playIntro := flag.Bool("intro", false, "強制播開場動畫(沒有存檔時本來就會播)")
 	flag.Parse()
 
 	if *showVersion {
@@ -346,6 +359,7 @@ func main() {
 		CombatMaps:   bundle.Combat,
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
+		Story:        bundle.Story,
 		Dungeons:     bundle.Dungeons,
 		Moons:        bundle.Moons,
 		WindDelay:    bundle.WindDelay,
@@ -355,7 +369,9 @@ func main() {
 		MaxMessages:  maxMessages,
 	}
 	st.SeedRandom(time.Now().UnixNano())
+	loaded := false
 	if sv, from, err := gamestate.FindSave(*gamedata, *saveFile); err == nil {
+		loaded = true
 		// 開局狀態一律取自存檔:先找設定目錄的進度,再退回原版存檔。
 		st.LoadFrom(sv)
 		// 同一份進度的物件表(玩家買的馬、放下的船)也要一起讀回來。
@@ -372,6 +388,12 @@ func main() {
 		st.Log("未載入存檔,由任意陸地起始。")
 	}
 
+	// 開場動畫:原版是新遊戲才播。這裡沿用 —— 有進度就直接進遊戲,
+	// 不要每次開機都逼玩家看一遍。`-intro` 可以強制播。
+	if *playIntro || !loaded {
+		st.BeginIntro()
+	}
+
 	g := &game{
 		state: st,
 		scene: &render.Scene{
@@ -380,6 +402,7 @@ func main() {
 			Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
 			DungeonViews: bundle.DungeonViews,
 			DungeonItems: bundle.DungeonItems,
+			IntroArt:     bundle.IntroArt,
 		},
 	}
 

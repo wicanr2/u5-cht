@@ -64,6 +64,8 @@ type Scene struct {
 	DungeonViews []u5data.PictureSet
 	// DungeonItems 是 ITEMS.16 —— 走廊裡的梯子、寶箱、噴泉、陷阱。
 	DungeonItems u5data.PictureSet
+	// IntroArt 是 STORY1-6.16 —— 開場的插圖。
+	IntroArt []u5data.PictureSet
 }
 
 // Render 畫出整個 640×400 畫面。
@@ -71,6 +73,11 @@ func (s *Scene) Render() *image.NRGBA {
 	dst := image.NewNRGBA(image.Rect(0, 0, CanvasWidth, CanvasHeight))
 	fill(dst, ColorBackground)
 
+	// 開場動畫佔滿整個畫面 —— 沒有狀態欄也沒有地圖窗。
+	if s.State != nil && s.State.Intro != nil {
+		s.drawIntro(dst)
+		return dst
+	}
 	s.drawMapView(dst)
 	s.drawPanel(dst)
 	s.drawMessages(dst)
@@ -557,6 +564,85 @@ func (s *Scene) drawTileScaled(dst *image.NRGBA, idx, x, y, size int) {
 		for px := 0; px < size; px++ {
 			sx := px * u5data.TileSize / size
 			SetPixel(dst, x+px, y+py, u5data.EGAPalette[t.At(sx, sy)&0x0F])
+		}
+	}
+}
+
+// 開場動畫的版面
+//
+// ⚠ **這個版面是本專案自己排的,不是原版的。** 原版的座標在 DOS `INTRO.OVL` 裡
+// (FM Towns 那份 `byte_54298` / `byte_542B0` 是 640×480 的,套過來會歪)。
+// 「哪一頁配哪張圖」是照原版的頁表,擺在哪裡不是 —— 這個分界寫在
+// `u5data.IntroPages` 的說明裡。
+// 原版在 320×200 下把插圖幾乎鋪滿整個畫面(最大一張 176×192),
+// 文字直接**疊在圖上**的一個方框裡 —— 這裡照做:圖 2× 靠上,
+// 下方一塊實心黑底放文字。中文 24 px 比原版的 8 px 字大得多,
+// 所以文字框拉高一些,蓋掉插圖的下緣。
+const (
+	introArtTop   = 0
+	introTextTop  = 262
+	introMargin   = 24
+	introTextRule = introTextTop - 10
+)
+
+// drawIntro 畫開場的一頁:上面插圖、下面文字。
+func (s *Scene) drawIntro(dst *image.NRGBA) {
+	fill(dst, EGABlack)
+	in := s.State.Intro
+	if in.Page >= 0 && in.Page < u5data.IntroPageCount {
+		p := u5data.IntroPages[in.Page]
+		// 第二張先畫,主圖疊上去 —— 原版也是這個順序(`kind >= 4` 那一段
+		// 在主圖之後才畫,所以主圖在下)。
+		s.drawIntroArt(dst, p.Story, p.Shape2, true)
+		s.drawIntroArt(dst, p.Story, p.Shape, false)
+	}
+	// 文字底:蓋一塊實心黑,免得字疊在插圖上看不清。
+	fillRect(dst, 0, introTextRule, CanvasWidth, CanvasHeight-introTextRule, EGABlack)
+	for x := 0; x < CanvasWidth; x++ {
+		SetPixel(dst, x, introTextRule, ColorText)
+	}
+	if s.Text == nil {
+		return
+	}
+	y := introTextTop
+	for _, line := range in.VisibleLines() {
+		s.Text.Draw(dst, introMargin, y, line)
+		y += LineHeight
+	}
+	hint := "任意鍵繼續    ESC 跳過"
+	if in.MoreOnThisPage() {
+		hint = "任意鍵看下文  ESC 跳過"
+	}
+	s.Text.Draw(dst, introMargin, CanvasHeight-LineHeight-4, hint)
+}
+
+// drawIntroArt 把一張插圖畫在上半部。second 為真時往右下偏,免得完全蓋住主圖。
+func (s *Scene) drawIntroArt(dst *image.NRGBA, story, shape int, second bool) {
+	if shape < 0 || story < 0 || story >= len(s.IntroArt) {
+		return
+	}
+	set := s.IntroArt[story]
+	if shape >= len(set) || set[shape] == nil {
+		return
+	}
+	p := set[shape]
+	x := (CanvasWidth - p.Width*2) / 2
+	y := introArtTop
+	if second {
+		// 原版是 (x, y + 0x37) —— 相對位移照抄,絕對座標沒有。
+		y += 0x37
+	}
+	for py := 0; py < p.Height; py++ {
+		for px := 0; px < p.Width; px++ {
+			if p.Mask != nil && p.Mask[py*p.Width+px] != 0 {
+				continue
+			}
+			c := u5data.EGAPalette[p.Pix[py*p.Width+px]&0x0F]
+			for ky := 0; ky < 2; ky++ {
+				for kx := 0; kx < 2; kx++ {
+					SetPixel(dst, x+px*2+kx, y+py*2+ky, c)
+				}
+			}
 		}
 	}
 }

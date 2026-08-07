@@ -409,7 +409,7 @@ func cmdScene(args []string) error {
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
 		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Items: bundle.Items,
 		CombatMaps: bundle.Combat, Creatures: bundle.Creatures, Stats: bundle.Stats,
-		Spells: bundle.Spells, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
+		Spells: bundle.Spells, Story: bundle.Story, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
 		Objects: bundle.Objects, UnderObjects: bundle.UnderObjs,
 		Clock: game.NewClock(), MaxMessages: 8,
 	}
@@ -448,6 +448,7 @@ func cmdScene(args []string) error {
 		Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
 		DungeonViews: bundle.DungeonViews,
 		DungeonItems: bundle.DungeonItems,
+		IntroArt:     bundle.IntroArt,
 	}
 
 	if err := writePNG(args[2], sc.Render()); err != nil {
@@ -725,6 +726,10 @@ func playScript(st *game.State, script string) error {
 			st.Answer(true)
 		case 'N':
 			st.Answer(false)
+		case 'I':
+			st.BeginIntro() // 播開場動畫(截圖用:接著用 . 翻頁)
+		case '.':
+			st.AdvanceIntro()
 		case 'P':
 			st.Peer() // In Quas Wis 的 32×32 全景
 		case '!':
@@ -745,7 +750,7 @@ func playScript(st *game.State, script string) error {
 			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、P 全景、! 開打(截圖用)、L 點火把、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

@@ -104,6 +104,8 @@ const (
 	PromptSpell
 	// PromptDirection 是原版的「Direction-」:等一個方向鍵。
 	PromptDirection
+	// PromptIntro 是開場動畫:按任意鍵翻頁,ESC 跳過。
+	PromptIntro
 	// PromptPeer 是 In Quas Wis 攤開的 32×32 全景 —— 按任意鍵收起來。
 	//
 	// 原版 `sub_EDD4` 畫完之後就卡在 `while (sub_27034() == 0xFFFF)`
@@ -212,6 +214,10 @@ type State struct {
 
 	// Prompt 是目前的輸入模式;非 PromptNone 時,移動輸入無效。
 	Prompt Prompt
+	// Intro 是進行中的開場動畫(Prompt == PromptIntro 時有效)。
+	Intro *Intro
+	// Story 是 STORY.DAT —— 開場的二十段文字。
+	Story *u5data.TextFile
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
 	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。
