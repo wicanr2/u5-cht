@@ -10,6 +10,12 @@
   4. `%A`(玩家名字)—— 原文有 opcode 展開出來的名字時,譯文也要有;
      原文沒有卻多打 `%A` 會印出玩家名字在不該出現的地方。
   5. 殘留英文句子:譯文若整段沒有中日韓字元,幾乎一定是漏翻。
+  6. **日文假名** —— 工作單第三欄是日文,只當語意佐證。假名跑進譯文
+     代表 agent 拿日文當來源抄了(實際發生過:第 02 批 13 段)。
+  7. **Big5 編不出來的字** —— 畫面用倚天點陣字,字庫是 Big5。
+     簡體字、日文漢字異體、罕用字都編不出來,到玩家眼前是空框或 fallback。
+     ★ 這一條同時擋掉簡繁混用(`给` / `见` / `问`),而那是肉眼最容易漏看的。
+  8. 「」不成對。
 
 用法:checktalk.py <batch.tsv> <譯好的 .go 檔>
 """
@@ -50,6 +56,23 @@ def has_cjk(s: str) -> bool:
     return any("㐀" <= c <= "鿿" or "＀" <= c <= "￯" for c in s)
 
 
+def has_kana(s: str) -> bool:
+    return any("぀" <= c <= "ヿ" for c in s)
+
+
+def not_big5(s: str) -> list:
+    """回傳 Big5 編不出來的字。倚天字庫就是 Big5,編不出來就是畫不出來。"""
+    bad = []
+    for c in s:
+        if ord(c) < 128:
+            continue
+        try:
+            c.encode("big5")
+        except UnicodeEncodeError:
+            bad.append(c)
+    return bad
+
+
 def main() -> None:
     if len(sys.argv) != 3:
         sys.exit(__doc__)
@@ -79,8 +102,16 @@ def main() -> None:
             # 英文那邊玩家名字已經被展開成佔位字串,所以只在譯文多打時抓。
             if "%A" in zh:
                 bad.append("%s:譯文多了 %%A(原文沒有玩家名字)→ %s" % (k, zh))
-        if not has_cjk(zh):
+        if not has_cjk(zh) and any(ch.isalpha() for ch in en):
             bad.append("%s:整段沒有中文,像是漏翻 → %s" % (k, zh))
+        if has_kana(zh):
+            bad.append("%s:譯文裡有日文假名(日文欄只是語意佐證)→ %s" % (k, zh))
+        nb = not_big5(zh)
+        if nb:
+            bad.append("%s:這些字 Big5 編不出來 %s(簡體字?異體字?)→ %s"
+                       % (k, "".join(sorted(set(nb))), zh))
+        if zh.count("「") != zh.count("」"):
+            bad.append("%s:「」不成對 → %s" % (k, zh))
 
     for b in bad[:40]:
         print("✗", b)
