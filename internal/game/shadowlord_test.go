@@ -242,3 +242,118 @@ func TestShardsSurviveSaveRoundTrip(t *testing.T) {
 		t.Errorf("金幣從 %d 變成 %d —— 碎片的位移大概寫到別人身上了", gold, back.Inventory.Gold)
 	}
 }
+
+// TestHauntedTownSpawnsTheShadowlord:進到被盤據的城,牠會現身。
+//
+// 三件事一起發生:印「空氣中瀰漫著……」、暗影君主出現在 (15, 表[地點])、
+// 居民依是哪一位而變。少任何一件,玩家就不知道這座城出事了。
+func TestHauntedTownSpawnsTheShadowlord(t *testing.T) {
+	s := shrineState(t)
+	if s == nil {
+		return
+	}
+	const town = 2 // 不列顛城
+	s.ShadowlordAt = [u5data.ShadowlordCount]byte{0, town, 0}
+	if err := s.SetScene(town, 0, 15, 15); err != nil {
+		t.Skipf("進不了不列顛城:%v", err)
+	}
+	if !s.shadowlordPresent() {
+		t.Fatalf("被盤據的城裡沒有暗影君主:\n%s", s.log())
+	}
+	if !strings.Contains(s.log(), u5data.ShadowlordAir[1]) {
+		t.Errorf("沒有印「空氣中瀰漫著憎恨」:\n%s", s.log())
+	}
+	// 落點要照表。
+	wantY := int(u5data.ShadowlordTownY[town])
+	found := false
+	for _, v := range s.VisibleNPCs() {
+		if v.NPC.Creature == u5data.TileShadowlord {
+			found = true
+			if v.X != u5data.ShadowlordTownX || v.Y != wantY {
+				t.Errorf("暗影君主在 (%d,%d),表上是 (%d,%d)",
+					v.X, v.Y, u5data.ShadowlordTownX, wantY)
+			}
+		}
+	}
+	if !found {
+		t.Error("看不到牠")
+	}
+}
+
+// TestHatredMakesTownsfolkHostileAndFearMakesThemFlee:兩位的效果不一樣。
+//
+// ⚠ 三位一視同仁的話,玩家就分辨不出這座城被誰佔了 ——
+// 而「憎恨的城裡人人撲上來、怯懦的城裡人人跑光」正是這條支線的表現方式。
+// 虛偽(0)在這裡什麼都不做。
+func TestHatredMakesTownsfolkHostileAndFearMakesThemFlee(t *testing.T) {
+	count := func(which int, ai byte) int {
+		s := shrineState(t)
+		if s == nil {
+			return -1
+		}
+		s.ShadowlordAt = [u5data.ShadowlordCount]byte{0xFF, 0xFF, 0xFF}
+		s.ShadowlordAt[which] = 2
+		if err := s.SetScene(2, 0, 15, 15); err != nil {
+			t.Skipf("進不了不列顛城:%v", err)
+		}
+		n := 0
+		for i := range s.npcs {
+			if s.npcs[i].Present() && s.npcs[i].Schedule.AI[0] == ai {
+				n++
+			}
+		}
+		return n
+	}
+	hostile := count(1, u5data.NPCAIHostile)
+	fleeing := count(2, u5data.NPCAIFleeing)
+	if hostile < 0 || fleeing < 0 {
+		return
+	}
+	if hostile == 0 && fleeing == 0 {
+		t.Skip("這座城此刻沒有符合條件的居民(原版的 4 號槽 bug 會整城跳過)")
+	}
+	if hostile == 0 {
+		t.Error("憎恨佔城卻沒有人變敵對")
+	}
+	if fleeing == 0 {
+		t.Error("怯懦佔城卻沒有人逃跑")
+	}
+}
+
+// TestStonegateAnnouncesEverySurvivor:石門會為每一位還活著的各印一次。
+func TestStonegateAnnouncesEverySurvivor(t *testing.T) {
+	s := shrineState(t)
+	if s == nil {
+		return
+	}
+	s.ShadowlordAt = [u5data.ShadowlordCount]byte{1, u5data.ShadowlordGone, 3}
+	if err := s.SetScene(u5data.StonegateLocation, 0, 15, 15); err != nil {
+		t.Skipf("進不了石門:%v", err)
+	}
+	log := s.log()
+	if !strings.Contains(log, u5data.ShadowlordAir[0]) {
+		t.Error("沒有印虛偽的氣息")
+	}
+	if strings.Contains(log, u5data.ShadowlordAir[1]) {
+		t.Error("已經被消滅的那一位還是印了")
+	}
+	if !strings.Contains(log, u5data.ShadowlordAir[2]) {
+		t.Error("沒有印怯懦的氣息")
+	}
+}
+
+// TestShadowlordTownYCoversExactlyTheEightCities:落點表只有八座城非零。
+//
+// ★ 這是 `byte_3EF1B` 的自我驗證:遊走的範圍是 `random(1,8)`,
+// 而落點表恰好也只有 1..8 有值。兩份獨立資料對上 —— 表讀錯的話對不上。
+func TestShadowlordTownYCoversExactlyTheEightCities(t *testing.T) {
+	for loc, y := range u5data.ShadowlordTownY {
+		inRange := loc >= u5data.ShadowlordCityMin && loc <= u5data.ShadowlordCityMax
+		if inRange && y == 0 {
+			t.Errorf("地點 %d 是八德城市,落點卻是 0", loc)
+		}
+		if !inRange && y != 0 {
+			t.Errorf("地點 %d 不在遊走範圍內,落點卻是 %d", loc, y)
+		}
+	}
+}

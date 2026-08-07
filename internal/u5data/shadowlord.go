@@ -142,3 +142,60 @@ const (
 	CharUrn     = 31
 	CharUrnMark = 0x7F
 )
+
+// 暗影君主盤據一座城時會發生什麼(`sub_48C` + `sub_15C4`,由 `sub_1678` 在進場景時呼叫)
+
+// ShadowlordTownX 是暗影君主在城裡現身的 X(`sub_48C` 的 `mov dl, 0Fh`)。
+const ShadowlordTownX = 15
+
+// ShadowlordTownY 是牠在各地點現身的 Y(`byte_3EF1B[地點]`)。
+//
+// ★ 只有索引 1..8 非零 —— 那正是八座八德城市,與 `sub_29304` 分派的範圍
+//(`random(1,8)`)完全吻合。兩份獨立資料對上,不必另找 oracle。
+var ShadowlordTownY = [33]byte{
+	0, 4, 9, 15, 8, 17, 10, 11, 10,
+}
+
+// ShadowlordAir 是進到有暗影君主的地方時那句「空氣中瀰漫著……」的第二段
+//(`off_4FC90`)。**這是敘述,不是玩家要輸入的字**,所以譯成中文。
+var ShadowlordAir = [ShadowlordCount]string{"虛偽", "憎恨", "怯懦"}
+
+// 暗影君主對城裡居民的影響(`sub_15C4` 依 `byte_3E16A` 分派)
+//
+//	0 FAULINEI  虛偽 → 這裡**什麼都不做**(它的手段在別處)
+//	1 ASTAROTH  憎恨 → 居民變**敵對**,對話號碼改成 0xFE
+//	2 NOSFENTOR 怯懦 → 居民**逃跑**,對話號碼改成 0xFD
+//
+// ⚠ 三個各有各的,不能一視同仁 —— 憎恨讓人撲上來、怯懦讓人跑光,
+// 那正是玩家分辨「這座城被誰佔了」的方式。
+const (
+	ShadowlordHateDialogue  = 0xFE // ASTAROTH 改成的對話號碼
+	ShadowlordFearDialogue  = 0xFD // NOSFENTOR 改成的對話號碼
+)
+
+// StonegateLocation 是石門(地點 29)——三位暗影君主的出身地。
+//
+// 進去時會為**每一位還沒被消滅的**印一次「空氣中瀰漫著……」(`sub_1678`)。
+const StonegateLocation = 29
+
+// ShadowlordAffectsNPC 回報這名 NPC 會不會被城裡的暗影君主影響(`sub_1568`)。
+//
+// 三個條件:排程時刻**不全為 0**(是有作息的居民)、生物編號在 0x40..0x73、
+// 再擲一次硬幣(一半機率)。
+//
+// ⚠⚠ **原版這裡有一個 bug,而且照抄了。** 那句
+// `movzx eax, byte_3EDB0[esi]` 用的是 `esi` —— 但 `esi` 在上面那個
+// `for (esi = 0; esi < 4; esi++)` 迴圈結束時是 **4**,不是傳進來的 `edi`。
+// 也就是說**生物編號那一關檢查的永遠是第 4 號槽的居民**,與正在判的那個無關。
+//
+// 照抄。與末日位元那個共用儲存同理:自己「修好」它會讓行為與原版不同,
+// 而這裡的差別看得出來 —— 4 號槽剛好是隻動物的城,整城就沒人會被影響。
+func ShadowlordAffectsNPC(scheduled bool, slot4Creature byte, coin int) bool {
+	if !scheduled {
+		return false
+	}
+	if slot4Creature < 0x40 || slot4Creature >= 0x74 {
+		return false
+	}
+	return coin == 0
+}

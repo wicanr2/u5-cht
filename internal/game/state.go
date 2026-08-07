@@ -463,6 +463,8 @@ func (s *State) loadNPCs() {
 	}
 	// 存檔裡記著「這一格已經清掉了」的 NPC 不要再出現。
 	s.applyRemovedNPCs()
+	// 這座城被暗影君主盤據的話,牠會現身,而且居民會變(見 shadowlord.go)。
+	s.applyShadowlordHaunt()
 }
 
 // tick 推進遊戲時間,然後讓 NPC 走一回合。

@@ -158,3 +158,107 @@ func (s *State) SetDoomFlag(i int) {
 
 // DoomFlags 回傳已經消滅了哪幾位(位元 1/2/3)。
 func (s *State) DoomFlags() byte { return byte(s.RemovedNPC[DoomFlagIndex]) }
+
+// 暗影君主盤據一座城(原版 `sub_48C` + `sub_15C4`,由進場景的 `sub_1678` 呼叫)
+//
+// 進到一座被盤據的城時三件事一起發生:
+//
+//	1. 印「空氣中瀰漫著<虛偽/憎恨/怯懦>……」
+//	2. 暗影君主**本人現身**在 (15, byte_3EF1B[地點])
+//	3. 城裡的居民依是哪一位而變:憎恨 → 敵對撲上來、怯懦 → 四散奔逃
+//
+// 石門(地點 29)是三位的出身地,進去時會為**每一位還沒被消滅的**各印一次。
+
+// applyShadowlordHaunt 是進場景時跑的那一段。
+func (s *State) applyShadowlordHaunt() {
+	if s.Location == u5data.StonegateLocation {
+		// ⚠ 石門是**倒著數**的(原版 `mov esi, 2` 然後 `dec esi`)——
+		// 訊息的順序是怯懦 → 憎恨 → 虛偽。
+		for i := u5data.ShadowlordCount - 1; i >= 0; i-- {
+			if s.ShadowlordAt[i] < 0x80 {
+				s.logShadowlordAir(i)
+			}
+		}
+		return
+	}
+	which := s.hauntingShadowlord()
+	if which < 0 {
+		return
+	}
+	s.spawnShadowlordInTown(which)
+	s.logShadowlordAir(which)
+	s.hauntTownsfolk(which)
+}
+
+// hauntingShadowlord 是原版 `sub_48C` 前半段(設 `byte_3E16A`)。
+//
+// ⚠ **玩家的 Y 剛好是 4 的時候整段跳過**(`cmp byte_3E0A7, 4; jz`)。
+// 看不出理由,但照抄 —— 少了這一條,在某些城的某些落點會多出一隻。
+func (s *State) hauntingShadowlord() int {
+	if s.Y == 4 {
+		return -1
+	}
+	return s.ShadowlordHauntsHere()
+}
+
+// logShadowlordAir 印「空氣中瀰漫著……」。
+func (s *State) logShadowlordAir(i int) {
+	s.Log("空氣中瀰漫著" + u5data.ShadowlordAir[i] + "的氣息……")
+}
+
+// spawnShadowlordInTown 讓暗影君主在城裡現身。
+//
+// ⚠ 場上已經有一隻就不再生(原版掃三十二個物件槽找 tile 0xFC)。
+func (s *State) spawnShadowlordInTown(which int) {
+	if s.npcs == nil || s.shadowlordPresent() {
+		return
+	}
+	if s.Location < 0 || s.Location >= len(u5data.ShadowlordTownY) {
+		return
+	}
+	y := int(u5data.ShadowlordTownY[s.Location])
+	if y == 0 {
+		return // 這個地點沒有落點(表上只有八座城非零)
+	}
+	if s.spawnShadowlord(which, u5data.ShadowlordTownX, y) {
+		s.ShadowlordHere = byte(which)
+	}
+}
+
+// hauntTownsfolk 是 `sub_15C4`:依是哪一位改變城裡居民的行為。
+func (s *State) hauntTownsfolk(which int) {
+	if s.npcs == nil {
+		return
+	}
+	// ⚠ 虛偽(0)在這裡**什麼都不做**。三個一視同仁的話,
+	// 玩家就分辨不出這座城被誰佔了。
+	if which != 1 && which != 2 {
+		return
+	}
+	slot4 := byte(0)
+	if len(s.npcs) > 4 {
+		slot4 = s.npcs[4].Creature
+	}
+	for i := range s.npcs {
+		if i == u5data.PartySlot || !s.npcs[i].Present() {
+			continue
+		}
+		scheduled := false
+		for _, tm := range s.npcs[i].Schedule.Times {
+			if tm != 0 {
+				scheduled = true
+				break
+			}
+		}
+		if !u5data.ShadowlordAffectsNPC(scheduled, slot4, s.Roll(0, 1)) {
+			continue
+		}
+		if which == 1 {
+			s.makeHostile(i)
+			s.npcs[i].Dialogue = u5data.ShadowlordHateDialogue
+		} else {
+			s.makeFlee(i)
+			s.npcs[i].Dialogue = u5data.ShadowlordFearDialogue
+		}
+	}
+}
