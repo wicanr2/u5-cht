@@ -233,7 +233,8 @@ var UnderworldShards = [ShadowlordCount]struct {
 //
 // 城裡的物品是 `.NPC` 檔裡生物編號 < 0x40 的槽,由 `sub_1E74` 鏡射進物件表
 //(見 `docs/re/36`)。撿走之後要不要讓它復活,原版是**逐案硬編碼**的,
-// 沒有通則 —— 而全遊戲撿得起來的物品型 NPC 只有這兩個加王冠。
+// 沒有通則 —— 而全遊戲撿得起來的物品型 NPC 只有**四個**:這兩個,
+// 加下面的王冠與權杖(原本寫「加王冠」漏了權杖,見 `docs/re/57`)。
 const (
 	// SandalwoodNPCLocation / SandalwoodNPCSlot 是檀香木盒那一槽。
 	//
@@ -251,3 +252,61 @@ const (
 	CarpetNPCLocation = 17
 	CarpetNPCSlot     = 22
 )
+
+// 王冠與權杖擺在哪裡(`.NPC` 檔裡各一槽,全遊戲各只有一個)
+//
+// ★ 這一題卡了很久,而**卡住的原因是我在錯的命名空間裡找**。
+//
+// 0xB4..0xB7 這四個號碼同時活在兩套索引裡,語意完全不同:
+//
+//	地形 tile 0xB4..0xB7 → `LOOK2.DAT` 的 look#180..183 = **四個朝向的加農砲**
+//	物件種類 0xB4..0xB7 → look#436..439 = 碎片 / 王冠 / 權杖 / 護符
+//
+// 於是「在地圖裡 grep 0xB5」會撈到一堆**砲**:不列顛王城堡的上兩層、
+// 亞拉拉特、邊境哨、巨蛇要塞,而且清一色左右對稱 —— 對稱正是它們不可能是
+// 「全世界只有一個」的信物的證據。我當時看到對稱卻沒把它當線索。
+//
+// 找對命名空間之後答案是唯一的:掃四份 `.NPC` 的生物編號欄,
+// 全遊戲只有兩槽是 0xB5 / 0xB6。
+//
+//	王冠 0xB5  `CASTLE.NPC` 地點 18(第二座城堡,大地圖 (196,245))槽 1
+//	           排程三個 slot 全部 (15,13) 第 +3 層,行為型別 0(不動),四個時刻全 0
+//	權杖 0xB6  `KEEP.NPC`   地點 29 STONEGATE 槽 9
+//	           排程三個 slot 全部 (15,15) 地面層,同樣型別 0、時刻全 0
+//
+// 兩處都是密室:王冠那間是雉堞(0x4F)圍出來的小室,門口一格 0x97「怪門」、
+// 兩側各一座火盆;權杖那格被八格 0x8C「鬆動的磚」團團圍住,外面再一圈石柱。
+//
+// # 為什麼不用寫「放置」程式碼
+//
+// 因為它們是 NPC。`sub_1E74` 每回合把「此刻在本層」的 NPC 鏡射進物件表,
+// Get 掃的就是物件表 —— 這條路已經在跑了(見上面檀香木盒那段)。
+// 引擎這邊**一行都不用加**:行為型別 0 = 原地不動,時刻全 0 = 不換崗位。
+//
+// ⚠ 而且兩者的善後**不一樣**:王冠走 `sub_2E0` + `sub_218` + `sub_268`
+// 全套(永久移除),權杖只靠共同尾段清掉物件槽,**沒有 `sub_218`** ——
+// 所以離開 STONEGATE 再回來,權杖躺在原地第二次。與魔毯同一種原版行為,照抄。
+const (
+	// CrownNPCLocation / CrownNPCSlot 是王冠那一槽。
+	CrownNPCLocation = 18
+	CrownNPCSlot     = 1
+
+	// SceptreNPCLocation / SceptreNPCSlot 是權杖那一槽。
+	SceptreNPCLocation = 29
+	SceptreNPCSlot     = 9
+)
+
+// RegaliaNPCPlacement 是王冠與權杖在 `.NPC` 檔裡的位置,供測試對真檔核對。
+var RegaliaNPCPlacement = []struct {
+	Name     string
+	Kind     byte
+	Location int
+	Slot     int
+	X, Y     int
+	Floor    int
+}{
+	{Name: "王冠", Kind: ItemCrown, Location: CrownNPCLocation, Slot: CrownNPCSlot,
+		X: 15, Y: 13, Floor: 3},
+	{Name: "權杖", Kind: ItemSceptre, Location: SceptreNPCLocation, Slot: SceptreNPCSlot,
+		X: 15, Y: 15, Floor: 0},
+}
