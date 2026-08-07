@@ -762,6 +762,7 @@ func (s *State) leaveScene() {
 	s.sceneObjects = nil
 	if underworld {
 		s.Floor = -1
+		s.placeUnderworldItems()
 		s.Log(MsgExitTo + MsgUnderworld)
 	} else {
 		s.Floor = 0
@@ -798,6 +799,10 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 		s.Shards[i] = sv.Shards[i] != 0
 	}
 	s.SandalwoodBox = sv.SandalwoodBox != 0
+	s.Regalia = sv.Regalia
+	// 地下世界的寶珠與碎片是**載入時當場擺**的,不在任何資料檔裡
+	//(原版 `sub_10B3C`,由地圖載入呼叫)。
+	s.placeUnderworldItems()
 	s.removed = nil
 	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
 	s.Location = 0

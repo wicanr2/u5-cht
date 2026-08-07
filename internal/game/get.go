@@ -247,3 +247,37 @@ func (s *State) rollDungeonLoot(floor int) {
 		s.pickUp(u5data.DungeonLootKind[i], s.Roll(1, max), 0)
 	}
 }
+
+// placeUnderworldItems 進地下世界時把寶珠與碎片放進物件槽(原版 `sub_10B3C`)。
+//
+// 每次載入地下世界都跑一次,而且是**冪等**的:已經拿到的不再放,
+// 已經用掉的(暗影君主被消滅)也不再放。
+func (s *State) placeUnderworldItems() {
+	if s.Floor >= 0 || s.UnderObjects == nil {
+		return
+	}
+	set := func(slot int, kind byte, x, y, quality int) {
+		o := &s.UnderObjects.Objects[slot]
+		o.Kind, o.Tile = kind, kind
+		o.X, o.Y, o.Floor = x, y, -1
+		o.Raw[0], o.Raw[1] = kind, kind
+		o.Raw[2], o.Raw[3] = byte(x), byte(y)
+		o.Raw[4] = 0xFF
+		o.Raw[5] = byte(quality)
+	}
+	if !s.Regalia.Orb {
+		set(u5data.UnderworldOrbSlot, u5data.ItemOrb,
+			u5data.UnderworldOrb.X, u5data.UnderworldOrb.Y, u5data.UnderworldOrb.Quality)
+	}
+	for i := 0; i < u5data.ShadowlordCount; i++ {
+		if s.Shards[i] {
+			continue
+		}
+		// ⚠ 暗影君主已被消滅 → 那塊碎片用掉了,不重生。
+		if s.ShadowlordAt[i] >= 0x80 {
+			continue
+		}
+		p := u5data.UnderworldShards[i]
+		set(u5data.UnderworldShardSlot+i, u5data.ItemShard, p.X, p.Y, p.Quality)
+	}
+}

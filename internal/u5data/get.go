@@ -174,3 +174,47 @@ func DungeonLootRollMax(floor int) int { return floor*4 + 4 }
 //
 // 原版 `and byte ptr [eax+ecx], 8` —— 只留「頭上有洞」那一位元。
 func DungeonEmptiedChest(tile byte) byte { return tile & DungeonHoleAbove }
+
+// 地下世界的固定寶物(原版 `sub_10B3C`,由地圖載入 `sub_2CBEC` 呼叫)
+//
+// ★ 「碎片與盒子擺在哪裡」這一題,碎片與寶珠的部分在這裡結掉了 ——
+// 它們**不在**任何資料檔裡(`.OOL` 沒有、`DUNGEON.CBT` 也沒有),
+// 是進地下世界時由程式**當場塞進物件槽**的:
+//
+//	if (樓層 == 0) return;                        // 只在地下世界
+//	if (還沒拿到寶珠) 槽 28 = 寶珠 @ (105, 225)
+//	for (i = 0; i < 3; i++) {
+//	    if (已經拿到第 i 塊碎片) continue;
+//	    if (第 i 位暗影君主已被消滅) continue;      // 用掉的碎片不會重生
+//	    槽 29+i = 碎片 @ (表)
+//	}
+//
+// 第二個條件很要緊:`sub_1A38C` 用碎片消滅暗影君主時會把碎片**清掉**
+//(`byte_3DFC4[i] = 0`),如果只看「有沒有拿到」,那塊碎片會在原地重生。
+
+// UnderworldItemSlot 是這幾樣東西各自佔的物件槽。
+//
+// 由位址算出來:`dword_3E54C` 與 `3E554h[i*8]` 相對於物件表起點 `dword_3E46C`
+// 分別是 +0xE0 與 +0xE8,除以 8 就是槽 28 與 29..31。
+const (
+	UnderworldOrbSlot   = 28
+	UnderworldShardSlot = 29
+)
+
+// UnderworldOrb 是寶珠固定擺放的位置與品質。
+var UnderworldOrb = struct {
+	X, Y, Quality int
+}{X: 105, Y: 225, Quality: 0xF3}
+
+// UnderworldShards 是三塊碎片固定擺放的位置與品質(`byte_55140 + 0x110`)。
+//
+// ⚠ 品質是 **0xF0 / 0xF1 / 0xF2**,不是 0 / 1 / 2 —— `ShardIndex` 取的是
+// 低兩位(`and eax, 3`),所以剛好對到 0 / 1 / 2。高位那幾個位元在這裡沒有用途,
+// 但**不能把品質改寫成 0/1/2** :那會讓存檔與原版不同。
+var UnderworldShards = [ShadowlordCount]struct {
+	X, Y, Quality int
+}{
+	{X: 192, Y: 80, Quality: 0xF0},
+	{X: 130, Y: 65, Quality: 0xF1},
+	{X: 176, Y: 184, Quality: 0xF2},
+}

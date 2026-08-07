@@ -69,6 +69,7 @@ func (s *State) ExportSave(base *u5data.Save) (*u5data.Save, error) {
 	out.ShadowlordAt = s.ShadowlordAt
 	out.ShadowlordHere = s.ShadowlordHere
 	out.RemovedNPC = s.RemovedNPC
+	out.Regalia = s.Regalia
 	out.SandalwoodBox = 0
 	if s.SandalwoodBox {
 		out.SandalwoodBox = 1

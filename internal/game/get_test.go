@@ -185,10 +185,8 @@ func TestTakingFoodCostsKarma(t *testing.T) {
 }
 
 // 盤子有方向規矩:得站在桌子的長邊,側面搆不著。
-func TestYouMustReachTheePlateFromTheRightSide(t *testing.T) {
-	// 0x9A(北半)要從南邊拿 —— 也就是玩家在它南邊、往北伸手(dy = −1)?
-	// 不對:原版判的是 dy == 1。dy 是「從玩家往目標」的增量,
-	// 所以 dy == 1 代表目標在玩家**南邊**。
+func TestYouMustReachThePlateFromTheRightSide(t *testing.T) {
+	// dx / dy 是「從玩家指向目標」的增量 —— dy == 1 代表盤子在玩家南邊。
 	if !u5data.PlateReach(u5data.TilePlateNorth, 0, 1) {
 		t.Error("0x9A 要從 dy=1 那個方向拿")
 	}
@@ -278,5 +276,136 @@ func TestDungeonGoldQuantityIsComputedNotTabulated(t *testing.T) {
 	}
 	if u5data.DungeonLootKind[1] != u5data.ItemGold {
 		t.Fatalf("第 1 類應該是金幣,實得 %02X", u5data.DungeonLootKind[1])
+	}
+}
+
+// underworldState 造一個站在地下世界的狀態。
+func underworldState(t *testing.T) *State {
+	t.Helper()
+	s := &State{
+		World: &u5data.WorldMap{}, Under: &u5data.WorldMap{},
+		Scenes: synthScenes(t, walkable(t)), NPCs: &u5data.NPCSet{},
+		UnderObjects: &u5data.ObjectSet{}, MaxMessages: 16,
+	}
+	s.Floor = -1
+	return s
+}
+
+// ★ 碎片與寶珠不在任何資料檔裡 —— 進地下世界時由程式當場擺進物件槽。
+func TestUnderworldItemsArePlacedOnEntry(t *testing.T) {
+	s := underworldState(t)
+	s.placeUnderworldItems()
+
+	orb := &s.UnderObjects.Objects[u5data.UnderworldOrbSlot]
+	if orb.Kind != u5data.ItemOrb {
+		t.Errorf("槽 %d 是 %02X,應該是寶珠 %02X",
+			u5data.UnderworldOrbSlot, orb.Kind, byte(u5data.ItemOrb))
+	}
+	if orb.X != 105 || orb.Y != 225 || orb.Floor != -1 {
+		t.Errorf("寶珠在 (%d,%d) 樓層 %d,應該是 (105,225) 樓層 −1",
+			orb.X, orb.Y, orb.Floor)
+	}
+	for i := 0; i < u5data.ShadowlordCount; i++ {
+		o := &s.UnderObjects.Objects[u5data.UnderworldShardSlot+i]
+		if o.Kind != u5data.ItemShard {
+			t.Fatalf("槽 %d 是 %02X,應該是碎片", u5data.UnderworldShardSlot+i, o.Kind)
+		}
+		p := u5data.UnderworldShards[i]
+		if o.X != p.X || o.Y != p.Y {
+			t.Errorf("第 %d 塊碎片在 (%d,%d),應該是 (%d,%d)", i, o.X, o.Y, p.X, p.Y)
+		}
+		// ⚠ 品質保留原版的 0xF0..0xF2,不改寫成 0..2。
+		if int(o.Raw[5]) != p.Quality {
+			t.Errorf("第 %d 塊碎片的品質是 %02X,應該是 %02X", i, o.Raw[5], p.Quality)
+		}
+		// 但低兩位要對得上碎片編號。
+		if u5data.ShardIndex(int(o.Raw[5])) != i {
+			t.Errorf("品質 %02X 的低兩位是 %d,應該是 %d",
+				o.Raw[5], u5data.ShardIndex(int(o.Raw[5])), i)
+		}
+	}
+}
+
+// 已經拿到的不再擺 —— 不然回地下世界就能無限撿。
+func TestTakenItemsAreNotPlacedAgain(t *testing.T) {
+	s := underworldState(t)
+	s.Shards[1] = true
+	s.Regalia.Orb = true
+	s.placeUnderworldItems()
+	if s.UnderObjects.Objects[u5data.UnderworldOrbSlot].Present() {
+		t.Error("已經拿到寶珠了,不該再擺一個")
+	}
+	if s.UnderObjects.Objects[u5data.UnderworldShardSlot+1].Present() {
+		t.Error("已經拿到第 1 塊碎片了,不該再擺一個")
+	}
+	// 其餘兩塊照擺。
+	for _, i := range []int{0, 2} {
+		if !s.UnderObjects.Objects[u5data.UnderworldShardSlot+i].Present() {
+			t.Errorf("第 %d 塊碎片還沒拿,應該擺出來", i)
+		}
+	}
+}
+
+// ⚠⚠ 用掉的碎片**不會重生**。
+//
+// 碎片投進聖火消滅暗影君主之後,原版把 `byte_3DFC4[i]` **清成 0**
+//(碎片沒了)同時把 `byte_3E0D8[i]` 設成 0xFF(暗影君主沒了)。
+// 擺放條件如果只看「有沒有拿到」,那塊碎片會在原地重生 ——
+// 玩家可以撿第二次,再去消滅一次已經不存在的暗影君主。
+func TestASpentShardDoesNotRespawn(t *testing.T) {
+	s := underworldState(t)
+	// 第 2 塊已經用掉了:碎片清空、暗影君主消滅。
+	s.Shards[2] = false
+	s.ShadowlordAt[2] = u5data.ShadowlordGone
+	s.placeUnderworldItems()
+	if s.UnderObjects.Objects[u5data.UnderworldShardSlot+2].Present() {
+		t.Error("用掉的碎片不該重生")
+	}
+	if !s.UnderObjects.Objects[u5data.UnderworldShardSlot+0].Present() {
+		t.Error("沒用掉的碎片照擺")
+	}
+}
+
+// 在地表不擺(原版第一行就 `cmp byte_3E0A5, 0; jz` 退出)。
+func TestNothingIsPlacedOnTheSurface(t *testing.T) {
+	s := underworldState(t)
+	s.Floor = 0
+	s.placeUnderworldItems()
+	for i := u5data.UnderworldOrbSlot; i < u5data.ObjectSlots; i++ {
+		if s.UnderObjects.Objects[i].Present() {
+			t.Fatalf("在地表卻擺了槽 %d", i)
+		}
+	}
+}
+
+// 重複進出地下世界不會擺出兩份 —— 冪等。
+func TestPlacingIsIdempotent(t *testing.T) {
+	s := underworldState(t)
+	s.placeUnderworldItems()
+	s.placeUnderworldItems()
+	n := 0
+	for i := range s.UnderObjects.Objects {
+		if s.UnderObjects.Objects[i].Present() {
+			n++
+		}
+	}
+	if n != 4 {
+		t.Errorf("擺了 %d 個東西,應該是 4(寶珠 + 三塊碎片)", n)
+	}
+}
+
+// 端對端:走過去把碎片撿起來。
+func TestWalkUpToAShardAndTakeIt(t *testing.T) {
+	s := underworldState(t)
+	s.placeUnderworldItems()
+	p := u5data.UnderworldShards[0]
+	// 站在碎片南邊一格,往北撿。
+	s.X, s.Y = p.X, p.Y+1
+	getNorth(s)
+	if !s.Shards[0] {
+		t.Fatalf("走到 (%d,%d) 往北撿,沒拿到第 0 塊碎片:%q", s.X, s.Y, allLogs(s))
+	}
+	if s.UnderObjects.Objects[u5data.UnderworldShardSlot].Present() {
+		t.Error("撿走之後地上不該還有一個")
 	}
 }
