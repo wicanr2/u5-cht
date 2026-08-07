@@ -171,6 +171,43 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 建立新角色:開場白 / 結語按任意鍵,七題只收 A / B,名字打字,性別 M / F。
+	if st.Prompt == gamestate.PromptCreate {
+		switch st.Create.Stage {
+		case gamestate.CreationIntro, gamestate.CreationClosing:
+			if len(inpututil.AppendJustPressedKeys(nil)) > 0 {
+				st.AdvanceCreation()
+			}
+		case gamestate.CreationQuestion:
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyA):
+				st.AnswerCreation(true)
+			case inpututil.IsKeyJustPressed(ebiten.KeyB):
+				st.AnswerCreation(false)
+			}
+		case gamestate.CreationName:
+			for _, r := range ebiten.AppendInputChars(nil) {
+				st.TypeCreationName(string(r))
+			}
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+				inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+				st.ConfirmCreationName()
+			case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+				st.TypeCreationName("")
+			}
+		case gamestate.CreationGender:
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyM):
+				st.AnswerCreationGender(true)
+			case inpututil.IsKeyJustPressed(ebiten.KeyF):
+				st.AnswerCreationGender(false)
+			}
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// In Quas Wis 的全景:原版畫完就卡著等一個按鍵,按什麼都收起來。
 	if st.Prompt == gamestate.PromptPeer {
 		if len(inpututil.AppendPressedKeys(nil)) > 0 {
@@ -465,6 +502,8 @@ func main() {
 	scale := flag.Int("scale", 2, "視窗放大倍率(整數;邏輯畫布固定 640×400)")
 	showVersion := flag.Bool("version", false, "印出版本後結束")
 	playIntro := flag.Bool("intro", false, "強制播開場動畫(沒有存檔時本來就會播)")
+	newChar := flag.Bool("create", false,
+		"走建角流程(吉普賽的七題八德),覆寫載入的那名聖者")
 	flag.Parse()
 
 	if *showVersion {
@@ -516,6 +555,7 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
 		Story:        bundle.Story,
+		Question:     bundle.Question,
 		Misc:         bundle.Misc,
 		EndMsg:       bundle.EndMsg,
 		MiscMaps:     bundle.MiscMaps,
@@ -553,6 +593,12 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	// 不要每次開機都逼玩家看一遍。`-intro` 可以強制播。
 	if *playIntro || !loaded {
 		st.BeginIntro()
+	}
+	// 建角。原版是主選單的「Create New Character」;引擎還沒有主選單,
+	// 先用旗標接上 —— 沒有它玩家只能扮演存檔裡做好的聖者。
+	// ⚠ 開場動畫還在播的時候不能同時建角,兩者都吃「任意鍵」。
+	if *newChar && st.Prompt == gamestate.PromptNone {
+		st.BeginCreation()
 	}
 
 	g := &game{

@@ -26,6 +26,15 @@ import (
 //   - **NUL (0x00)**:記錄分隔
 //   - `{`:段落 / 換頁起始(只出現在 STORY 與 QUESTION)
 //   - `_`:**英文斷字提示**(`be_gin`、`mys_te_ri_ous`)。中文化時一律移除
+// 明文訊息檔的檔名。組 i18n key 用,別直接寫字串字面量。
+const (
+	StoryFile    = "STORY.DAT"
+	QuestionFile = "QUESTION.DAT"
+	KarmaFile    = "KARMA.DAT"
+	MiscFile     = "MISCMSG.DAT"
+	EndMsgFile   = "ENDMSG.DAT"
+)
+
 const (
 	textRecordSep  = 0x00
 	textPageMark   = '{'

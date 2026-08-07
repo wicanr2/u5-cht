@@ -204,4 +204,9 @@ const (
 	// "Slow progress!" / "Very slow!" —— 粗糙地形(原版 `sub_2D0BC`)。
 	MsgSlowProgress = "步履維艱!"
 	MsgVerySlow     = "寸步難行!"
+
+	// 建立新角色(原版主選單的 `Create New Character`)。
+	MsgCreateName   = "汝之名為何?"
+	MsgCreateGender = "汝為男(M)或女(F)?"
+	MsgCreateDone   = "汝之命途已定。踏上旅途吧!"
 )

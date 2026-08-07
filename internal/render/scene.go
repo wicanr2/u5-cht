@@ -248,6 +248,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "Y 束手就擒 / N 反抗"
 	case game.PromptGuard:
 		hint = "Y 付 / N 不付"
+	case game.PromptCreate:
+		hint = creationHint(s.State)
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
 		}
@@ -277,6 +279,12 @@ func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
 		label = "汝喊:"
 	case game.PromptBlackthorn:
 		label = "汝答:"
+	case game.PromptCreate:
+		if s.State.Create == nil || s.State.Create.Stage != game.CreationName {
+			return y
+		}
+		s.Text.Draw(dst, PanelX, y, "汝名:"+s.State.Create.Name+"_")
+		return y + LineHeight
 	case game.PromptGuard:
 		if s.State.Guard == nil || !s.State.Guard.Password {
 			return y
@@ -309,6 +317,10 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	case game.PromptGuard:
 		if s.State.Guard != nil && s.State.Guard.Password {
 			avail--
+		}
+	case game.PromptCreate:
+		if s.State.Create != nil && s.State.Create.Stage == game.CreationName {
+			avail-- // 打名字那一步要留一行給輸入列
 		}
 	}
 	if avail < 1 {
@@ -696,4 +708,25 @@ func (s *Scene) drawIntroArt(dst *image.NRGBA, story, shape int, second bool) {
 			}
 		}
 	}
+}
+
+// creationHint 是建角每一步的操作提示。
+//
+// 建角是玩家**第一個**碰到的畫面,提示錯了就是第一印象壞掉 ——
+// 而它有四種輸入方式(任意鍵 / A・B / 打字 / M・F),不逐步標會按不下去。
+func creationHint(st *game.State) string {
+	if st.Create == nil {
+		return ""
+	}
+	switch st.Create.Stage {
+	case game.CreationIntro, game.CreationClosing:
+		return "按任意鍵繼續"
+	case game.CreationQuestion:
+		return "A 或 B —— 選一個"
+	case game.CreationName:
+		return "打上名字後按 Enter"
+	case game.CreationGender:
+		return "M 男 / F 女"
+	}
+	return ""
 }

@@ -55,7 +55,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
 | 地表世界地圖 256×256 | `BRIT.DAT` 205 chunk + `DATA.OVL` 0x3886 索引表 | ✅ 完整組出 |
-| 地底世界 | `UNDER.DAT` 65,536 B(256 chunk,不省略) | ⬜ 解碼未做 |
+| 地底世界 | `UNDER.DAT` 65,536 B(256 chunk,不省略) | ✅ 已解碼並接進引擎(`internal/u5data/map.go`,`State.Under`);可走、可視線遮蔽 |
 | NPC 與排程 | 四檔各 4,608 B = 8 地點 × 576 B(32 × 16 B 排程 + 32 生物編號 + 32 對話號碼) | ✅ **全解**(docs/re/04 + **29**):排程 slot 選擇、生物編號→tile(+256)、對話號碼分派、**第四個欄位「行為型別」八種**(遊走 / 怕生 / 搭話 / 跟隨 / 醉步 / 敵對)。全遊戲 325 個 NPC、46 個商人 |
 | 裝備與生物名 | `DATA.OVL` 0x1806 / 0x1866 兩張 48 筆 u16 指標表(指標要 +0x10) | ✅ **已解**(docs/re/09):48 件裝備名(分兩段交錯)、角色紀錄 0x19–0x1E 的裝備欄位、生物名索引 =(編號−64)/4 |
 | 商店 | 8 種店、47 家;`byte_4185C`/`off_4145C`/`off_4165C` 三張稀疏表 + `SHOPPE.DAT` 問候語 | ✅ **八種店全部可跑**(docs/re/08、10):店名店主與 24 張表都從 DATA.OVL 讀;七個佔位符全解;買 / 賣 / 療傷 / 住宿 / 寄放同伴 / 點餐 / 買馬買船。⬜ 只剩坐騎物件與酒館的打聽消息 |
@@ -81,49 +81,49 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | **視線遮蔽** | `sub_2E0E8` → `sub_2DDB0`;`sub_2E1D0`(19 擋 + 5 貼著才透);距離表 `byte_601F0` | ✅ **已實作**(`docs/re/31`):flood fill 照抄、牆擋得住、Wis An Ylem 穿牆、戰鬥與石室不遮蔽 |
 | **場景照明** | `sub_2E21C`;發光地形 `dword_601E4`(10 筆);光源半徑² 10 | ✅ **已實作**(`docs/re/31` §6):火盆 / 營火 / 月門各自照亮一圈,而且照不進隔壁房間;夜裡視野縮成九格,靠光源才看得遠 |
 | **燈塔的光束** | `sub_10738`(找 tile 0x1B)+ `sub_2E944` → `sub_2E8E8`;扇區表 0x4120C | ✅ **已實作**(`docs/re/31`):十六個扇區排成羅盤、三個扇區寬、每幀轉一格,白天不畫。`BRIT.DAT` 裡 0x1B 剛好四個 = 四座燈塔 |
-| 月相與月門 | U5 沿用系列月門機制;`MISCMAPS.DAT` 疑為相關 | ⬜ 待確認 |
+| 月相與月門 | `DATA.OVL` 月相表 + 存檔的八個目的地 | ✅ 已實作(`game/moongate.go`,`docs/re/22`):月相推進、踏上月門傳送 |
 | **風向**(航海) | `DATA.OVL` 0x5564:`Calm / North / South / East / West Winds` | ⬜ 影響船速與方向,規則待逆 |
 
 ### 2.3 角色與隊伍
 
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
-| 創角(吉普賽問答) | `QUESTION.DAT` 30 筆 + `CREATE.16` | ⬜ 文字已解出 |
-| 屬性 STR/DEX/INT | `DATA.OVL` 0x33F1 | ⬜ |
+| **創角(吉普賽問答)** | `QUESTION.DAT` 30 筆 + `CREATE.16` | ✅ **已實作**(`docs/re/39`):八德淘汰賽 4→2→1 共七題、勝方三圍**累加**(⚠ Hex-Rays 反編成賦值,真值是 `add`)、魔力=智力、力量下限 20、28 題對照表從執行檔抽出。⬜ 主選單與 `CREATE.16` 插圖未做,先用 `-create` 旗標進入 |
+| 屬性 STR/DEX/INT | `DATA.OVL` 0x33F1 | ✅ 存檔已讀寫、升級會加(`game/levelup.go`)、聖壇冥想會用;⬜ 創角時的初值分配未做(見下) |
 | 等級與經驗 | `DATA.OVL` 0x3529:`Exp:` `Level:` | ⬜ |
-| **從 Ultima IV 轉入角色** | `DATA.OVL` 0x3115 主選單有 `Transfer from Ultima IV`;0x3529 有轉換訊息 | ⬜ 系列特色,別漏 |
+| **從 Ultima IV 轉入角色** | `DATA.OVL` 0x3115 / 0x3529 | ⬜ 系列特色,別漏。主選單第三項,轉換規則未逆 |
 | 性別 | `DATA.OVL` 0x33F1:` Male / Female ` | ⬜ |
 | Avatar 身分判定 | `DATA.OVL` 0x33F1:`is an Avatar.` / `not an Avatar` | ⬜ |
-| 角色數值畫面(Ztats) | `ZSTATS.OVL` 4,880 B | ⬜ |
-| 狀態 | `DATA.OVL` 0x0919:`Good Health / Poisoned / Dead / Asleep / Charmed` | ⬜ |
-| 隊伍成員招募 | NPC `join` 關鍵字;`DATA.OVL` 0x9D80 有 `Malik Greyson Trian Jeremy` | ⬜ |
+| 角色數值畫面(Ztats) | `ZSTATS.OVL` 4,880 B | ⬜ 未做。存檔裡的欄位都讀得到,缺的是畫面與翻頁 |
+| 狀態 | `DATA.OVL` 0x0919 | ✅ 五種狀態都在用(`u5data.StatusGood/Poisoned/Dead/Asleep/Charmed`):中毒、睡著、死亡、休息、復活都吃它 |
+| 隊伍成員招募 | NPC `join` 關鍵字 | ✅ 已實作(`game/talk.go`:opcode 0x84 → 入隊、隊伍滿了的回絕) |
 
 ### 2.4 戰鬥
 
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
-| 戰鬥地圖 | `BRIT.CBT` 5,632 B / `DUNGEON.CBT` 39,424 B | ⬜ 未解碼 |
-| 戰鬥流程 | `COMBAT.OVL` 7,408 + `COMSUBS.OVL` 5,216 | ⬜ |
+| 戰鬥地圖 | `BRIT.CBT` 5,632 B / `DUNGEON.CBT` 39,424 B | ✅ 已解碼(`u5data/combatmap.go`);戰鬥與地牢房間都在用 |
+| 戰鬥流程 | `COMBAT.OVL` 7,408 + `COMSUBS.OVL` 5,216 | ✅ 完整回合已實作(`docs/re/15`/`16`):遭遇生成、敏捷排程、敵人 AI、命中與傷害、經驗值;DOS overlay 本身未逆(結論來自 FM Towns) |
 | 攻擊方位 | `DATA.OVL` 0x2DA2:`Attacked from the north/east/south/west` | ⬜ |
 | 連擊次數 | `DATA.OVL` 0x9AA8:`Attack- two three four` | ⬜ |
-| **怪物 22 種以上** | `DATA.OVL` 0x0380/0x0404/0x0469:`SEA HORSES SQUIDS SEA SERPENTS SHARKS GIANT RATS BATS SPIDERS GARGOYLE INSECTS ORCS SKELETONS SNAKES ETTINS HEADLESSES WISPS DAEMONS MONGBATS CORPSERS ROTWORMS SHADOW LORD` + `BLACKTHORN` `LORD BRITISH` | ⬜ 名單已有,數值待逆 |
+| **怪物 22 種以上** | `DATA.OVL` 0x0380/0x0404/0x0469 | ✅ 名字與三圍都已接(`u5data/combatstats.go`,`docs/re/15`);遭遇生成、AI、命中傷害在跑 |
 | 怪物圖 | `MON0–7.16`(8 組) | ⬜ 壓縮未破 |
 
 ### 2.5 魔法
 
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
-| 咒語(符文組合) | `DATA.OVL` 0x0919 符文詞 `AN BET CORP DES EX FLAM GRAV HUR IN KAL LOR MANI NOX POR QUAS REL SANCT TYM UUS`;0x06EE 法術名 `In Lor / Grav Por / An Zu / An Nox / Mani / An Ylem / An Sanct / An Xen Cor / Rel Hur / In Wis / Kal Xen / In Xen M…` | ⬜ 名單已有 |
+| 咒語(符文組合) | `DATA.OVL` 0x0919 / 0x06EE | ✅ 咒語表全解(`u5data/spells.go`,`docs/re/17`),**48 / 48 個效果已實作** |
 | 法術代碼表 | `DATA.OVL` 0x09B3:98 項縮寫(`AY AS ACX HR IW KX IMX LV FV…`) | ⬜ 對應關係待解 |
 | 材料(reagents) | `DATA.OVL` 0x06EE:`Pearl / Nightshade / Mandrake` … | ⬜ |
 | 施法流程 | `CAST.OVL` 8,560 + `CAST2.OVL` 4,544 | ⬜ |
-| **Words of Power**(地牢咒語) | `DATA.OVL` 0x44AD:`FALLAX VILIS INOPIA MALUM AVIDUS INFAMA IGNAVUS **VERAMOCOR**` | ⬜ U5 關鍵劇情機制 |
+| **Words of Power**(地牢咒語) | `DATA.OVL` 0x44AD | ✅ 已實作(`u5data/wordofpower.go`,`docs/re/26`):八個字 + Yell 說出的判定 |
 
 ### 2.6 物品、裝備、經濟
 
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
-| 裝備 75 項 | `DATA.OVL` 0x0052:`Leather Helm … Mystic Sword`、`Ring of Invisibility` | ⬜ 名單已有,數值待逆 |
+| 裝備 75 項 | `DATA.OVL` 0x0052 | ✅ 名字(`u5data/items.go`)與戰鬥數值(`u5data/combatstats.go`:防禦 / 射程 / 類別)都已接 |
 | 特殊物品 158 項 | `DATA.OVL` 0x04C3:`Magic Crpt(魔毯) / Skull Keys / Amulet / Crown / Sceptre` … | ⬜ |
 | 魔法飾品 | `DATA.OVL` 0x7CFE:`Invisibility / Protection / Regeneration Ring`、`Turning Amulet` | ⬜ |
 | **商店 236 家(店名)** | `DATA.OVL` 0x0C40:`North Star Armoury / Buccaneers Booty / The Shattered Shield / Siege Crafters / The Honest Meal / The Wayfarer Tavern / The Sword and Keg / The Slaughtered Lamb` … | ⬜ |
@@ -135,12 +135,12 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
 | NPC 對話文字 | `*.TLK` ×4 | ✅ 解碼(48 筆/檔,bit7 編碼);🔶 欄位切分未定 |
-| NPC 定義 | `*.NPC` 各 4,608 B | ⬜ 未解碼 |
+| NPC 定義 | `*.NPC` 各 4,608 B | ✅ 已解碼(`u5data/npc.go`):32 個居民 × 生物碼 + 排程 + 座標;含 NPC→物件鏡射(`docs/re/36`) |
 | NPC 排程與路徑 | `BRITISH.PTH` 2,783 B;`NPC.OVL` 4,912 B | ⬜ U5 招牌機制(NPC 有作息) |
 | NPC 職業 | `DATA.OVL` 0x0342:`VILLAGER MERCHANT JESTER BARD PIRATES` | ⬜ |
 | 對話關鍵字系統 | `TALK.OVL` 4,880 B | ✅ 31 路指令集全解(`docs/re/06`),**含原本標「未定」的 0x88「汝名為何?」** |
-| 招牌 | `SIGNS.DAT` 8,364 B | ⬜ 格式為 offset 表 + 字元畫框 |
-| 觀察(look) | `LOOK2.DAT` 3,622 B + `LOOKOBJ.OVL` 4,560 B | ⬜ 格式含 0x01–0x1F 控制碼 |
+| 招牌 | `SIGNS.DAT` 8,364 B | ✅ **全解 + 全譯**(`docs/re/37`):78 塊,u16×33 位移表 + `[地點][樓層][x][y]` 記錄;框是 `RUNES.CH` 的字模美術,字是真文字 |
+| 觀察(look) | `LOOK2.DAT` 3,622 B | ✅ **全解 + 全譯**(`docs/re/37`):u16×512 位移表,地形查 `[t]`、物件查 `[t+256]`;L 指令含時鐘報時、聖火、封印地牢、噴泉、水晶球、看天 |
 
 ### 2.8 業報與美德
 
@@ -158,20 +158,20 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
-| 地牢地圖 | `DUNGEON.DAT` 4,096 B | ⬜ |
+| 地牢地圖 | `DUNGEON.DAT` 4,096 B | ✅ 全解(`u5data/dungeon.go`,`docs/re/18`):八座 × 8 層 × 8×8 |
 | 第一人稱視角 | `DUNGEON.OVL` 8,016 + `DNGLOOK.OVL` 5,040 | ⬜ |
-| 地牢圖素 | `DNG1–3.16`(DOS,壓縮)/ `DNG1–3.PNL`(FM Towns,各 54,560 B) | ⬜ |
-| 地牢戰鬥 | `DUNGEON.CBT` 39,424 B | ⬜ |
+| 地牢圖素 | `DNG1–3.16` / `DNG1–3.PNL` | ✅ DOS 的 `DNG1–3.16` 已解(`u5data/dungeonview.go`),第一人稱透視在跑(含走廊裡的梯子 / 寶箱 / 噴泉) |
+| 地牢戰鬥 | `DUNGEON.CBT` 39,424 B | ✅ 已解碼並接上(房間戰鬥走同一套戰鬥流程) |
 
 ### 2.10 載具
 
 | 項目 | 原版證據 | 狀態 |
 |---|---|---|
 | 載具動詞 | `DATA.OVL` 0x2956:`Ride / Fly / Row / Head` | ⬜ |
-| 馬 | 同上 `Ride`;0x725C 有一組彩蛋名字(`Ferrari Lamborghini Lotus Porsche Horse`) | ⬜ |
-| 船 + 風向 | `Row` + 0x5564 風向表;`Ship:` 出現在 0x54AD | ⬜ |
-| 飛毯 | `Fly` + `Magic Crpt`(0x04C3) | ⬜ |
-| 跳越(skiff?) | 待確認 | ⬜ |
+| 馬 | `sub_16F08` / `sub_177AC` | ✅ 上下馬、通行判定、買馬都已接(`game/vehicle.go`)。⬜ 0x725C 那組彩蛋名字(`Ferrari Lamborghini …`)還沒找到觸發條件 |
+| 船 + 風向 | 0x5564 風向表 | ✅ 已實作(`game/wind.go`,`docs/re/23`):風向、頂風延遲、收放帆、船體耐久、小艇 |
+| 飛毯 | `Fly` + `Magic Crpt` | ✅ 上下魔毯與通行判定已接(`game/vehicle.go`);魔毯本身由 Get 撿(`docs/re/33`) |
+| 小艇(skiff) | `VehicleSkiff` 0x28..0x2B | ✅ 上下小艇、船上載艇數都已接 |
 
 ### 2.11 劇情與結局
 

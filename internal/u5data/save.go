@@ -167,6 +167,12 @@ const (
 	CharNameLen = 9
 )
 
+// 性別碼。原版只有兩種(由六名初始角色橫向對照得出,見上)。
+const (
+	GenderMale   = 0x0B
+	GenderFemale = 0x0C
+)
+
 // 角色狀態碼。都是可讀字母,原版直接拿 `cmp byte_3DDBF[32*i], 'P'` 這樣比
 // (治療所 sub_12838 的三個分支)。
 const (

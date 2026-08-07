@@ -58,6 +58,8 @@ type Bundle struct {
 	DungeonItems u5data.PictureSet
 	// Story 是 STORY.DAT,IntroArt 是六個 STORY*.16。
 	Story    *u5data.TextFile
+	// Question 是 QUESTION.DAT —— 建角時吉普賽的三十筆問答。
+	Question *u5data.TextFile
 	Misc     *u5data.TextFile
 	// EndMsg 是 ENDMSG.DAT —— 結局那一幕的十一段文字。
 	EndMsg   *u5data.TextFile
@@ -118,6 +120,11 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("STORY.DAT:%v", err))
 	} else {
 		b.Story = tf
+	}
+	if tf, err := u5data.LoadText(filepath.Join(opts.GameData, "QUESTION.DAT")); err != nil {
+		warn = append(warn, fmt.Sprintf("QUESTION.DAT:%v", err))
+	} else {
+		b.Question = tf
 	}
 	if tf, err := u5data.LoadText(filepath.Join(opts.GameData, "MISCMSG.DAT")); err != nil {
 		warn = append(warn, fmt.Sprintf("MISCMSG.DAT:%v", err))

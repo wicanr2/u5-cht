@@ -125,6 +125,8 @@ const (
 	//
 	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
 	PromptYell
+	// PromptCreate 是建立新角色:吉普賽的七題、打名字、選性別。
+	PromptCreate
 	// PromptGuard 是衛兵的盤查:多數地方是 Y / N(要不要繳),
 	// 黑棘的宮殿是打字答密語。
 	PromptGuard
@@ -296,6 +298,10 @@ type State struct {
 	Intro *Intro
 	// Story 是 STORY.DAT —— 開場的二十段文字。
 	Story *u5data.TextFile
+	// Question 是 QUESTION.DAT —— 建角時吉普賽的三十筆問答。
+	Question *u5data.TextFile
+	// Create 是進行中的建角(Prompt == PromptCreate 時有效)。
+	Create *Creation
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
 	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。
