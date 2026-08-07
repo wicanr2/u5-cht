@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 原版遊戲資料不在庫裡,所以 CI 只跑「沒有素材也該全綠」的那一套
+# (`tools/dev.sh test` 會清掉 U5_GAMEDATA,整合測試自動跳過)。
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      # Ebitengine 在 Linux 需要 CGO 與這幾個 X11 / GL / ALSA 標頭。
+      # 清單與 docker/Dockerfile 同源 —— 兩邊要一起改。
+      - name: 安裝 CGO 相依
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libgl1-mesa-dev libxrandr-dev libxcursor-dev \
+            libxinerama-dev libxi-dev libxxf86vm-dev libasound2-dev
+
+      - name: gofmt
+        run: |
+          out=$(gofmt -l ./cmd ./internal ./tools)
+          if [ -n "$out" ]; then echo "$out"; echo "✗ 上列檔案沒有 gofmt"; exit 1; fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test ./...
+
+      - name: build
+        run: go build -o /tmp/u5cht ./cmd/u5cht
+
+      # Windows 是純 Go 交叉編譯,順手在 CI 驗一次它編得起來。
+      - name: 交叉編譯 windows/amd64
+        env:
+          CGO_ENABLED: '0'
+          GOOS: windows
+          GOARCH: amd64
+        run: go build -o /tmp/u5cht.exe ./cmd/u5cht
+
+      # 交付包的編碼規矩(檔名 ASCII、.bat 存 CP950、.txt 有 BOM)只在
+      # 繁體中文 Windows 上才看得出問題,開發機上永遠是對的 —— 所以在 CI 驗。
+      - name: 驗交付包的編碼
+        run: |
+          mkdir -p /tmp/pkg
+          cp /tmp/u5cht.exe /tmp/pkg/
+          python3 tools/mkreadme.py /tmp/pkg ci-test windows
+          python3 tools/mkzip.py /tmp/pkg.zip /tmp/pkg
+          python3 tools/checkpkg.py /tmp/pkg.zip

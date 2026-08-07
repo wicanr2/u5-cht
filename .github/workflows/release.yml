@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# 交付包**不含**原版遊戲資料,也不含烘好的中文字庫 ——
+# 前者是玩家自備的合法副本,後者衍生自 1993 年的商業字型。
+jobs:
+  linux-windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: 安裝 CGO 相依
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libgl1-mesa-dev libxrandr-dev libxcursor-dev \
+            libxinerama-dev libxi-dev libxxf86vm-dev libasound2-dev
+
+      - name: 編譯與打包
+        run: |
+          V="${GITHUB_REF_NAME:-dev}"
+          L="-s -w -X main.version=${V}"
+          mkdir -p dist/linux dist/windows
+          CGO_ENABLED=1 GOOS=linux   GOARCH=amd64 go build -trimpath -ldflags "$L" -o dist/linux/u5cht     ./cmd/u5cht
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$L" -o dist/windows/u5cht.exe ./cmd/u5cht
+          python3 tools/mkreadme.py dist/linux   "$V" linux
+          python3 tools/mkreadme.py dist/windows "$V" windows
+          cp LICENSE dist/linux/LICENSE.txt
+          cp LICENSE dist/windows/LICENSE.txt
+          tar -C dist/linux -czf "dist/u5cht-${V}-linux-amd64.tar.gz" .
+          python3 tools/mkzip.py "dist/u5cht-${V}-windows-amd64.zip" dist/windows
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-windows
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+  macos:
+    # macOS 要原生 runner:ebiten 的 Cocoa 後端沒辦法從 Linux 交叉編譯。
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+      - name: 編譯 universal 並打包
+        run: |
+          V="${GITHUB_REF_NAME:-dev}"
+          L="-s -w -X main.version=${V}"
+          mkdir -p dist/macos
+          CGO_ENABLED=1 GOARCH=arm64 go build -trimpath -ldflags "$L" -o /tmp/u5cht-arm64 ./cmd/u5cht
+          CGO_ENABLED=1 GOARCH=amd64 go build -trimpath -ldflags "$L" -o /tmp/u5cht-amd64 ./cmd/u5cht
+          lipo -create -output dist/macos/u5cht /tmp/u5cht-arm64 /tmp/u5cht-amd64
+          lipo -info dist/macos/u5cht
+          python3 tools/mkreadme.py dist/macos "$V" macos
+          cp LICENSE dist/macos/LICENSE.txt
+          tar -C dist/macos -czf "dist/u5cht-${V}-macos-universal.tar.gz" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.tar.gz
+
+  release:
+    needs: [linux-windows, macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          body: |
+            **不含原版遊戲資料與中文字庫** —— 兩者都要玩家自備,理由與做法見包內的
+            `README-CHT.txt`。
+
+            - Linux:`u5cht-*-linux-amd64.tar.gz`
+            - Windows:`u5cht-*-windows-amd64.zip`(雙擊 `PLAY.bat`)
+            - macOS:`u5cht-*-macos-universal.tar.gz`(arm64 + x86_64)

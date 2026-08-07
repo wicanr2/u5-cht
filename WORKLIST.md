@@ -202,6 +202,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 四種顯示模式 | `EGA.DRV / CGA.DRV / HER.DRV / T1K.DRV` | ⬜ 素材已有(`.16`/`.4`/`.HCS`) |
 | 音樂 | upgrade 19 首 `.XMI`;FM Towns 15 首 `.EUP` + 2 條 CDDA;PC-98 `UL01–15.BIN`;**播放函式 `sub_3181C(曲目)`,曲目 0–14**;已知 castle=6、LB 城堡=7、village/hut=8、Blackthorn 宮殿=11(`docs/re/03`) | 🔶 場景→BGM 對應部分已知 |
 | 音效 | FM Towns 25 個 `.SND` | ⬜ |
+| **打包與 CI** | — | ✅ **已做**:`tools/package.sh`(Linux tar.gz + Windows zip,全程 docker)、`.github/workflows/ci.yml`(gofmt / vet / test / 交叉編譯 / **交付包編碼檢查**)、`release.yml`(打 tag 出三平台,macOS 走原生 runner 產 universal)。交付包不含原版資料與中文字庫。⚠ GUI 實機啟動尚未在本機驗過(無顯示裝置) |
 
 ## 3. 目前完成度(誠實版)
 

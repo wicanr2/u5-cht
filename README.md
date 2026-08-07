@@ -126,6 +126,11 @@
   所以 headless 與測試不用逐格跑)。⚠ 平手時走**橫向**,抄反了結局那一幕的
   斜向走位會不一樣。
 - **音樂與音效還沒接**(P6)。
+- **打包與 CI 好了**(P7):`tools/package.sh` 產 Linux `tar.gz` 與 Windows `zip`,
+  GitHub Actions 每次 push 跑 gofmt / vet / test / 交叉編譯 / **交付包編碼檢查**,
+  打 tag 時另外用 macOS runner 出 arm64 + x86_64 的 universal 二進位。
+  ⚠ **GUI 實機啟動尚未在本機驗過**(開發環境沒有顯示裝置);
+  已驗的是解壓後資料讀得起來、缺資料時會用一句中文說清楚並以 1 結束。
 - **視線遮蔽與夜晚照明做好了**。牆與山擋得住後面的東西,站在房間裡看不到
   隔壁房間;天一黑視野縮成身邊九格,要靠火把、In Lor 或場景裡的火盆才看得遠;
   Wis An Ylem 真的能穿牆。日出日落有六段十分鐘一階的漸變。
@@ -163,6 +168,19 @@ tools/dev.sh font 15
 
 **原版資料由玩家自備**,放進 `gamedata/`(不入庫)。整合測試設 `U5_GAMEDATA` 指向該目錄後才會執行,
 沒設就跳過。
+
+打交付包(Linux tar.gz + Windows zip,全程 docker):
+
+```bash
+tools/package.sh v0.1.0     # 產物在 dist/
+```
+
+⚠ 包裡**不含原版資料,也不含烘好的中文字庫** —— 前者是玩家自備的合法副本,
+後者衍生自 1993 年的商業字型。給 Windows 的 zip 有三條硬規矩,而且只有在
+繁體中文 Windows 上才看得出違反:**檔名一律 ASCII**(zip 沒有檔名編碼欄位,
+非法的 CP950 序列會讓解壓工具直接跳過該檔,玩家看到的是「檔案不見了」)、
+`.bat` 存 **CP950**、`.txt` 存 **UTF-8 with BOM**,換行都 CRLF。
+`tools/checkpkg.py` 逐條驗,CI 每次跑。
 
 其他工具:`tools/ida.sh`(headless 反組譯)、`tools/shots.sh`(重跑畫面)、
 `u5dump pictures`(圖檔形狀表目視驗收)、`tools/fdi_extract.py`(PC-98 磁碟映像抽檔)、

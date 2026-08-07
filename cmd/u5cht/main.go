@@ -480,6 +480,25 @@ func main() {
 		fmt.Fprintf(os.Stderr, "⚠ %s\n", w)
 	}
 
+	// ⚠ 缺**世界地圖**不是「降級」,是根本沒得玩 —— 那代表玩家還沒把原版資料
+	// 放進來。這時候要一句話講清楚就結束,不要開一個空白視窗、
+	// 也不要讓上面那三十行警告淹掉重點。
+	//
+	// 交付包的 `PLAY.bat` 在前面也擋一次;這一條是給直接跑執行檔的人。
+	if bundle.World == nil {
+		fmt.Fprintf(os.Stderr, `
+找不到原版遊戲資料(在 %q 底下讀不到 BRIT.DAT)。
+
+本程式只是引擎,不含原版的地圖、美術與文字 —— 請自備一份合法的
+DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指定位置:
+
+    u5cht -gamedata /path/to/ultima5
+
+詳見同目錄的 README-CHT.txt。
+`, *gamedata)
+		os.Exit(1)
+	}
+
 	st := &gamestate.State{
 		World:        bundle.World,
 		Under:        bundle.Under,
