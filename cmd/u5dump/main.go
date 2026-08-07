@@ -48,6 +48,8 @@ func main() {
 		err = cmdText(os.Args[2:])
 	case "scene":
 		err = cmdScene(os.Args[2:])
+	case "pictures":
+		err = cmdPictures(os.Args[2:])
 	case "scenemaps":
 		err = cmdSceneMaps(os.Args[2:])
 	case "save":
@@ -80,6 +82,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump world         <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]
   u5dump text          <檔案> [--n N]          明文訊息檔 → 前 N 筆(預設 5)
   u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y]
+  u5dump pictures      <圖檔.16|.4> <out.png>      形狀表橫排成一張圖
   u5dump scenemaps     <場景檔.DAT> <U5_E> <out.png>  16 張 32×32 場景地圖
   u5dump town          <gamedata> <U5_E> <地名> <out.png>  依原版地點表進城,畫出每一層
   u5dump cbt           <.CBT 檔> <U5_E> <out.png> [--max N]  戰鬥地圖 11×11 + 入場位置
@@ -878,4 +881,50 @@ func outline(dst *image.NRGBA, ox, oy, n int, c color.NRGBA) {
 		dst.SetNRGBA(ox, oy+i, c)
 		dst.SetNRGBA(ox+n-1, oy+i, c)
 	}
+}
+
+
+// cmdPictures 把一個 `.16` / `.4` 圖檔的形狀表橫排畫成一張 PNG。
+//
+// 這是圖檔格式的目視驗收 —— 位移表對了但列寬算錯時,
+// blob 之間的緊密檢查仍會過(尺寸總和沒變),但圖會斜掉。
+func cmdPictures(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump pictures <圖檔.16|.4> <out.png>")
+	}
+	set, err := u5data.LoadPictures(args[0])
+	if err != nil {
+		return err
+	}
+	img := set.Sheet(3)
+	// 透明處填成洋紅,不然「遮罩極性反了」會看起來像「圖是空的」。
+	b := img.Bounds()
+	for y := 0; y < b.Dy(); y++ {
+		for x := 0; x < b.Dx(); x++ {
+			if img.NRGBAAt(x, y).A == 0 {
+				img.SetNRGBA(x, y, color.NRGBA{R: 0xFF, B: 0xFF, A: 0xFF})
+			}
+		}
+	}
+	if err := writePNG(args[1], img); err != nil {
+		return err
+	}
+	n := 0
+	for _, p := range set {
+		if p != nil {
+			n++
+		}
+	}
+	fmt.Printf("✓ %s:%d 格中 %d 個形狀 → %s(%d×%d px)\n",
+		filepath.Base(args[0]), len(set), n, args[1],
+		img.Bounds().Dx(), img.Bounds().Dy())
+	for i, p := range set {
+		if p == nil {
+			continue
+		}
+		fmt.Printf("   %2d  %3d×%-3d%s\n", i, p.Width, p.Height,
+			map[bool]string{true: "  含遮罩"}[p.Mask != nil])
+	}
+	fmt.Println("  驗收方式:切對了看得出完整圖形;列寬算錯會整張斜成平行四邊形")
+	return nil
 }

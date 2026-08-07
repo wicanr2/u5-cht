@@ -49,7 +49,9 @@ type Bundle struct {
 	Items     *u5data.ItemTable     // 48 件裝備的名字
 	Creatures *u5data.CreatureTable // 生物名
 	Charset   *u5data.Charset
-	CJK       *cjk.Font
+	// DungeonViews 是 DNG1/2/3.16 的透視切片,索引 0..2 對應三種外觀。
+	DungeonViews []u5data.PictureSet
+	CJK          *cjk.Font
 }
 
 // Load 依 opts 載入素材,回傳 bundle 與「哪些沒載到」的警告。
@@ -66,16 +68,37 @@ func Load(opts Options) (*Bundle, []string) {
 		b.Charset = cs
 	}
 
-	if opts.FMTowns != "" {
+	// tileset:**DOS 的 `TILES.16` 優先**。
+	//
+	// 從 2026-08-07 起 DOS 的 LZW 壓縮已破(`internal/u5data/lzw.go`),
+	// 而兩份資料的解碼結果**逐位元組相同**(`TestDOSTilesMatchFMTowns`)——
+	// 所以沒有理由再要求玩家準備 FM Towns 光碟。
+	// FM Towns 那條保留當後援與 oracle。
+	if tiles, err := u5data.LoadDOSTileSet(opts.GameData); err == nil {
+		b.Tiles = tiles
+	} else if opts.FMTowns != "" {
 		paths := []string{"EGA0.TIL", "EGA1.TIL", "EGA2.TIL", "EGA3.TIL"}
 		for i := range paths {
 			paths[i] = filepath.Join(opts.FMTowns, paths[i])
 		}
-		if tiles, err := u5data.LoadFMTownsTileSet(paths); err != nil {
-			warn = append(warn, fmt.Sprintf("tileset:%v", err))
+		if t2, err2 := u5data.LoadFMTownsTileSet(paths); err2 != nil {
+			warn = append(warn, fmt.Sprintf("tileset:DOS %v;FM Towns %v", err, err2))
 		} else {
-			b.Tiles = tiles
+			b.Tiles = t2
 		}
+	} else {
+		warn = append(warn, fmt.Sprintf("tileset:%v", err))
+	}
+
+	// 地牢透視圖組(DNG1/2/3.16)—— 三種外觀。
+	for i := 1; i <= u5data.DungeonThemes; i++ {
+		name := fmt.Sprintf("DNG%d.16", i)
+		set, err := u5data.LoadPictures(filepath.Join(opts.GameData, name))
+		if err != nil {
+			warn = append(warn, fmt.Sprintf("%s:%v", name, err))
+			continue
+		}
+		b.DungeonViews = append(b.DungeonViews, set)
 	}
 
 	if w, err := loadWorld(opts.GameData, opts.WaterTile); err != nil {

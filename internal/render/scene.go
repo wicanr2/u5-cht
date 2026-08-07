@@ -138,8 +138,8 @@ func (s *Scene) drawTile(dst *image.NRGBA, idx, x, y int) {
 	t := &s.Tiles[idx]
 	for ty := 0; ty < u5data.TileSize; ty++ {
 		for tx := 0; tx < u5data.TileSize; tx++ {
-			// 用 TilePalette(已套色號 IGRB→IRGB remap),不要用 EGAPalette。
-			c := u5data.TilePalette[t.At(tx, ty)&0x0F]
+			// 色號在載入時就正規化成標準 EGA 了(見 u5data.tileColorRemap),這裡直接查表。
+			c := u5data.EGAPalette[t.At(tx, ty)&0x0F]
 			for sy := 0; sy < TileScale; sy++ {
 				for sx := 0; sx < TileScale; sx++ {
 					SetPixel(dst, x+tx*TileScale+sx, y+ty*TileScale+sy, c)
@@ -386,7 +386,7 @@ func (s *Scene) drawTileScaled(dst *image.NRGBA, idx, x, y, size int) {
 		sy := py * u5data.TileSize / size
 		for px := 0; px < size; px++ {
 			sx := px * u5data.TileSize / size
-			SetPixel(dst, x+px, y+py, u5data.TilePalette[t.At(sx, sy)&0x0F])
+			SetPixel(dst, x+px, y+py, u5data.EGAPalette[t.At(sx, sy)&0x0F])
 		}
 	}
 }

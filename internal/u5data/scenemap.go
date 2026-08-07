@@ -88,7 +88,7 @@ func RenderSceneMaps(scenes []SceneMap, tiles []Tile, cols int) (*image.NRGBA, e
 				t := &tiles[idx]
 				for y := 0; y < TileSize; y++ {
 					for x := 0; x < TileSize; x++ {
-						img.SetNRGBA(ox+tx*TileSize+x, oy+ty*TileSize+y, TilePalette[t.At(x, y)&0x0F])
+						img.SetNRGBA(ox+tx*TileSize+x, oy+ty*TileSize+y, EGAPalette[t.At(x, y)&0x0F])
 					}
 				}
 			}

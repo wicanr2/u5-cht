@@ -181,7 +181,7 @@ func (w *WorldMap) Render(tiles []Tile) (*image.NRGBA, error) {
 			ox, oy := tx*TileSize, ty*TileSize
 			for y := 0; y < TileSize; y++ {
 				for x := 0; x < TileSize; x++ {
-					img.SetNRGBA(ox+x, oy+y, TilePalette[t.At(x, y)&0x0F])
+					img.SetNRGBA(ox+x, oy+y, EGAPalette[t.At(x, y)&0x0F])
 				}
 			}
 		}
@@ -212,7 +212,7 @@ func RenderChunks(chunks []Chunk, tiles []Tile, cols, side int) (*image.NRGBA, e
 				ox, oy := cx+tx*TileSize, cy+ty*TileSize
 				for y := 0; y < TileSize; y++ {
 					for x := 0; x < TileSize; x++ {
-						img.SetNRGBA(ox+x, oy+y, TilePalette[t.At(x, y)&0x0F])
+						img.SetNRGBA(ox+x, oy+y, EGAPalette[t.At(x, y)&0x0F])
 					}
 				}
 			}

@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"path/filepath"
 )
 
 // TileSize 是原版 tile 的邏輯邊長(16×16)。
@@ -34,7 +35,8 @@ func (t *Tile) At(x, y int) byte {
 
 // EGAPalette 是標準 EGA 16 色(IRGB 位元順序:bit3=I, bit2=R, bit1=G, bit0=B)。
 //
-// ⚠ **tile 資料的色號不是這個順序** —— 請用 TilePalette 算繪 tile,見其說明。
+// **Tile.Pix 存的就是這一組索引。** 兩個來源在載入時都已經正規化成標準 EGA:
+// DOS 的 `TILES.16` 本來就是,FM Towns 的 `EGA*.TIL` 由 `tileColorRemap` 換過。
 var EGAPalette = [16]color.NRGBA{
 	{0x00, 0x00, 0x00, 0xFF}, // 0  黑
 	{0x00, 0x00, 0xAA, 0xFF}, // 1  藍
@@ -54,39 +56,41 @@ var EGAPalette = [16]color.NRGBA{
 	{0xFF, 0xFF, 0xFF, 0xFF}, // 15 白
 }
 
-// tileColorRemap 把 tile 資料裡的色號換成標準 EGA 色號。
+// tileColorRemap 把 **FM Towns** `EGA*.TIL` 裡的色號換成標準 EGA 色號。
 //
-// 原版 tile 資料的 4-bit 色號用的是 **IGRB** 順序(bit2 = G、bit1 = R),
-// 與標準 EGA 的 **IRGB** 差在 R 與 G 對調。所以 remap = 「把 bit1 與 bit2 互換」。
+// FM Towns 那份用的是 **IGRB** 順序(bit2 = G、bit1 = R),與標準 EGA 的
+// **IRGB** 差在 R 與 G 對調 —— 所以 remap 就是「把 bit1 與 bit2 互換」,
+// 而且它是自己的反函數。
 //
-// 怎麼確定的(2026-08-07,單一變換同時修正多處 → 這種一致性就是證據):
-// 先用標準 EGA palette 畫出 tileset 與世界地圖,再逐 tile 對照語意 ——
+// 這條結論走過兩個階段,值得留著當對照:
+//
+// **第一階段(2026-08-07 上午,語意推導)**——當時手上只有 FM Towns 一個來源。
+// 先用標準 EGA palette 畫出 tileset 與世界地圖,再逐 tile 對照語意:
 //
 //	tile 1–3   黑底 + 藍波紋   水    色號 1/9   → 互換後不變 ✓(本來就對)
 //	tile 11–13 灰色山脈        山    色號 7/8   → 互換後不變 ✓(本來就對)
 //	tile 16+   黃屋頂、白城堡  建築  色號 14/15 → 互換後不變 ✓(本來就對)
 //	tile 5–10  草地與森林      應綠  色號 4/12  → 互換後 4→綠、12→亮綠 ✓(修正)
 //
-// 也就是說:凡「本來就對」的顏色在此變換下都不動,而唯一錯的那一類正好被修好。
-// 若改的是 palette 值本身(例如硬把紅改成綠),就會同時弄壞洋紅、棕、亮紅等其他色。
+// 凡「本來就對」的顏色在此變換下都不動,而唯一錯的那一類正好被修好 ——
+// 單一變換同時修正多處而不弄壞任何一處,這種一致性就是當時的證據。
+// 但文件也誠實標了:那是語意推導,不是對第二個來源核實過。
 //
-// ⚠ 這仍是**語意推導**,不是對原版截圖比對過的結論。P1 收尾要用 DOSBox 跑原版
-// 截圖做最終核實(`rulebook/65`:對 reference 實測才算驗過)。
+// **第二階段(同日下午,兩個來源互證)**——`TILES.16` 的 LZW 壓縮破了之後,
+// DOS 版的 tile 資料直接攤在眼前。結果是:
+//
+//	DOS 解出來的 65,536 B  ==  FM Towns 四檔降回 16×16、套上這張 remap、壓回 4bpp
+//
+// **逐位元組完全相同**(`TestDOSTilesMatchFMTowns`)。這張表不再是推導,
+// 是兩份獨立資料之間量出來的差。
+//
+// ⇒ 順帶確認 **DOS 的色號本來就是標準 EGA**,不需要任何轉換。
 var tileColorRemap = [16]byte{
 	0, 1, 4, 5, // 0000→0000, 0001→0001, 0010→0100, 0011→0101
 	2, 3, 6, 7, // 0100→0010, 0101→0011, 0110→0110, 0111→0111
 	8, 9, 12, 13, // 1000→1000, 1001→1001, 1010→1100, 1011→1101
 	10, 11, 14, 15, // 1100→1010, 1101→1011, 1110→1110, 1111→1111
 }
-
-// TilePalette 是算繪 tile 時該用的表:索引 = tile 資料裡的色號,值 = 真實顏色。
-var TilePalette = func() [16]color.NRGBA {
-	var p [16]color.NRGBA
-	for i := range p {
-		p[i] = EGAPalette[tileColorRemap[i]]
-	}
-	return p
-}()
 
 // FM Towns 版 EGA*.TIL 的格式(靜態推導 + 降採樣一致性驗證,2026-08-07)
 //
@@ -141,7 +145,8 @@ func ParseFMTownsTiles(raw []byte) ([]Tile, error) {
 						"tile %d (%d,%d) 的位元組 %#02x 高低 nibble 不同"+
 							"(水平 2× 放大的假設不成立)", i, x, y, b)
 				}
-				tiles[i].Pix[y*TileSize+x] = hi
+				// 存進去之前先換成標準 EGA 色號 —— Tile.Pix 全 engine 一種意思。
+				tiles[i].Pix[y*TileSize+x] = tileColorRemap[hi]
 			}
 		}
 	}
@@ -196,9 +201,53 @@ func TileSheet(tiles []Tile, cols int) *image.NRGBA {
 		ox, oy := (i%cols)*TileSize, (i/cols)*TileSize
 		for y := 0; y < TileSize; y++ {
 			for x := 0; x < TileSize; x++ {
-				img.SetNRGBA(ox+x, oy+y, TilePalette[tiles[i].At(x, y)&0x0F])
+				img.SetNRGBA(ox+x, oy+y, EGAPalette[tiles[i].At(x, y)&0x0F])
 			}
 		}
 	}
 	return img
+}
+
+// DOS 版 TILES.16
+//
+// 破解過程見 `internal/u5data/lzw.go`:就是標準 LZW(LSB-first、9→12 bit、
+// 不做 early change),檔頭 4 B 是解壓後長度 65,536 = 512 tile × 128 B。
+//
+// 每個 tile 是 16×16 的 4bpp packed(每列 8 B),色號**已經是標準 EGA**。
+
+// tileBytesDOS 是一個 DOS tile 的位元組數。
+const tileBytesDOS = TileSize * TileSize / 2
+
+// ParseDOSTiles 把解壓後的 TILES.16 內容切成 512 個 tile。
+func ParseDOSTiles(raw []byte) ([]Tile, error) {
+	want := TileCount * tileBytesDOS
+	if len(raw) != want {
+		return nil, fmt.Errorf("解壓後 %d B,預期 %d B(%d tile × %d B)",
+			len(raw), want, TileCount, tileBytesDOS)
+	}
+	tiles := make([]Tile, TileCount)
+	for i := range tiles {
+		base := i * tileBytesDOS
+		for y := 0; y < TileSize; y++ {
+			for x := 0; x < TileSize; x += 2 {
+				b := raw[base+y*TileSize/2+x/2]
+				tiles[i].Pix[y*TileSize+x] = b >> 4
+				tiles[i].Pix[y*TileSize+x+1] = b & 0x0F
+			}
+		}
+	}
+	return tiles, nil
+}
+
+// LoadDOSTileSet 從 gamedata 目錄讀 TILES.16 並解壓成 512 個 tile。
+func LoadDOSTileSet(dir string) ([]Tile, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, "TILES.16"))
+	if err != nil {
+		return nil, err
+	}
+	out, err := Decompress(raw)
+	if err != nil {
+		return nil, fmt.Errorf("TILES.16: %w", err)
+	}
+	return ParseDOSTiles(out)
 }

@@ -23,27 +23,47 @@ func TestTileColorRemapIsInvolution(t *testing.T) {
 	}
 }
 
-// TestTilePaletteKnownColors 固定住色彩校正的結論:
-// 水藍、山灰、建築黃白在互換下不變;草地與森林被修正成綠色系。
-func TestTilePaletteKnownColors(t *testing.T) {
-	cases := []struct {
-		code byte
-		want int // 標準 EGA 色號
-		what string
-	}{
-		{1, 1, "水(藍)——互換下不變"},
-		{9, 9, "水波紋(亮藍)——互換下不變"},
-		{7, 7, "山(淺灰)——互換下不變"},
-		{8, 8, "山陰影(深灰)——互換下不變"},
-		{14, 14, "建築(黃)——互換下不變"},
-		{15, 15, "建築(白)——互換下不變"},
-		{4, 2, "草地:紅 → 綠(修正)"},
-		{12, 10, "森林高光:亮紅 → 亮綠(修正)"},
+// TestGrassIsGreenAfterNormalisation:正規化之後草地要是綠的。
+//
+// 這條取代了原本的「TilePalette 查表值等於某個 EGA 色號」——
+// 色號正規化搬到載入時之後,那種查表比對只是在驗一個恆等式。
+// 現在驗的是**真的資料**:從 `TILES.16` 讀出來的草地 tile,
+// 主色必須落在綠色系(2 綠 / 10 亮綠),而水必須落在藍色系(1 / 9)。
+//
+// 認錯色號順序時,草會變紅、水不變 —— 所以草是那個會說話的樣本。
+func TestGrassIsGreenAfterNormalisation(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA")
 	}
-	for _, c := range cases {
-		if TilePalette[c.code] != EGAPalette[c.want] {
-			t.Errorf("色號 %d(%s):得到 %v,預期 EGA %d = %v",
-				c.code, c.what, TilePalette[c.code], c.want, EGAPalette[c.want])
+	tiles, err := LoadDOSTileSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dominant := func(i int) byte {
+		var n [16]int
+		for _, v := range tiles[i].Pix {
+			n[v&0x0F]++
+		}
+		// 黑色不算 —— 多數 tile 的底色都是黑,那不帶資訊。
+		best := byte(1)
+		for c := 2; c < 16; c++ {
+			if n[c] > n[best] {
+				best = byte(c)
+			}
+		}
+		return best
+	}
+	green := map[byte]bool{2: true, 10: true}
+	blue := map[byte]bool{1: true, 9: true}
+	for _, i := range []int{5, 6} { // 草地與更多草
+		if c := dominant(i); !green[c] {
+			t.Errorf("tile %d 的主色是 %d,草地應該是綠色系(2 / 10)", i, c)
+		}
+	}
+	for _, i := range []int{1, 2} { // 深水與淺水
+		if c := dominant(i); !blue[c] {
+			t.Errorf("tile %d 的主色是 %d,水應該是藍色系(1 / 9)", i, c)
 		}
 	}
 }
