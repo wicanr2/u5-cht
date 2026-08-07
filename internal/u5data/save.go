@@ -86,6 +86,19 @@ const (
 	SaveDungeonSealOffset = 0x032A
 	// SaveShrineFlagOffset 起 8 B(byte_3E0E8):八座聖壇,bit 0x80 = 已被玷污。
 	SaveShrineFlagOffset = 0x0332
+
+	// SaveRemovedNPCOffset 起 128 B(`dword_3E36C`):**32 個地點各一個 u32**,
+	// 位元 i = 那個地點的第 i 個 NPC 已經被永久清掉(`sub_218` 設)。
+	//
+	// 位移一樣跟著讀取序列累加:0x0332 之後是 byte_3E0F0(14 B)、
+	// byte_3E100 / byte_3E120 / byte_3E140(各 32 B)、byte_3E160..3E16B
+	// (12 個單位元組)、dword_3E16C(512 B),然後才是這一段。
+	//
+	// ⚠ 原版的陣列基底是 `dword_3E368`,索引是**地點編號 1..32** ——
+	// 所以存檔裡的第 0 個 u32 對應**地點 1**,不是地點 0(大地圖沒有場景 NPC)。
+	SaveRemovedNPCOffset = 0x05B4
+	// RemovedNPCLocations 是上面那一段涵蓋幾個地點。
+	RemovedNPCLocations = 32
 )
 
 // 角色紀錄的欄位位移。
@@ -224,6 +237,8 @@ type Save struct {
 	DungeonSeal [VirtueCount]byte
 	// ShrineFlag[i] 的 bit 0x80 = 第 i 座聖壇已被玷污。
 	ShrineFlag [VirtueCount]byte
+	// RemovedNPC[地點-1] 的位元 i = 那個地點的第 i 個 NPC 已被永久清掉。
+	RemovedNPC [RemovedNPCLocations]uint32
 
 	Raw []byte
 }
@@ -297,6 +312,9 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.CodexLearned = raw[SaveCodexLearnedOffset]
 	copy(s.DungeonSeal[:], raw[SaveDungeonSealOffset:])
 	copy(s.ShrineFlag[:], raw[SaveShrineFlagOffset:])
+	for i := range s.RemovedNPC {
+		s.RemovedNPC[i] = binary.LittleEndian.Uint32(raw[SaveRemovedNPCOffset+i*4:])
+	}
 
 	if err := s.validate(); err != nil {
 		return nil, err
@@ -445,6 +463,9 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveCodexLearnedOffset] = s.CodexLearned
 	copy(out[SaveDungeonSealOffset:], s.DungeonSeal[:])
 	copy(out[SaveShrineFlagOffset:], s.ShrineFlag[:])
+	for i, v := range s.RemovedNPC {
+		binary.LittleEndian.PutUint32(out[SaveRemovedNPCOffset+i*4:], v)
+	}
 	return out, nil
 }
 

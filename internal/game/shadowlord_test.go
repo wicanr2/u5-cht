@@ -168,7 +168,7 @@ func TestGemShardNeedsFlamePlaceAndShadowlord(t *testing.T) {
 	if s.Shards[which] {
 		t.Error("碎片用掉了卻還在背包裡")
 	}
-	if s.DoomFlags&u5data.ShadowlordDoomBit[which] == 0 {
+	if s.DoomFlags()&u5data.ShadowlordDoomBit[which] == 0 {
 		t.Error("末日位元沒有設起來")
 	}
 	if s.shadowlordPresent() {

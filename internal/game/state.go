@@ -234,8 +234,6 @@ type State struct {
 	Blackthorn *Blackthorn
 	// Shards[i] 是有沒有第 i 塊寶石碎片(原版 byte_3DFC4)。
 	Shards [u5data.ShadowlordCount]bool
-	// DoomFlags 是消滅暗影君主之後累積的位元(原版 dword_3E3DC 的低位元組)。
-	DoomFlags byte
 	// ShrineQuestGiven / ShrineQuestActive 是八德的兩組位元
 	//(原版 byte_3E0DE / byte_3E0DC)。
 	//
@@ -260,6 +258,16 @@ type State struct {
 	ShadowlordAt [u5data.ShadowlordCount]byte
 	// ShadowlordHere 是現在被召喚出來的那一個(原版 byte_3E0DB,0xFF = 沒有)。
 	ShadowlordHere byte
+	// RemovedNPC[地點-1] 的位元 i = 那個地點的第 i 個 NPC 已被**永久**清掉
+	//(原版 dword_3E368,存檔帶得走)。
+	//
+	// ⚠ 與 `removed` 那個 map 不同:那一個只影響這一次進場景,離場再回來就復原;
+	// 這一個是存檔裡的,打死一個居民之後他就再也不會出現。
+	//
+	// ⚠⚠ **第 28 格(地點 29 石門)與消滅暗影君主的「末日位元」共用儲存** ——
+	// 原版 `sub_1A38C` 寫的 `dword_3E3DC` 正好是 `dword_3E368 + 29×4`。
+	// 看起來是原版的 bug,但機制要與原版一模一樣,所以照抄(見 DoomFlags)。
+	RemovedNPC [u5data.RemovedNPCLocations]uint32
 	// Misc 是 MISCMSG.DAT —— 聖壇與黑棘審問的文字。
 	Misc *u5data.TextFile
 	// Intro 是進行中的開場動畫(Prompt == PromptIntro 時有效)。
@@ -439,6 +447,8 @@ func (s *State) loadNPCs() {
 		cp := *n
 		s.npcs = &cp
 	}
+	// 存檔裡記著「這一格已經清掉了」的 NPC 不要再出現。
+	s.applyRemovedNPCs()
 }
 
 // tick 推進遊戲時間,然後讓 NPC 走一回合。
@@ -755,6 +765,7 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.DungeonSeal = sv.DungeonSeal
 	s.ShadowlordAt = sv.ShadowlordAt
 	s.ShadowlordHere = sv.ShadowlordHere
+	s.RemovedNPC = sv.RemovedNPC
 	for i := range s.Shards {
 		s.Shards[i] = sv.Shards[i] != 0
 	}

@@ -67,8 +67,6 @@ const (
 	MsgAwakenTo = "汝悠悠轉醒……"
 	// "\nAttacked!\n"
 	MsgAttacked = "遭到攻擊!"
-	// 場景裡與 NPC 的戰鬥(原版 sub_C74)還沒逆 —— 誠實說明。
-	MsgSceneCombatNotImplemented = "(城裡的戰鬥尚未實作 —— 對方撲了上來)"
 	// "Don't hurt me!\nPlease go away!"
 	MsgFrightened = "「別傷害我!請走開!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""

@@ -113,7 +113,7 @@ func (s *State) UseGemShard(i int) bool {
 	s.ShadowlordAt[i] = u5data.ShadowlordGone
 	s.ShadowlordHere = u5data.ShadowlordNone
 	s.Shards[i] = false
-	s.DoomFlags |= u5data.ShadowlordDoomBit[i]
+	s.SetDoomFlag(i)
 	s.Log("暗影君主" + u5data.Shadowlords[i] + "的末日已然降臨!")
 	return true
 }
@@ -138,3 +138,23 @@ func (s *State) removeNPC(i int) {
 		s.rtNPCs[i].Mode = ModeAbsent
 	}
 }
+
+// 末日位元(原版 `dword_3E3DC`)
+//
+// ⚠⚠ **它與地點 29(石門)的永久移除遮罩是同一塊記憶體** ——
+// `0x3E3DC = 0x3E368 + 29×4`。沒有證據顯示這是刻意的,看起來是原版的 bug:
+// 消滅三位暗影君主會順手把石門的第 1 / 2 / 3 號 NPC 標成「已清掉」。
+//
+// 照抄。「機制與原版一模一樣」包含把原版的 bug 一起抄進來 ——
+// 自己另開一個乾淨的欄位反而會讓存檔與原版不相容,而且掩蓋掉這個事實。
+
+// DoomFlagIndex 是那塊共用儲存在 `RemovedNPC` 裡的索引(地點 29 → 陣列第 28 格)。
+const DoomFlagIndex = 28
+
+// SetDoomFlag 記下第 i 位暗影君主已被消滅。
+func (s *State) SetDoomFlag(i int) {
+	s.RemovedNPC[DoomFlagIndex] |= uint32(u5data.ShadowlordDoomBit[i])
+}
+
+// DoomFlags 回傳已經消滅了哪幾位(位元 1/2/3)。
+func (s *State) DoomFlags() byte { return byte(s.RemovedNPC[DoomFlagIndex]) }

@@ -90,3 +90,32 @@ const (
 	ArrestWakeHour = 8
 	ArrestWakeStep = 20
 )
+
+// NPCKillIsPermanent 回報打死這名 NPC 之後,要不要把他**永久**記進存檔
+//(原版 `sub_218`)。
+//
+// 條件抄起來很繞,但每一條都有意義:
+//
+//	c = 生物編號 & 0xFC
+//	c == 0x70          → **不記**(衛兵會補上,不然玩家可以把整座城清空)
+//	c <  0x80          → 記(一般居民)
+//	c == 0xB4          → 記
+//	其餘 >= 0x80       → 不記
+//
+// ⚠ 組語的分支很容易讀反:`cmp esi,70h; jz loc_243` 是**跳去檢查 0xB4**,
+// 而 0x70 不等於 0xB4 所以就地返回 —— 也就是「衛兵不記」。
+// 讀成「衛兵要記」的話,玩家把守衛全殺光之後那座城就永遠沒有衛兵了。
+func NPCKillIsPermanent(creature byte) bool {
+	c := int(creature) &^ 0x03
+	switch {
+	case c == CreatureGuard:
+		return false
+	case c < 0x80:
+		return true
+	default:
+		return c == NPCKillPermanentException
+	}
+}
+
+// NPCKillPermanentException 是 >= 0x80 裡唯一會被永久記下的生物(`cmp esi, 0B4h`)。
+const NPCKillPermanentException = 0xB4

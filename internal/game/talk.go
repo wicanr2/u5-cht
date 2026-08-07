@@ -381,10 +381,10 @@ func (s *State) removeCurrentNPC() {
 	if s.talkingTo <= 0 {
 		return // 0 號槽是隊伍自己,不會是交談對象
 	}
-	if s.removed == nil {
-		s.removed = map[int]bool{}
-	}
-	s.removed[s.Location<<8|s.talkingTo] = true
+	// ⚠ 入隊要記進**存檔**,不只是這一次進場景 ——
+	// 只設 session 的話,離場再回來城裡會多出一個分身。
+	s.markNPCRemoved(s.talkingTo)
+	s.removeNPC(s.talkingTo)
 	s.talkingTo = 0
 }
 

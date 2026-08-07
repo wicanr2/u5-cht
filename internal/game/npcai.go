@@ -180,10 +180,8 @@ func (s *State) npcContact(i, ai int) {
 		s.Arrest()
 		return
 	}
-	// 場景裡的 NPC 打起來要走另一條戰鬥路徑(原版 `sub_C74`),還沒逆 ——
-	// 誠實說明,不要假裝什麼都沒發生(CLAUDE.md §3.0)。
 	s.Log(MsgAttacked)
-	s.Log(MsgSceneCombatNotImplemented)
+	s.beginNPCCombat(i)
 }
 
 // CallGuards 是對話裡的「叫衛兵」(原版 opcode 0x8B → `sub_C10`)。

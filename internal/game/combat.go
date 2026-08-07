@@ -167,6 +167,21 @@ func (s *State) BeginCombat(slot int) bool {
 	if !o.Present() {
 		return false
 	}
+	return s.beginCombatFrom(o, slot)
+}
+
+// beginCombatWith 用一個**合成的**物件開打(場景裡的 NPC 走這條,見 scenecombat.go)。
+//
+// 場景 NPC 不佔物件槽,所以沒有可以回填的來源槽 —— 傳 −1。
+func (s *State) beginCombatWith(o *u5data.MapObject) bool {
+	if s.CombatMaps == nil {
+		return false
+	}
+	return s.beginCombatFrom(o, -1)
+}
+
+// beginCombatFrom 是兩條路共用的本體。
+func (s *State) beginCombatFrom(o *u5data.MapObject, slot int) bool {
 	kind := o.Kind &^ 0x03
 	terrain := int(s.TileAt(o.X, o.Y))
 	idx := u5data.SelectCombatMap(int(kind), terrain, s.Transport, !s.InScene())
