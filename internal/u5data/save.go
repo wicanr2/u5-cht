@@ -206,6 +206,26 @@ type Character struct {
 // Present 回報這一格名冊有沒有角色。
 func (c *Character) Present() bool { return c.Name != "" || c.Class != 0 }
 
+// StatusName 回傳狀態的中文名。
+//
+// ⚠ 只影響顯示。比對一律用位元組常數(`StatusGood` 等)——
+// 治療所與復活判定讀的是那個位元組,譯名換了也不該影響它們。
+func StatusName(status byte) string {
+	switch status {
+	case StatusGood:
+		return "康健"
+	case StatusPoisoned:
+		return "中毒"
+	case StatusDead:
+		return "身亡"
+	case StatusAsleep:
+		return "沉睡"
+	case StatusCharmed:
+		return "被惑"
+	}
+	return "?"
+}
+
 // ClassName 回傳職業的中文名。
 //
 // 職業代碼是可讀字母,譯名對齊 u4-cht / u6-cht 的《創世紀聖者之書》體系。

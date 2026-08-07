@@ -85,6 +85,12 @@ func (s *Scene) Render() *image.NRGBA {
 		s.drawHints(dst)
 		return dst
 	}
+	// 角色數值也是整頁 —— 原版 Ztats 就是蓋掉地圖窗的一整面。
+	if s.State != nil && s.State.Prompt == game.PromptZtats {
+		s.drawZtats(dst)
+		s.drawHints(dst)
+		return dst
+	}
 	s.drawMapView(dst)
 	s.drawPanel(dst)
 	s.drawMessages(dst)
@@ -282,6 +288,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = creationHint(s.State)
 	case game.PromptMenu:
 		hint = "↑↓ 移動,Enter 選定"
+	case game.PromptZtats:
+		hint = "←→ 翻頁,ESC 收起"
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
 		}
@@ -761,4 +769,15 @@ func creationHint(st *game.State) string {
 		return "M 男 / F 女"
 	}
 	return ""
+}
+
+// drawZtats 畫角色數值畫面(原版的 Ztats)。
+func (s *Scene) drawZtats(dst *image.NRGBA) {
+	if s.Text == nil {
+		return
+	}
+	const top = 88
+	for i, line := range s.State.ZtatsLines() {
+		s.Text.Draw(dst, MapOriginX, top+i*LineHeight, line)
+	}
 }

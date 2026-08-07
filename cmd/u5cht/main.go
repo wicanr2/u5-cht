@@ -171,6 +171,21 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 角色數值畫面:左右翻頁,ESC 收起。
+	if st.Prompt == gamestate.PromptZtats {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft):
+			st.ZtatsPage(-1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowRight):
+			st.ZtatsPage(1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape),
+			inpututil.IsKeyJustPressed(ebiten.KeyZ):
+			st.EndZtats()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 主選單:上下移動、Enter 選定、ESC 收起(等同「回到景色」)。
 	if st.Prompt == gamestate.PromptMenu {
 		switch {
@@ -441,6 +456,16 @@ func (g *game) Update() error {
 		// P 是原版的 Push:推家具,推不動就改拉。
 		if inpututil.IsKeyJustPressed(ebiten.KeyP) {
 			st.Push()
+		}
+		// J 撬鎖、V 看寶石(攤開全景)、Z 角色數值 —— 都照原版鍵位。
+		if inpututil.IsKeyJustPressed(ebiten.KeyJ) {
+			st.Jimmy()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyV) {
+			st.ViewGem()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
+			st.BeginZtats()
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 			st.Board()

@@ -211,6 +211,19 @@ const (
 	MsgPulled    = "拉過來了!"
 	MsgWontBudge = "紋風不動!"
 
+	// Jimmy(J)、New order(N)、View a gem(V)。
+	// "No Keys!" / "Unlocked!" / "Key broke!" / "What?"
+	MsgNoKeys      = "沒有鑰匙!"
+	MsgUnlocked    = "開了!"
+	MsgKeyBroke    = "鑰匙斷了!"
+	MsgNoLockHere  = "此處無鎖可撬。"
+	// "\n\nSwap " / " must lead!" / "nobody!"
+	MsgSwapNobody = "沒有那個人。"
+	MsgMustLead   = "必須走在最前面!"
+	MsgSwapped    = "%s 與 %s 換了位置。"
+	// "You have none!" —— 沒有寶石可看。
+	MsgYouHaveNone = "汝一顆也沒有!"
+
 	// 主選單裡還沒實作的兩項 —— 照實說,不要做一個假裝有用的分支。
 	MsgTransferNotImplemented        = "(從創世紀 IV 轉入尚未實作 —— 轉換規則未逆)"
 	MsgAcknowledgementsNotImplemented = "(製作群畫面尚未實作 —— 原版是一張圖,素材未對到)"

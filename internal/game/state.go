@@ -129,6 +129,8 @@ const (
 	PromptCreate
 	// PromptMenu 是主選單:上下移動、Enter 選定。
 	PromptMenu
+	// PromptZtats 是角色數值畫面:左右翻頁、ESC 收起。
+	PromptZtats
 	// PromptGuard 是衛兵的盤查:多數地方是 Y / N(要不要繳),
 	// 黑棘的宮殿是打字答密語。
 	PromptGuard
@@ -306,6 +308,8 @@ type State struct {
 	Create *Creation
 	// Menu 是進行中的主選單(Prompt == PromptMenu 時有效)。
 	Menu *MainMenu
+	// Zstats 是進行中的角色數值畫面(Prompt == PromptZtats 時有效)。
+	Zstats *Ztats
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
 	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。
