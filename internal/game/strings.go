@@ -224,6 +224,21 @@ const (
 	// "You have none!" —— 沒有寶石可看。
 	MsgYouHaveNone = "汝一顆也沒有!"
 
+	// Search(S)—— 原版的地點語以 "t" 結尾,接上 "hou dost find" 成句。
+	MsgThouDostFind = "汝翻到了 ——"
+	MsgHiddenDoor   = "一道密門!"
+	MsgNoTrap       = "沒有陷阱!"
+	MsgATrap        = "有陷阱!"
+	MsgSimpleTrap   = "一個簡單的陷阱!"
+	MsgComplexTrap  = "一個複雜的陷阱!"
+	MsgPlague       = "瘟疫!"
+	MsgFoundGold    = "金幣!"
+	MsgFoundFood    = "糧食!"
+	MsgFoundNothing = "什麼也沒有。"
+	MsgFoundWorms   = "一堆蛆。"
+	MsgFoundGuts    = "一團內臟。"
+	MsgFoundPulp    = "血肉模糊的一團。"
+
 	// Ready(R)與 Wear(W)。
 	MsgCannotReady  = "那個拿不上手。"
 	MsgCannotWear   = "那個穿不上身。"

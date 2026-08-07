@@ -467,6 +467,10 @@ func (g *game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyZ) {
 			st.BeginZtats()
 		}
+		// S 搜尋:查陷阱、找密門、翻家具。
+		if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+			st.Search()
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 			st.Board()
 		}
