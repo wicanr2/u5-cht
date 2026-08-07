@@ -40,6 +40,8 @@ type DungeonState struct {
 	X, Y int
 	// Facing 是面向哪邊 —— 第一人稱的「前」。
 	Facing Direction
+	// Monster 是這一層的遊蕩怪物(見 dungeonmonster.go);nil 代表這一層沒有。
+	Monster *DungeonMonster
 }
 
 // InDungeon 回報是不是在地牢裡。
@@ -63,6 +65,7 @@ func (s *State) EnterDungeon(n int, fromBelow bool) bool {
 	s.Dungeon = d
 	s.Location = loc
 	s.Log("汝踏入了幽深的地底。")
+	s.spawnDungeonMonster()
 	s.onDungeonTile()
 	return true
 }
@@ -176,7 +179,7 @@ func (s *State) dungeonStep(nx, ny int, back bool) {
 	}
 	d.X, d.Y = nx, ny
 	s.AdvanceTime(MinutesPerTurn)
-	s.onDungeonTile()
+	s.dungeonTurnEnd()
 }
 
 // onDungeonTile 處理踩到的那一格(原版 `sub_5150`)。
@@ -238,6 +241,7 @@ func (s *State) dungeonPitTrap() {
 		s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, below|u5data.DungeonHoleAbove)
 	}
 	s.damageWholeParty()
+	s.spawnDungeonMonster()
 	s.onDungeonTile()
 }
 
@@ -275,7 +279,8 @@ func (s *State) DungeonKlimb(up bool) {
 	} else {
 		s.Log(MsgDown)
 	}
-	s.onDungeonTile()
+	s.spawnDungeonMonster()
+	s.dungeonTurnEnd()
 }
 
 // hasRope 回報身上有沒有繩索(原版 `byte_3DFBB`)。
@@ -309,7 +314,8 @@ func (s *State) DungeonChangeLevel(delta int) bool {
 	} else {
 		s.Log(MsgUp)
 	}
-	s.onDungeonTile()
+	s.spawnDungeonMonster()
+	s.dungeonTurnEnd()
 	return true
 }
 

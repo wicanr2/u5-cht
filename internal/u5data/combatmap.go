@@ -70,9 +70,13 @@ type CombatMap struct {
 	// 地表的 `BRIT.CBT` 這一段全是 0(地表遭遇的怪物由撞到的那個物件決定),
 	// 地牢房間的 `DUNGEON.CBT` 才用得到。
 	EnemyKind [CombatEnemySlots]byte
-	// Raw 是完整的 352 B。每列 +11..+31 還有幾組沒解出來的資料
-	// (列 1、2、4、5 各有一批,格式看起來像「另一種入場方向」的位置),
-	// 沒有證據就不取名字,原樣留著。
+	// Raw 是完整的 352 B。
+	//
+	// ✅ 列 1、2、4、5 的 +11..+22 **已解**(`docs/re/48` §6):那是**四個入場方向**
+	// 各自的隊伍位置,側 = 由朝向決定(`DungeonArenaSide`)。
+	// 上面的 `PartyX`/`PartyY` 取的是列 3(= 朝北入場那一組)——
+	// 這是原版 `combatPartyX = 3×32+11` 的那一組,不是任意挑的,
+	// 但**地牢遭遇戰會依朝向換組**,見 `DungeonArenaParty`。
 	Raw [CombatMapSize]byte
 }
 
