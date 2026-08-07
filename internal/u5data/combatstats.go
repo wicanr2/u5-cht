@@ -17,22 +17,68 @@ import (
 //	0x3F1D0    0x154C    怪物旗標   48 × u16
 //	0x3F230    0x15AC    怪物射程   48 B
 //	0x3F260    0x15DC    投射物圖號 48 B
-//	0x3F290    0x160C    武器傷害   48 B
-//	0x3F2C8    0x1644    裝備防禦值 48 B
-//	0x3F2F8    0x1674    武器射程   48 B
-//	0x3F330    0x16AC    裝備類別   48 B
+//	0x3F290    0x160C    武器傷害   **56 B**
+//	0x3F2C8    0x1644    裝備防禦值 **56 B**
+//	0x3F2F8    0x1674    武器射程   **56 B**
+//	0x3F330    0x16AC    裝備類別   **56 B**
 //	0x3F368    0x16E4    混編生物   48 B
+//
+// ⚠ **四張裝備表是 56 筆不是 48**(2026-08-07 更正)。相鄰兩張表的位移差
+// 是 0x38 = 56,不是 0x30 = 48 —— 而多出來的 8 筆不是留白,是**攻擊咒語**:
+//
+//	48 (0x30) Grav Por     傷害 16  射程 15
+//	49 (0x31) Vas Flam     傷害 30  射程 15
+//	50 (0x32) Xen Corp     傷害 99  射程 15   ← 必殺
+//	51 (0x33) In Nox Grav  傷害 18  射程 15   ← 實際效果是中毒
+//	52 (0x34) In Zu Grav   傷害  0  射程 15   ← 實際效果是睡眠
+//	53 (0x35) In Flam Grav 傷害 21  射程 15
+//	54 (0x36) In Sanct Grav傷害  0  射程 15
+//	55        (空)
+//
+// 怎麼發現的:追戰鬥中的力場咒語時,`sub_20360` 對隊員取
+// `byte_3F2F8[效果碼]` 與 `byte_3F330[效果碼]` —— 而效果碼是 0x30..0x36,
+// 早就超出 48。**「這個索引超出表的範圍」不是 bug,是表比我以為的長。**
+// 相鄰位移一減就看得出來,只是先前照「48 種裝備」的印象填了 48。
+//
+// ⇒ 這同時把 `docs/re/17` 裡「Grav Por 與 Vas Flam 的傷害是估計值」那條解決掉:
+// 16 與 30 都在表上,不用估。
 const (
 	statsCreature = 0x13CC // 48 × 8
 	statsCreFlags = 0x154C // 48 × u16
 	statsCreRange = 0x15AC // 48
 	statsCreMisl  = 0x15DC // 48
-	statsItemDmg  = 0x160C // 48
-	statsItemDef  = 0x1644 // 48
-	statsItemRnge = 0x1674 // 48
-	statsItemKind = 0x16AC // 48
+	statsItemDmg  = 0x160C // 56
+	statsItemDef  = 0x1644 // 56
+	statsItemRnge = 0x1674 // 56
+	statsItemKind = 0x16AC // 56
 	statsCreMix   = 0x16E4 // 48
 )
+
+// AttackCodeCount 是四張裝備表的實際長度:48 件裝備 + 8 個攻擊咒語欄位。
+const AttackCodeCount = 56
+
+// 攻擊咒語在那四張表裡的索引(= 原版寫進 `byte_3E0AD` 的攻擊碼)。
+const (
+	AttackGravPor     = 0x30
+	AttackVasFlam     = 0x31
+	AttackXenCorp     = 0x32
+	AttackInNoxGrav   = 0x33 // 命中後中毒(`sub_B9A8` 的 `cmp byte_3E0AD, '3'`)
+	AttackInZuGrav    = 0x34 // 命中後睡著(同上,`'4'`)
+	AttackInFlamGrav  = 0x35
+	AttackInSanctGrav = 0x36
+)
+
+// AttackAlwaysHits 回報這個攻擊碼會不會自動命中(`sub_B484` 的施法分支)。
+//
+//	0x30 / 0x31          自動命中
+//	0x32(Xen Corp)      **要擲** —— 用智力對智力,與抗性判定同一個形狀
+//	>= 0x33              自動命中
+//
+// ⚠ 唯一會失手的攻擊咒語是必殺的那一個。寫成「攻擊咒語都自動命中」
+// 會讓 Xen Corp 變成無條件秒殺。
+func AttackAlwaysHits(code int) bool {
+	return (code > 0x2F && code < 0x32) || code >= 0x33
+}
 
 // CreatureStatSize 是怪物屬性一筆的大小。
 const CreatureStatSize = 8
@@ -126,7 +172,7 @@ const (
 // ItemAmuletOfTurning 是「轉化護符」。
 //
 // 戴在護符欄(紀錄 0x1E)時,施法者的遠程攻擊有 **1/2 機率被抵銷**
-//(`sub_9F08` 先看目標的 `byte_3DDD2[角色*32] == 0x2D`,
+// (`sub_9F08` 先看目標的 `byte_3DDD2[角色*32] == 0x2D`,
 // 再看攻擊者有沒有 CreatureCasts,兩個都成立才擲那一枚硬幣)。
 const ItemAmuletOfTurning = 0x2D
 
@@ -160,24 +206,24 @@ type CombatStats struct {
 	//
 	// 值本身就說明了語意:頭盔 1/2/3/3、盾 2/3/3/5、護甲 1→10 遞增、
 	// 武器幾乎都是 0(只有 Main Gauche 是 1)、防護戒指 2、釘項圈 2。
-	ItemDefence [ItemCount]int
+	ItemDefence [AttackCodeCount]int
 	// ItemRange[裝備編號] 是遠程武器打得到幾格;0 = 近戰。
 	//
 	// 匕首 3、投石索 4、火油 4、矛 5、投擲斧 4、弓 7、十字弓 8、
 	// 魔法弓 15、魔法斧 15 —— 正好是 U5 能扔能射的那幾樣。
-	ItemRange [ItemCount]int
+	ItemRange [AttackCodeCount]int
 	// ItemDamage[裝備編號] 是武器的傷害上限。
 	//
 	// 匕首 6 → 長劍 15 → 雙手武器 20 → 戟 30;
 	// **混沌之劍與玻璃劍都是 99**(必殺),而箭矢與弩矢只有 1
 	// —— 彈藥本身不造成傷害,傷害來自弓。
-	ItemDamage [ItemCount]int
+	ItemDamage [AttackCodeCount]int
 	// ItemKind[裝備編號] 是武器類別。
 	//
 	// 已知的只有一個值:**8 = 鈍器**(釘盔、釘盾、棍、釘頭錘、雙手錘)。
 	// `sub_B398` 用它決定命中要看力量還是看另一項:類別 8 走力量。
 	// 其餘的值(2、3、7)還沒對出語意。
-	ItemKind [ItemCount]int
+	ItemKind [AttackCodeCount]int
 	// CreatureMix[索引] 是遭遇時可能混進來的另一種怪物(`sub_2F0EC` 的
 	// `byte_3F368[生物]`)。前四分之一的同伴各有 1/9 機率換成這一種。
 	CreatureMix [CreatureCount]byte
@@ -224,7 +270,7 @@ func ParseCombatStats(ovl []byte) (*CombatStats, error) {
 		s.CreatureMix[i] = ovl[statsCreMix+i]
 		s.CreatureMissile[i] = ovl[statsCreMisl+i]
 	}
-	for i := 0; i < ItemCount; i++ {
+	for i := 0; i < AttackCodeCount; i++ {
 		s.ItemDamage[i] = int(ovl[statsItemDmg+i])
 		s.ItemDefence[i] = int(ovl[statsItemDef+i])
 		s.ItemRange[i] = int(ovl[statsItemRnge+i])

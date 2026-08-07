@@ -249,23 +249,112 @@ func TestInterferenceBlocksCastingInCombat(t *testing.T) {
 	}
 }
 
-// TestXenCorpKills:Xen Corp 是必殺。
-func TestXenCorpKills(t *testing.T) {
+// TestXenCorpKillsWhenItLands:Xen Corp 命中就是必殺 —— 但它會失手。
+//
+// ⚠ 這是七個攻擊咒語裡**唯一要擲命中的一個**(`sub_B484`:0x30 / 0x31 與
+// >= 0x33 自動命中,只有 0x32 走骰子)。寫成「攻擊咒語都自動命中」
+// 會讓必殺變成無條件秒殺 —— 所以這條同時驗「會中」與「會失手」。
+func TestXenCorpKillsWhenItLands(t *testing.T) {
+	killed, missed := 0, 0
+	for round := 0; round < 40; round++ {
+		s := magicState(t)
+		s.SeedRandom(int64(round) + 1)
+		slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		xen := s.Spells.Find("Xen Corp")
+		s.Inventory.Spells[xen] = 1
+		s.Roster[0].Level, s.Roster[0].MP = 8, 40
+		before, _ := s.sideCounts(s.Combat)
+		if got := s.Cast(0, xen); got != MagicSuccess {
+			t.Fatalf("Xen Corp 失敗:%v\n%s", got, s.log())
+		}
+		after, _ := s.sideCounts(s.Combat)
+		switch {
+		case after == before-1:
+			killed++
+		case after == before:
+			missed++
+		default:
+			t.Fatalf("敵人 %d → %d,一次只該死一個", before, after)
+		}
+	}
+	if killed == 0 {
+		t.Error("放了 40 次一個都沒殺掉 —— 必殺沒生效")
+	}
+	if missed == 0 {
+		t.Error("放了 40 次一次都沒失手 —— Xen Corp 應該要擲命中")
+	}
+	t.Logf("40 次:殺掉 %d、失手 %d", killed, missed)
+}
+
+// TestAttackSpellDamageComesFromTheTable:傷害是查表來的,不是估的。
+//
+// `DATA.OVL` 0x160C 那張表有 **56 筆**,第 48..54 筆就是攻擊碼 0x30..0x36。
+// 這條把三個數字釘死:Grav Por 16、Vas Flam 30、Xen Corp 99。
+// 引擎原本用 10 / 20 / 99,前兩個是按圈數估的。
+func TestAttackSpellDamageComesFromTheTable(t *testing.T) {
 	s := magicState(t)
-	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
-	if !s.BeginCombat(slot) {
-		t.Fatal("打不起來")
+	want := map[int]int{
+		u5data.AttackGravPor:     16,
+		u5data.AttackVasFlam:     30,
+		u5data.AttackXenCorp:     99,
+		u5data.AttackInNoxGrav:   18,
+		u5data.AttackInZuGrav:    0,
+		u5data.AttackInFlamGrav:  21,
+		u5data.AttackInSanctGrav: 0,
 	}
-	xen := s.Spells.Find("Xen Corp")
-	s.Inventory.Spells[xen] = 1
-	s.Roster[0].Level, s.Roster[0].MP = 8, 40
-	before, _ := s.sideCounts(s.Combat)
-	if got := s.Cast(0, xen); got != MagicSuccess {
-		t.Fatalf("Xen Corp 失敗:%v\n%s", got, s.log())
+	for code, dmg := range want {
+		if got := s.spellAttackDamage(code); got != dmg {
+			t.Errorf("攻擊碼 %#x 的傷害是 %d,表上是 %d", code, got, dmg)
+		}
 	}
-	after, _ := s.sideCounts(s.Combat)
-	if after != before-1 {
-		t.Errorf("敵人 %d → %d,必殺該少一個", before, after)
+	// 射程全部是 15 —— 攻擊咒語不必貼身。
+	for code := range want {
+		if got := s.Stats.ItemRange[code]; got != 15 {
+			t.Errorf("攻擊碼 %#x 的射程是 %d,預期 15", code, got)
+		}
+	}
+	// 反過來:一般裝備的那 48 筆不能被這 8 筆蓋掉。
+	if s.Stats.ItemDamage[16] != 6 { // 匕首
+		t.Errorf("匕首的傷害變成 %d —— 表長度改成 56 之後前面 48 筆應該不動", s.Stats.ItemDamage[16])
+	}
+}
+
+// TestCombatFieldSpellsApplyStatusNotDamage:In Nox Grav 中毒、In Zu Grav 睡眠。
+//
+// 兩者在表上有傷害欄(18 / 0),但 `sub_B9A8` 在扣血**之前**就用
+// `cmp byte_3E0AD, '3'` / `'4'` 攔下來,改成掛狀態。
+// 只看傷害表會把 In Nox Grav 寫成「打 18 點」—— 那是錯的。
+func TestCombatFieldSpellsApplyStatusNotDamage(t *testing.T) {
+	for _, c := range []struct {
+		spell int
+		flag  byte
+		what  string
+	}{
+		{SpellInZuGrav, UnitAsleep, "睡眠"},
+	} {
+		s := magicState(t)
+		slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		self := s.combatSlotOfRoster(0)
+		target, _, _ := s.aiTarget(self)
+		if target < 0 {
+			t.Skip("沒有目標")
+		}
+		hp := s.Combat.Units[target].HP
+		if !s.spellEffect(0, c.spell) {
+			t.Fatalf("%s 放不出來:\n%s", c.what, s.log())
+		}
+		if s.Combat.Units[target].Flags&c.flag == 0 {
+			t.Errorf("%s 沒有掛上狀態", c.what)
+		}
+		if s.Combat.Units[target].HP != hp {
+			t.Errorf("%s 卻扣了血:%d → %d", c.what, hp, s.Combat.Units[target].HP)
+		}
 	}
 }
 
@@ -273,7 +362,7 @@ func TestXenCorpKills(t *testing.T) {
 //
 // 這一條是刻意寫的:假裝成功會讓「魔法做完了」這句話變成謊。
 // 原版的扣除順序是「先扣藥草、再扣魔力、最後才跑效果」
-//(`sub_1994C` 的 `dec byte_3E000[edi]` 在跳表之前),所以效果失敗也照扣。
+// (`sub_1994C` 的 `dec byte_3E000[edi]` 在跳表之前),所以效果失敗也照扣。
 //
 // 用 An Sanct 當探針:四處皆可施,但前方沒有鎖也沒有箱子時它會失敗。
 func TestFailedSpellStillCosts(t *testing.T) {
@@ -849,7 +938,7 @@ func TestSpellImmuneNamesThree(t *testing.T) {
 // TestRepellableFlagPicksExactlyFour:0x20 位元只落在四種生物身上。
 //
 // 這條同時驗兩件事:0x20 認的是哪一批沒搞錯,而且旗標表沒有讀偏一個位元組
-//(偏一格的話中選的會是完全不同的四種)。
+// (偏一格的話中選的會是完全不同的四種)。
 //
 // ⚠ 名單是**幽靈、骷髏、惡魔、暗影領主** —— 惡魔在裡面,所以這一位元
 // 不是「不死」。我一開始照 An Xen Corp 的字面意思寫成不死,被這條打掉。

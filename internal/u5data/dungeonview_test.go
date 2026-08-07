@@ -159,3 +159,119 @@ func TestEmptyShapesAreExactlyTheDepthZeroOnes(t *testing.T) {
 		}
 	}
 }
+
+// TestDungeonObjectSelection:走廊物件的選圖逐條對照 `byte_4FF90` / `byte_4FF98`。
+//
+// 最容易錯的一條:**上行梯與下行梯用同一組圖**,只差畫上半還是下半。
+// 兩張表在種類 1 與 2 都填 0x1f 不是重複填錯。
+func TestDungeonObjectSelection(t *testing.T) {
+	for d := 0; d < DungeonViewDepths; d++ {
+		// 上行梯:只有上半。
+		if got := DungeonObjectUpper(DungeonLadderUp, d); got != dungeonObjLadder+d {
+			t.Errorf("上行梯深度 %d 的上半是 %d,預期 %d", d, got, dungeonObjLadder+d)
+		}
+		if got := DungeonObjectLower(DungeonLadderUp, d); got != -1 {
+			t.Errorf("上行梯不該有下半,得到 %d", got)
+		}
+		// 下行梯:只有下半,而且是**同一組圖**。
+		if got := DungeonObjectLower(DungeonLadderDown, d); got != dungeonObjLadder+d {
+			t.Errorf("下行梯深度 %d 的下半是 %d,預期 %d", d, got, dungeonObjLadder+d)
+		}
+		if got := DungeonObjectUpper(DungeonLadderDown, d); got != -1 {
+			t.Errorf("下行梯不該有上半,得到 %d", got)
+		}
+		// 上下皆可:兩半都畫,湊成一整根。
+		if DungeonObjectUpper(DungeonLadderBoth, d) < 0 || DungeonObjectLower(DungeonLadderBoth, d) < 0 {
+			t.Errorf("上下皆可的梯子深度 %d 應該上下都畫", d)
+		}
+		// 其餘四種各自一組,而且四組互不相同。
+		bases := map[int]byte{}
+		for _, tile := range []byte{DungeonChest, DungeonFountain, DungeonTrap, DungeonDoor} {
+			n := DungeonObjectLower(tile, d)
+			if n < 0 {
+				t.Errorf("%02X 深度 %d 沒有圖", tile, d)
+				continue
+			}
+			if prev, dup := bases[n]; dup {
+				t.Errorf("%02X 與 %02X 都用形狀 %d", prev, tile, n)
+			}
+			bases[n] = tile
+		}
+		// 通道與牆什麼都不畫。
+		for _, tile := range []byte{DungeonPassage, DungeonWall, DungeonRoomA} {
+			if DungeonObjectUpper(tile, d) >= 0 || DungeonObjectLower(tile, d) >= 0 {
+				t.Errorf("%02X 不該有走廊物件", tile)
+			}
+		}
+	}
+}
+
+// TestDungeonObjectShapesExist:選出來的形狀在 `ITEMS.16` 裡都要真的有。
+//
+// 五組 × 四階 = 20,而 `ITEMS.16` 正好 20 個形狀 —— 一個不多一個不少。
+// 這條同時證明「形狀編號 = (碼+1)/2 − 16」這條算式沒推錯。
+func TestDungeonObjectShapesExist(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA")
+	}
+	items, err := LoadPictures(filepath.Join(dir, "ITEMS.16"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	used := map[int]bool{}
+	for d := 0; d < DungeonViewDepths; d++ {
+		for _, tile := range []byte{
+			DungeonLadderUp, DungeonLadderDown, DungeonLadderBoth,
+			DungeonChest, DungeonFountain, DungeonTrap, DungeonDoor,
+		} {
+			for _, n := range []int{DungeonObjectUpper(tile, d), DungeonObjectLower(tile, d)} {
+				if n < 0 {
+					continue
+				}
+				if n >= len(items) || items[n] == nil {
+					t.Fatalf("%02X 深度 %d 要形狀 %d,但 ITEMS.16 只有 %d 個",
+						tile, d, n, len(items))
+				}
+				used[n] = true
+			}
+		}
+		used[DungeonHoleShape(d)] = true
+	}
+	if len(used) != len(items) {
+		t.Errorf("用到 %d 個形狀,ITEMS.16 有 %d 個 —— 應該剛好用完", len(used), len(items))
+	}
+}
+
+// TestDungeonHorizonShrinksWithDepth:地板線與天花板線要隨深度往中間收。
+//
+// ⚠ 垂直位置是推導的(比例 = 正面切片寬度 / 80),不是查表。
+// 實測 DNG3 正面切片內側欄的牆體上下界:深度 1 約 24..136、深度 2 約 57..112,
+// 與算式給的 26..137 / 58..105 對得上,誤差在幾個像素內。
+func TestDungeonHorizonShrinksWithDepth(t *testing.T) {
+	prevFloor, prevCeil := DungeonViewBottom+1, DungeonViewTop-1
+	for d := 0; d < DungeonViewDepths; d++ {
+		f, c := DungeonFloorY(d), DungeonCeilingY(d)
+		if f >= prevFloor {
+			t.Errorf("深度 %d 的地板線 %d 沒有比 %d 高", d, f, prevFloor)
+		}
+		if c <= prevCeil {
+			t.Errorf("深度 %d 的天花板線 %d 沒有比 %d 低", d, c, prevCeil)
+		}
+		if c >= f {
+			t.Errorf("深度 %d 的天花板 %d 跑到地板 %d 下面", d, c, f)
+		}
+		prevFloor, prevCeil = f, c
+	}
+	// 深度 0 就是整個畫面。
+	if DungeonFloorY(0) != DungeonViewBottom || DungeonCeilingY(0) != DungeonViewTop {
+		t.Errorf("深度 0 的上下界是 %d..%d,應該是整張 %d..%d",
+			DungeonCeilingY(0), DungeonFloorY(0), DungeonViewTop, DungeonViewBottom)
+	}
+	// 對照實測值(容許 8 px 誤差)。
+	for _, c := range []struct{ depth, floor int }{{1, 136}, {2, 112}} {
+		if got := DungeonFloorY(c.depth); got < c.floor-8 || got > c.floor+8 {
+			t.Errorf("深度 %d 的地板線算出 %d,實測牆體底約在 %d", c.depth, got, c.floor)
+		}
+	}
+}

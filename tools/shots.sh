@@ -9,8 +9,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GD="${1:-gamedata}"
 FM="${2:-re_work/fmtowns/iso/U5_E}"
-OUT="$ROOT/docs/screenshots"
-mkdir -p "$OUT"
+# ⚠ 路徑要用 **repo 相對**的:指令跑在容器裡,`/home/anr2/...` 在裡面不存在。
+OUT="docs/screenshots"
+mkdir -p "$ROOT/$OUT"
 run() { "$ROOT/tools/dev.sh" go run ./cmd/u5dump scene "$GD" "$FM" "$@"; }
 
 run "$OUT/01-world.png"   --at 81 108
@@ -18,6 +19,6 @@ run "$OUT/02-town.png"    --scene BRITAIN 0 15 15
 run "$OUT/03-talk.png"    --scene BRITAIN 0 30 6 --script 'T"name"'
 run "$OUT/04-shop.png"    --scene BRITAIN 0 5 19 --script 'T[b]'
 run "$OUT/05-combat.png"  --at 81 108 --script '!'
-run "$OUT/06-dungeon.png" --at 240 73 --script 'ELff'
+run "$OUT/06-dungeon.png" --at 240 73 --script "EL"
 run "$OUT/07-peer.png"    --at 81 108 --script 'P'
 echo "→ $OUT"

@@ -143,3 +143,103 @@ func DungeonTheme(location int) int {
 	}
 	return 1
 }
+
+// 走廊裡的物件(梯子、寶箱、噴泉、陷阱、頭上的洞)
+//
+// `sub_3B88` 依**格子的種類**查兩張小表,再算出 `ITEMS.16` 的形狀編號:
+//
+//	byte_4FF90[種類]   畫在**上半**(sub_34C8 的 arg_4 = 1)
+//	byte_4FF98[種類]   畫在**下半**(arg_4 = 0)
+//
+//	種類:      0    1    2    3    4    5    6    7
+//	4FF90:    --   1f   --   1f   --   --   --   --
+//	4FF98:    --   --   1f   1f   37   27   2f   3f
+//
+// 形狀編號的算式藏在 `sub_34C8` 的第二條路(`arg_0 >= 0x1F`):
+//
+//	var_8 = (arg_0 + 1) / 2 − 16       ← 這就是 ITEMS.16 的索引
+//	arg_0 = 2 × 深度 + 基底
+//
+// 代進去:基底 0x1f → 形狀 0..3、0x27 → 4..7、0x2f → 8..11、
+// 0x37 → 12..15、0x3f → 16..19。ITEMS.16 正好 20 個形狀,五組各四階。
+//
+// ★ **上行梯與下行梯用同一組圖(0..3),差別只在畫上半還是下半。**
+// 這解釋了為什麼 `4FF90[1]` 與 `4FF98[2]` 都是 0x1f —— 不是重複,
+// 是同一張梯子往上接天花板或往下接地板。種類 3(上下皆可)兩邊都畫,
+// 湊成一整根貫穿的梯子。
+//
+// ⚠ 垂直位置是**推導的,不是查表來的**。DOS 的座標表要讀 `DUNGEON.OVL`。
+// 推導的依據:正面切片的寬度(80/56/24/8)同時也是那一階的視覺縮放比,
+// 而實測 `DNG3.16` 正面切片內側欄的牆體上下界(深度 1 約 24..136、
+// 深度 2 約 57..112)與 `中心 ± 78 × 寬度/80` 算出來的 26..137 / 58..105
+// 對得上。所以用這個比例擺,誤差在幾個像素內。
+
+// dungeonObjectBase 是五組物件圖在 `ITEMS.16` 裡的起點。
+const (
+	dungeonObjLadder   = 0  // 0..3   梯子(上下共用)
+	dungeonObjFountain = 4  // 4..7
+	dungeonObjHole     = 8  // 8..11  陷阱 / 頭上的洞
+	dungeonObjChest    = 12 // 12..15
+	dungeonObjOpened   = 16 // 16..19 開過的寶箱
+)
+
+// DungeonObjectUpper 回傳畫在**上半**的物件形狀;沒有就回 −1。
+func DungeonObjectUpper(tile byte, depth int) int {
+	switch DungeonKind(tile) {
+	case DungeonLadderUp, DungeonLadderBoth:
+		return dungeonObjLadder + depth
+	}
+	return -1
+}
+
+// DungeonObjectLower 回傳畫在**下半**的物件形狀;沒有就回 −1。
+func DungeonObjectLower(tile byte, depth int) int {
+	switch DungeonKind(tile) {
+	case DungeonLadderDown, DungeonLadderBoth:
+		return dungeonObjLadder + depth
+	case DungeonChest:
+		return dungeonObjChest + depth
+	case DungeonFountain:
+		return dungeonObjFountain + depth
+	case DungeonTrap:
+		return dungeonObjHole + depth
+	case DungeonDoor: // 0x70 = 開過的寶箱
+		return dungeonObjOpened + depth
+	}
+	return -1
+}
+
+// DungeonHoleShape 是「頭上有洞」畫的形狀(`byte_4FF9E` 的第一個值 0x2f)。
+func DungeonHoleShape(depth int) int { return dungeonObjHole + depth }
+
+// 透視畫面的垂直基準(量出來的,見上面的說明)。
+const (
+	// DungeonViewTop / Bottom 是切片裡真正有畫東西的範圍。
+	DungeonViewTop    = 3
+	DungeonViewBottom = 160
+)
+
+// dungeonFrontWidth 是正面第 d 階的半寬 —— 同時也是那一階的視覺縮放比。
+var dungeonFrontWidth = [DungeonViewDepths]int{80, 56, 24, 8}
+
+// DungeonFloorY 是第 d 階的地板線 y。
+func DungeonFloorY(depth int) int {
+	c := (DungeonViewTop + DungeonViewBottom) / 2
+	return c + (DungeonViewBottom-c)*dungeonFrontWidth[clampDepth(depth)]/DungeonViewHalfWidth
+}
+
+// DungeonCeilingY 是第 d 階的天花板線 y。
+func DungeonCeilingY(depth int) int {
+	c := (DungeonViewTop + DungeonViewBottom) / 2
+	return c - (c-DungeonViewTop)*dungeonFrontWidth[clampDepth(depth)]/DungeonViewHalfWidth
+}
+
+func clampDepth(d int) int {
+	if d < 0 {
+		return 0
+	}
+	if d >= DungeonViewDepths {
+		return DungeonViewDepths - 1
+	}
+	return d
+}

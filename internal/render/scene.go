@@ -62,6 +62,8 @@ type Scene struct {
 	Text  *TextRenderer
 	// DungeonViews 是 DNG1/2/3.16 的透視切片。空的話地牢退回俯視圖。
 	DungeonViews []u5data.PictureSet
+	// DungeonItems 是 ITEMS.16 —— 走廊裡的梯子、寶箱、噴泉、陷阱。
+	DungeonItems u5data.PictureSet
 }
 
 // Render 畫出整個 640×400 畫面。
@@ -364,6 +366,7 @@ func (s *Scene) drawDungeonFirstPerson(dst *image.NRGBA) bool {
 		return false
 	}
 	set := s.DungeonViews[theme]
+	items := s.DungeonItems
 
 	const vw, vh = u5data.DungeonViewWidth, u5data.DungeonViewHeight
 	ox := MapOriginX + (ViewPixels-vw*DungeonViewScale)/2
@@ -381,12 +384,14 @@ func (s *Scene) drawDungeonFirstPerson(dst *image.NRGBA) bool {
 	sdx, sdy := -fdy, fdx
 
 	x, y := d.X, d.Y
+	seen := u5data.DungeonViewDepths
 	for depth := 0; depth < u5data.DungeonViewDepths; depth++ {
 		tile := st.DungeonTileAt(u5data.DungeonWrap(x), u5data.DungeonWrap(y))
 		if !u5data.DungeonSeeThrough(tile, depth) {
 			if n := u5data.DungeonFrontShape(tile, depth); n >= 0 {
 				s.blitSlice(dst, set, n, ox, oy, depth)
 			}
+			seen = depth + 1
 			break
 		}
 		// 站在門口時不畫腳下這一格的側牆 —— 門框就在身邊,擋住了。
@@ -400,7 +405,61 @@ func (s *Scene) drawDungeonFirstPerson(dst *image.NRGBA) bool {
 		}
 		x, y = x+fdx, y+fdy
 	}
+	// 走廊裡的東西(梯子、寶箱、噴泉、陷阱)—— 由遠而近疊上去,
+	// 照 `sub_3D14` 的第二個迴圈。近的蓋遠的。
+	if items != nil {
+		for depth := seen - 1; depth >= 0; depth-- {
+			tile := st.DungeonTileAt(
+				u5data.DungeonWrap(d.X+fdx*depth), u5data.DungeonWrap(d.Y+fdy*depth))
+			if n := u5data.DungeonObjectUpper(tile, depth); n >= 0 {
+				s.blitObject(dst, items, n, ox, oy, depth, true)
+			}
+			if n := u5data.DungeonObjectLower(tile, depth); n >= 0 {
+				s.blitObject(dst, items, n, ox, oy, depth, false)
+			}
+			// 頭上有洞:另外一張,畫在上半(`byte_4FF9E`)。
+			if tile&u5data.DungeonHoleAbove != 0 {
+				s.blitObject(dst, items, u5data.DungeonHoleShape(depth), ox, oy, depth, true)
+			}
+		}
+	}
 	return true
+}
+
+// blitObject 畫走廊裡的一個物件。upper 為真時貼齊天花板,否則貼齊地板。
+//
+// 每張圖都是**半邊**,水平鏡射補成整個 —— 與牆一樣。
+func (s *Scene) blitObject(dst *image.NRGBA, set u5data.PictureSet, n, ox, oy, depth int, upper bool) {
+	if n < 0 || n >= len(set) || set[n] == nil {
+		return
+	}
+	p := set[n]
+	top := u5data.DungeonFloorY(depth) - p.Height
+	if upper {
+		top = u5data.DungeonCeilingY(depth)
+	}
+	for _, mirror := range [2]bool{false, true} {
+		for py := 0; py < p.Height; py++ {
+			for px := 0; px < p.Width; px++ {
+				if p.Mask != nil && p.Mask[py*p.Width+px] != 0 {
+					continue
+				}
+				// 物件靠中線:左半從 80−w 起,右半鏡射。
+				vx := u5data.DungeonViewHalfWidth - p.Width + px
+				if mirror {
+					vx = u5data.DungeonViewWidth - 1 - vx
+				}
+				c := u5data.EGAPalette[p.Pix[py*p.Width+px]&0x0F]
+				for ky := 0; ky < DungeonViewScale; ky++ {
+					for kx := 0; kx < DungeonViewScale; kx++ {
+						SetPixel(dst,
+							ox+vx*DungeonViewScale+kx,
+							oy+(top+py)*DungeonViewScale+ky, c)
+					}
+				}
+			}
+		}
+	}
 }
 
 // blitSlice 把一張切片畫在左右兩半(右半水平鏡射)。

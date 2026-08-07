@@ -210,9 +210,9 @@ const (
 
 // 三個「指定目標打一下」的咒語各自帶一個攻擊碼(原版 `sub_189E4` 寫進 `byte_3E0AD`)。
 const (
-	spellAttackGravPor = 0x30
-	spellAttackVasFlam = 0x31
-	spellAttackXenCorp = 0x32
+	spellAttackGravPor = u5data.AttackGravPor
+	spellAttackVasFlam = u5data.AttackVasFlam
+	spellAttackXenCorp = u5data.AttackXenCorp
 )
 
 // TimeStopTurns 是 An Tym 停多久(原版 `sub_198E0` 的 `byte_3E09E = 0Ah`)。
@@ -357,15 +357,15 @@ func (s *State) spellEffect(caster, spell int) bool {
 	case SpellAnGrav: // 破力場
 		return s.destroyField()
 
-	// 四個力場咒語 —— 同一支函式,差一個種類碼。
+	// 四個力場咒語 —— 同一支函式,差一個種類碼與一個攻擊碼。
 	case SpellInFlamGrav:
-		return s.castField(fieldFire)
+		return s.castField(fieldFire, u5data.AttackInFlamGrav)
 	case SpellInNoxGrav:
-		return s.castField(fieldPoison)
+		return s.castField(fieldPoison, u5data.AttackInNoxGrav)
 	case SpellInZuGrav:
-		return s.castField(fieldSleep)
+		return s.castField(fieldSleep, u5data.AttackInZuGrav)
 	case SpellInSanctGrav:
-		return s.castField(fieldProtect)
+		return s.castField(fieldElectric, u5data.AttackInSanctGrav)
 
 	// 四種風。原版每一次都問方向(`sub_1CC50`),引擎現在也問。
 	case SpellInZu:
@@ -455,11 +455,23 @@ func (s *State) cureStatus(status byte) bool {
 	return any
 }
 
-// spellAttack 是三個「指定目標打一下」的咒語(原版 `sub_189E4`)。
+// spellAttack 是**七個**「指定目標打一下」的咒語(原版 `sub_189E4` / `sub_18A08`
+// → `sub_20360` → `sub_20134`)。
 //
-// 攻擊碼寫進原版的 `byte_3E0AD`,由投射物與傷害那一段解讀;
-// 差別在傷害來源與動畫,命中判定與一般攻擊共用。
-func (s *State) spellAttack(caster, kind int) bool {
+// 三個攻擊咒語(Grav Por / Vas Flam / Xen Corp)加上四個 `*Grav` 力場在**戰鬥中**
+// 走的是同一條路 —— 都是射程 15 的指定目標攻擊,傷害與射程都在那四張 56 筆的
+// 裝備表裡(見 `u5data.AttackCodeCount`)。
+//
+// ⚠ **四個 `*Grav` 在戰鬥中不是「放一片持續力場」**,是一發遠程攻擊。
+// 引擎原本在戰鬥中直接回失敗並印「尚未實作」—— 那個判斷是對的
+// (當時真的沒證據),但答案其實就在同一組表的後面 8 筆裡。
+//
+//	In Nox Grav  傷害 18 → 但命中後走**中毒**分支,不扣血
+//	In Zu Grav   傷害  0 → 命中後**睡著**
+//	In Flam Grav 傷害 21 → 一般傷害
+//	In Sanct Grav傷害  0 → 追到這裡是**沒有效果**;若它其實會留下力場,
+//	                       那要在投射物飛行(`sub_1FE54`)裡,還沒讀
+func (s *State) spellAttack(caster, code int) bool {
 	c := s.Combat
 	if c == nil {
 		s.Log("此地無敵可擊。")
@@ -474,28 +486,49 @@ func (s *State) spellAttack(caster, kind int) bool {
 		s.Log("沒有目標。")
 		return false
 	}
-	dmg := spellAttackDamage(kind)
+	// 命中判定:只有 Xen Corp 要擲(`sub_B484` 的施法分支)。
+	//
+	// ⚠ 用 `SpellResisted` 而不是 `resists` —— **這裡沒有免疫名單**。
+	// `sub_B484` 只擲那一顆骰,`sub_189BC`(黑棘 / 不列顛王 / 暗影領主免疫)
+	// 是操控類咒語才查的。混用會讓 Xen Corp 打不動劇情人物,而原版打得動。
+	if !u5data.AttackAlwaysHits(code) && s.SpellResisted(self, target) {
+		s.Log(s.unitName(&c.Units[target]) + "擋下了咒語。")
+		return true
+	}
+	// 命中後的特例先於傷害(`sub_B9A8` 的兩個 `cmp byte_3E0AD`)。
+	switch code {
+	case u5data.AttackInNoxGrav:
+		s.poisonHit(self, target)
+		return true
+	case u5data.AttackInZuGrav:
+		u := &c.Units[target]
+		if u.Flags&UnitAsleep == 0 {
+			u.Flags |= UnitAsleep
+			s.Log(s.unitName(u) + "睡著了!")
+		}
+		return true
+	}
+	dmg := s.spellAttackDamage(code)
 	if dmg == u5data.InstantKillDamage {
 		s.Log(s.unitName(&c.Units[target]) + "被咒語擊中!")
+	}
+	if dmg == 0 {
+		s.Log("咒語掠過,什麼也沒發生。")
+		return true
 	}
 	s.applyDamage(self, target, dmg)
 	return true
 }
 
-// spellAttackDamage 是三個攻擊咒語的傷害。
+// spellAttackDamage 讀攻擊咒語的傷害。
 //
-// ⚠ `sub_189E4` 只把攻擊碼記到 `byte_3E0AD`,實際數值在投射物那一段
-// (`sub_20134` / `sub_1FE54`),還沒逆完。這裡用「Xen Corp 是必殺」這條
-// 確定的事實,另外兩個先按圈數換算並在文件裡標明是**估計值**。
-func spellAttackDamage(kind int) int {
-	switch kind {
-	case spellAttackXenCorp:
-		return u5data.InstantKillDamage
-	case spellAttackVasFlam:
-		return 20
-	default:
-		return 10
+// **不再是估計值** —— `DATA.OVL` 0x160C 那張表其實有 56 筆,
+// 第 48..54 筆就是攻擊碼 0x30..0x36 的傷害(見 `u5data.AttackCodeCount` 的說明)。
+func (s *State) spellAttackDamage(code int) int {
+	if s.Stats == nil || code < 0 || code >= u5data.AttackCodeCount {
+		return 0
 	}
+	return s.Stats.ItemDamage[code]
 }
 
 // charmNearest 是 An Xen Ex:把最近的怪物變成我方(原版 `sub_194CC`,
@@ -1286,22 +1319,18 @@ func (s *State) resists(caster, target int) bool {
 // 戰鬥中走的是另一條路(`sub_20360` 的效果碼 0x33..0x36),那套目標選取
 // 與效果分派還沒逆完 —— 見下面的說明。
 const (
-	fieldFire    = 0 // In Flam Grav
-	fieldPoison  = 1 // In Nox Grav
-	fieldSleep   = 2 // In Zu Grav
-	fieldProtect = 3 // In Sanct Grav
+	fieldFire     = 0 // In Flam Grav
+	fieldPoison   = 1 // In Nox Grav
+	fieldSleep    = 2 // In Zu Grav
+	fieldElectric = 3 // In Sanct Grav —— 地牢裡是電擊力場(0x83)
 )
 
-// castField 放一個力場。回傳有沒有成功。
-func (s *State) castField(kind int) bool {
+// castField 放一個力場。`code` 是它在戰鬥中的攻擊碼。回傳有沒有成功。
+func (s *State) castField(kind, code int) bool {
 	d := s.Dungeon
 	if d == nil {
-		// ⚠ 戰鬥中的力場尚未實作。原版走 `sub_20360(單位, byte_55E20[種類])`,
-		// 效果碼是 0x33..0x36,後面接的是一整套目標選取 + 效果分派
-		// (`byte_3F2F8` / `byte_3F330` 兩張 256 格表),還沒逆完。
-		// 這裡誠實回失敗 —— 藥草與魔力照原版消耗,但不假裝有效果。
-		s.Log("(戰鬥中的力場尚未實作)")
-		return false
+		// 戰鬥中走遠程攻擊那條路(`sub_20360` 的 `byte_55E20[種類]`)。
+		return s.spellAttack(s.currentCaster(), code)
 	}
 	dx, dy := d.Facing.Delta()
 	// `and ecx, 7` —— 地牢的 8×8 是環繞的。

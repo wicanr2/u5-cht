@@ -51,6 +51,8 @@ type Bundle struct {
 	Charset   *u5data.Charset
 	// DungeonViews 是 DNG1/2/3.16 的透視切片,索引 0..2 對應三種外觀。
 	DungeonViews []u5data.PictureSet
+	// DungeonItems 是 ITEMS.16(走廊裡的梯子、寶箱、噴泉、陷阱)。
+	DungeonItems u5data.PictureSet
 	CJK          *cjk.Font
 }
 
@@ -99,6 +101,11 @@ func Load(opts Options) (*Bundle, []string) {
 			continue
 		}
 		b.DungeonViews = append(b.DungeonViews, set)
+	}
+	if set, err := u5data.LoadPictures(filepath.Join(opts.GameData, "ITEMS.16")); err != nil {
+		warn = append(warn, fmt.Sprintf("ITEMS.16:%v", err))
+	} else {
+		b.DungeonItems = set
 	}
 
 	if w, err := loadWorld(opts.GameData, opts.WaterTile); err != nil {

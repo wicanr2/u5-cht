@@ -447,6 +447,7 @@ func cmdScene(args []string) error {
 		Tiles:        bundle.Tiles,
 		Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
 		DungeonViews: bundle.DungeonViews,
+		DungeonItems: bundle.DungeonItems,
 	}
 
 	if err := writePNG(args[2], sc.Render()); err != nil {

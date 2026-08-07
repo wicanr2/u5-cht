@@ -379,6 +379,7 @@ func main() {
 			Tiles:        bundle.Tiles,
 			Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
 			DungeonViews: bundle.DungeonViews,
+			DungeonItems: bundle.DungeonItems,
 		},
 	}
 
