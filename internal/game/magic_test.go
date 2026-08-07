@@ -1,6 +1,7 @@
 package game
 
 import (
+	"os"
 	"testing"
 
 	"github.com/wicanr2/u5-cht/internal/u5data"
@@ -268,23 +269,43 @@ func TestXenCorpKills(t *testing.T) {
 	}
 }
 
-// TestUnimplementedSpellsStillCost:還沒實作的咒語仍照原版消耗,而且誠實回失敗。
+// TestFailedSpellStillCosts:效果沒發生的咒語仍照原版消耗,而且誠實回失敗。
 //
 // 這一條是刻意寫的:假裝成功會讓「魔法做完了」這句話變成謊。
-func TestUnimplementedSpellsStillCost(t *testing.T) {
+// 原版的扣除順序是「先扣藥草、再扣魔力、最後才跑效果」
+//(`sub_1994C` 的 `dec byte_3E000[edi]` 在跳表之前),所以效果失敗也照扣。
+//
+// 用 An Sanct 當探針:四處皆可施,但前方沒有鎖也沒有箱子時它會失敗。
+func TestFailedSpellStillCosts(t *testing.T) {
 	s := magicState(t)
 	s.Location = 0
-	// An Sanct(解陷阱 / 開箱)還沒實作,四處皆可施。
-	wis := s.Spells.Find("An Sanct")
-	s.Inventory.Spells[wis] = 1
+	probe := s.Spells.Find("An Sanct")
+	s.Inventory.Spells[probe] = 1
 	ch := &s.Roster[0]
 	ch.Level, ch.MP = 8, 40
-	if got := s.Cast(0, wis); got != MagicFailed {
-		t.Errorf("未實作的咒語回傳 %v,預期 MagicFailed", got)
+	if got := s.Cast(0, probe); got != MagicFailed {
+		t.Errorf("效果沒發生卻回傳 %v,預期 MagicFailed", got)
 	}
-	if s.Inventory.Spells[wis] != 0 || ch.MP != 38 {
-		t.Errorf("未實作也該照扣:剩 %d 份、魔力 %d(預期 0 份、38)",
-			s.Inventory.Spells[wis], ch.MP)
+	if s.Inventory.Spells[probe] != 0 || ch.MP != 38 {
+		t.Errorf("失敗也該照扣:剩 %d 份、魔力 %d(預期 0 份、38)",
+			s.Inventory.Spells[probe], ch.MP)
+	}
+}
+
+// TestEverySpellIsDispatched:48 個咒語每一個都要有分派,不能靜靜掉進 default。
+//
+// 原版 `jpt_19B27` 是一張**滿的** 48 格跳表 —— 沒有「這一格沒人接」這回事。
+// 引擎這邊漏接會表現成「藥草扣了卻什麼都沒發生」,而玩家分不出那是
+// 咒語失敗還是程式漏寫。這條把兩者分開。
+func TestEverySpellIsDispatched(t *testing.T) {
+	for i := 0; i < u5data.SpellCount; i++ {
+		s := magicState(t) // 每個咒語一個乾淨的世界 —— 效果會改狀態
+		s.spellEffect(0, i)
+		for _, line := range s.Messages {
+			if line == spellUndispatched {
+				t.Errorf("第 %d 個咒語(%s)沒有分派", i, s.Spells.Spells[i].Name)
+			}
+		}
 	}
 }
 
@@ -490,31 +511,73 @@ func TestDirectionPromptRunsTheFollowUp(t *testing.T) {
 	}
 }
 
-// TestFrightenSetsTheFleeBit:An Xen Cor 與 In Quas Corp 都是掛逃跑位元。
+// TestFrightenIsMassNotSingleTarget:恐懼是**群體**,不是選一隻。
 //
-// 兩支原版函式(`sub_18EB0` / `sub_19810`)都是 `or byte ptr [esi+2], 2`
-// —— 那正是 docs/re/16 認出來的逃跑位元,兩個咒語效果同一個。
-func TestFrightenSetsTheFleeBit(t *testing.T) {
+// 原版 `sub_18EB0` / `sub_19810` 都是 `for i in 0..31` 掃全場,命中的
+// 一律 `LOBYTE = 1`(先手)+ `or byte ptr [esi+2], 2`(逃跑位元)。
+// 這條擋的正是我寫錯過的那一版:「嚇跑最近的一隻」。
+func TestFrightenIsMassNotSingleTarget(t *testing.T) {
 	s := magicState(t)
 	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
 	if !s.BeginCombat(slot) {
 		t.Fatal("打不起來")
 	}
-	if !s.frighten(0) {
-		t.Fatalf("嚇不跑:\n%s", s.log())
-	}
-	fled := 0
+	enemies := 0
 	for i := range s.Combat.Units {
-		if s.Combat.Units[i].Flags&UnitFleeing != 0 {
-			fled++
+		u := &s.Combat.Units[i]
+		if u.Flags&(UnitMonster|UnitParty) == UnitMonster {
+			enemies++
 		}
 	}
-	if fled != 1 {
-		t.Errorf("%d 個單位在逃跑,預期正好 1", fled)
+	if enemies < 2 {
+		t.Skipf("這一場只有 %d 個敵人,測不出群體與單體的差別", enemies)
 	}
-	// 已經在跑的不會再中一次。
-	if s.frighten(0) && fled == 1 {
-		t.Log("(第二次嚇到了另一個目標,合理)")
+	// ⚠ 一次施法擋在抗性擲骰上,單看一次分不出群體與單體 —— 有可能三個裡
+	// 只中一個。**單體法術的目標是固定的**(`aiTarget` 每次都挑同一隻),
+	// 所以連放幾次之後:群體會把整場都掛上旗標,單體永遠只有一隻。
+	// 這條驗的是那個差別,不是單次命中率。
+	fled := 0
+	for round := 0; round < 40 && fled < enemies; round++ {
+		s.frighten(0, false)
+		fled = 0
+		for i := range s.Combat.Units {
+			if s.Combat.Units[i].Flags&UnitFleeing != 0 {
+				fled++
+			}
+		}
+	}
+	if fled < 2 {
+		t.Errorf("放了 40 次,%d / %d 個敵人在逃跑 —— In Quas Corp 是群體法術",
+			fled, enemies)
+	}
+	t.Logf("%d 個敵人,最後 %d 個在逃跑", enemies, fled)
+}
+
+// TestRepelOnlyHitsRepellable:An Xen Corp 只對帶 0x20 位元的生物有效。
+//
+// 閘門是 `word_3F1D0[生物] & 0x20` —— 全 48 種只有四種帶它。
+// 拿一隻不帶的怪來打,一定嚇不動。
+func TestRepelOnlyHitsRepellable(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	repellable := false
+	for i := range s.Combat.Units {
+		u := &s.Combat.Units[i]
+		if u.Flags&(UnitMonster|UnitParty) != UnitMonster {
+			continue
+		}
+		if s.creatureOf(u).Has(u5data.CreatureRepellable) {
+			repellable = true
+		}
+	}
+	if !s.frighten(0, true) {
+		return // 沒中很正常(沒目標,或抗性擋下)
+	}
+	if !repellable {
+		t.Error("場上一隻帶 0x20 位元的生物都沒有,An Xen Corp 卻生效了")
 	}
 }
 
@@ -568,8 +631,14 @@ func TestPolymorphReplacesTheTarget(t *testing.T) {
 	}
 	x, y := c.Units[target].X, c.Units[target].Y
 	kind := c.Units[target].Kind
-	if !s.polymorph(0) {
-		t.Fatalf("變不了:\n%s", s.log())
+	// 抗性(`sub_1F48C`)擋得掉,所以多試幾次 —— 這條測的是「變成功之後
+	// 長什麼樣」,不是命中率。
+	ok := false
+	for round := 0; round < 40 && !ok; round++ {
+		ok = s.polymorph(0)
+	}
+	if !ok {
+		t.Fatalf("放了 40 次都變不了:\n%s", s.log())
 	}
 	if c.Units[target].Kind == kind {
 		t.Error("變形之後種類沒變")
@@ -597,5 +666,345 @@ func TestWisQuasRevealsHidden(t *testing.T) {
 	// 沒有隱形的東西時回 false。
 	if s.revealHidden() {
 		t.Error("沒有東西藏著卻回報成功")
+	}
+}
+
+// TestMagicLockIsNotSymmetric:An Ex Por 與 In Ex Por 不是互逆的。
+//
+// 上鎖吃兩種門(0xB8 與 0xB9 都變 0x97),解鎖只還原成一般門(0x97 → 0xB8)。
+// 所以「鎖住一扇本來上鎖的門再解開」會得到一扇**沒鎖的**門。
+// 這條把那個不對稱釘住 —— 不是我算錯,是 `sub_19354` / `sub_1D15C` 就這樣。
+func TestMagicLockIsNotSymmetric(t *testing.T) {
+	cases := []struct{ from, locked, back byte }{
+		{u5data.TileDoorA, u5data.TileMagicLockedA, u5data.TileDoorA},
+		{u5data.TileLockedDoor, u5data.TileMagicLockedA, u5data.TileDoorA},
+		{u5data.TileDoorB, u5data.TileMagicLockedB, u5data.TileDoorB},
+		{u5data.TileLockedMagicDoor, u5data.TileMagicLockedB, u5data.TileDoorB},
+	}
+	for _, c := range cases {
+		if got := u5data.MagicLock(c.from); got != c.locked {
+			t.Errorf("%02X 上鎖變成 %02X,預期 %02X", c.from, got, c.locked)
+		}
+		if got := u5data.MagicUnlock(c.locked); got != c.back {
+			t.Errorf("%02X 解鎖變成 %02X,預期 %02X", c.locked, got, c.back)
+		}
+	}
+	// 不是門就不該有反應。
+	if u5data.MagicLock(5) != 0 || u5data.MagicUnlock(5) != 0 {
+		t.Error("草地也能上鎖")
+	}
+	// ⚠ An Sanct 走的是另一條路(tile − 1),兩者不可混用。
+	if u5data.MagicUnlock(u5data.TileLockedDoor) != 0 {
+		t.Error("In Ex Por 不該認得一般的上鎖門 —— 那是 An Sanct 的事")
+	}
+}
+
+// TestAnYlemDispelSet:消除清單要與跳表一字不差。
+//
+// `sub_18C00` 是 `tile == 0x5B` 加上一張 `tile − 0x90` 的 32 格跳表。
+// 跳表的相鄰項一錯位,整組就偏一格 —— 所以連「哪些**不在**清單裡」一起驗。
+func TestAnYlemDispelSet(t *testing.T) {
+	in := []byte{0x5B, 0x90, 0x91, 0x92, 0x93, 0x9D, 0xA5, 0xA6, 0xA8, 0xA9, 0xAD, 0xAE, 0xAF}
+	out := []byte{0x5A, 0x5C, 0x8F, 0x94, 0x9C, 0x9E, 0xA4, 0xA7, 0xAA, 0xAC, 0xB0}
+	for _, tile := range in {
+		if !u5data.AnYlemTiles[tile] {
+			t.Errorf("%02X 該在 An Ylem 的清單裡", tile)
+		}
+	}
+	for _, tile := range out {
+		if u5data.AnYlemTiles[tile] {
+			t.Errorf("%02X 不該在 An Ylem 的清單裡", tile)
+		}
+	}
+	if len(u5data.AnYlemTiles) != len(in) {
+		t.Errorf("清單有 %d 項,跳表數出來是 %d 項", len(u5data.AnYlemTiles), len(in))
+	}
+}
+
+// TestBlinkOnMapMovesFar:地圖上的 In Por 是**長距離**瞬移,不是走一格。
+func TestBlinkOnMapMovesFar(t *testing.T) {
+	s := magicState(t)
+	x0, y0 := s.X, s.Y
+	if !s.blink(0) {
+		t.Fatalf("瞬移不了:\n%s", s.log())
+	}
+	if !s.AwaitingDirection() {
+		t.Fatal("地圖上的 In Por 應該先問方向")
+	}
+	s.AnswerDirection(East)
+	if s.X == x0 && s.Y == y0 {
+		t.Skip("東邊 32 格內全是走不進去的地形,這一次沒動")
+	}
+	if d := worldDelta(x0, s.X); d < 2 {
+		t.Errorf("只移動了 %d 格 —— In Por 不是走路", d)
+	}
+	if s.Y != y0 {
+		t.Errorf("往東瞬移卻換了緯度:%d → %d", y0, s.Y)
+	}
+}
+
+// worldDelta 是世界地圖上兩個 X 的環繞距離。
+func worldDelta(a, b int) int {
+	d := iabs(a - b)
+	if d > u5data.WorldSide/2 {
+		d = u5data.WorldSide - d
+	}
+	return d
+}
+
+// TestBlinkInCombatIsRandom:戰鬥中的 In Por 不問方向 —— 原版是隨機落點。
+func TestBlinkInCombatIsRandom(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	self := s.combatSlotOfRoster(0)
+	if self < 0 {
+		t.Fatal("找不到施法者")
+	}
+	x0, y0 := s.Combat.Units[self].X, s.Combat.Units[self].Y
+	moved := false
+	for i := 0; i < 20 && !moved; i++ {
+		if !s.blink(0) {
+			continue
+		}
+		if s.AwaitingDirection() {
+			t.Fatal("戰鬥中的 In Por 不該問方向")
+		}
+		u := s.Combat.Units[self]
+		moved = u.X != x0 || u.Y != y0
+	}
+	if !moved {
+		t.Errorf("放了 20 次都沒換位置:\n%s", s.log())
+	}
+}
+
+// TestIllusionDuplicatesTheTarget:In Quas Xen 是**複製**,不是召喚。
+//
+// 原版 `sub_196A4` 把目標的兩個 dword 整組搬進空槽 —— 所以分身的種類、
+// 血量、旗標全都一樣。這條驗「多出來的那個跟本尊同種」。
+func TestIllusionDuplicatesTheTarget(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	before := 0
+	for i := range c.Units {
+		if c.Units[i].Flags != 0 {
+			before++
+		}
+	}
+	self := s.combatSlotOfRoster(0)
+	target, _, _ := s.aiTarget(self)
+	if target < 0 {
+		t.Fatal("沒有目標")
+	}
+	want := c.Units[target]
+	if !s.illusion(0) {
+		t.Skipf("場上沒有空槽或擺不下分身:\n%s", s.log())
+	}
+	after, found := 0, false
+	for i := range c.Units {
+		if c.Units[i].Flags == 0 {
+			continue
+		}
+		after++
+		if i != target && c.Units[i].Kind == want.Kind && c.Units[i].HP == want.HP {
+			found = true
+		}
+	}
+	if after != before+1 {
+		t.Errorf("場上從 %d 個變成 %d 個,幻影應該只多出一個", before, after)
+	}
+	if !found {
+		t.Error("找不到與本尊同種同血量的分身")
+	}
+}
+
+// TestSpellImmuneNamesThree:免疫名單就是那三個劇情人物。
+//
+// `sub_189BC` 只認 14 / 15 / 47。多一個少一個都會讓「黑刺被一發魅惑解決」
+// 這種事發生 —— 這條是拿全 48 種掃一遍反過來驗。
+func TestSpellImmuneNamesThree(t *testing.T) {
+	immune := []int{}
+	for i := 0; i < u5data.CreatureCount; i++ {
+		if u5data.CreatureSpellImmune(i) {
+			immune = append(immune, i)
+		}
+	}
+	want := []int{u5data.CreatureBlackthorn, u5data.CreatureLordBritish, u5data.CreatureShadowLord}
+	if len(immune) != len(want) {
+		t.Fatalf("免疫的有 %v,預期 %v", immune, want)
+	}
+	for i := range want {
+		if immune[i] != want[i] {
+			t.Fatalf("免疫的有 %v,預期 %v", immune, want)
+		}
+	}
+}
+
+// TestRepellableFlagPicksExactlyFour:0x20 位元只落在四種生物身上。
+//
+// 這條同時驗兩件事:0x20 認的是哪一批沒搞錯,而且旗標表沒有讀偏一個位元組
+//(偏一格的話中選的會是完全不同的四種)。
+//
+// ⚠ 名單是**幽靈、骷髏、惡魔、暗影領主** —— 惡魔在裡面,所以這一位元
+// 不是「不死」。我一開始照 An Xen Corp 的字面意思寫成不死,被這條打掉。
+func TestRepellableFlagPicksExactlyFour(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA")
+	}
+	st, err := u5data.LoadCombatStats(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := u5data.LoadCreatureTable(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := []string{}
+	for i := 0; i < u5data.CreatureCount; i++ {
+		if st.Creature[i].Has(u5data.CreatureRepellable) {
+			got = append(got, names.Names[i])
+		}
+	}
+	want := map[string]bool{"Ghost": true, "Skeleton": true, "Daemon": true, "Shadow Lord": true}
+	if len(got) != len(want) {
+		t.Fatalf("帶 0x20 位元的是 %v,預期 %v", got, want)
+	}
+	for _, n := range got {
+		if !want[n] {
+			t.Errorf("%s 不該帶 0x20 位元", n)
+		}
+	}
+}
+
+// TestFieldSpellsPlaceTheRightTile:四個 `*Grav` 對應四個力場格子。
+//
+// 值來自 `byte_55E24`(FM Towns 0x55E24)= `82 81 80 83`,而分派表把
+// 14/15/16/20 依序送成種類 0/1/2/3。順序錯一位就會變成「放毒的放出火」。
+func TestFieldSpellsPlaceTheRightTile(t *testing.T) {
+	want := map[int]byte{
+		SpellInFlamGrav:  u5data.DungeonFireA,
+		SpellInNoxGrav:   u5data.DungeonPoisonA,
+		SpellInZuGrav:    u5data.DungeonSleepA,
+		SpellInSanctGrav: u5data.DungeonProtectA,
+	}
+	for spell, tile := range want {
+		s := dungeonState(t)
+		if !s.EnterDungeon(0, false) {
+			t.Skip("進不了地牢")
+		}
+		d := s.Dungeon
+		// 挑一格純通道當目標,並轉向它。
+		placed := false
+		for _, dir := range []Direction{North, East, South, West} {
+			dx, dy := dir.Delta()
+			x, y := (d.X+dx)&(u5data.DungeonSide-1), (d.Y+dy)&(u5data.DungeonSide-1)
+			if s.DungeonTileAt(x, y)&^u5data.DungeonHoleAbove != 0 {
+				continue
+			}
+			d.Facing = dir
+			if !s.spellEffect(0, spell) {
+				t.Fatalf("咒語 %d 放不出來:\n%s", spell, s.log())
+			}
+			if got := s.DungeonTileAt(x, y) &^ u5data.DungeonHoleAbove; got != tile {
+				t.Errorf("咒語 %d 放出 %02X,預期 %02X", spell, got, tile)
+			}
+			placed = true
+			break
+		}
+		if !placed {
+			t.Skipf("入口四周沒有純通道可以放力場")
+		}
+	}
+}
+
+// TestProtectFieldDoesNothing:In Sanct Grav 的力場踩上去不該有事。
+//
+// `jpt_52C7` 把 0x83 送進 default —— 沒有訊息、沒有傷害、沒有狀態。
+// 這條同時擋住「四個力場都寫成會傷人」這個很容易犯的對稱化錯誤。
+func TestProtectFieldDoesNothing(t *testing.T) {
+	s := dungeonState(t)
+	if !s.EnterDungeon(0, false) {
+		t.Skip("進不了地牢")
+	}
+	before := make([]uint16, 0, 6)
+	for _, ch := range s.Party() {
+		before = append(before, ch.HP)
+	}
+	d := s.Dungeon
+	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonProtectA)
+	s.onDungeonTile()
+	for i, ch := range s.Party() {
+		if ch.HP != before[i] || ch.Status != u5data.StatusGood {
+			t.Errorf("站上防護力場,%s 變成 HP %d / 狀態 %c —— 原版什麼都不會發生",
+				ch.Name, ch.HP, ch.Status)
+		}
+	}
+}
+
+// TestSleepFieldRollsDexterity:睡眠 / 毒力場是逐人擲敏捷,不是全隊一律中。
+//
+// `sub_4DC8`:`random(1,30)`,敏捷大於點數就躲掉。敏捷 30 的人幾乎不會中,
+// 敏捷 1 的人幾乎一定中 —— 這兩端的差別就是這條在驗的。
+func TestSleepFieldRollsDexterity(t *testing.T) {
+	nimble, clumsy := 0, 0
+	const rounds = 60
+	for r := 0; r < rounds; r++ {
+		s := dungeonState(t)
+		s.SeedRandom(int64(r) + 1)
+		if !s.EnterDungeon(0, false) {
+			t.Skip("進不了地牢")
+		}
+		p := s.Party()
+		if len(p) == 0 {
+			t.Skip("隊伍是空的")
+		}
+		p[0].Dex, p[0].Status = 30, u5data.StatusGood
+		s.fieldAffectsParty(u5data.StatusAsleep)
+		if p[0].Status == u5data.StatusAsleep {
+			nimble++
+		}
+
+		s2 := dungeonState(t)
+		s2.SeedRandom(int64(r) + 1)
+		q := s2.Party()
+		q[0].Dex, q[0].Status = 1, u5data.StatusGood
+		s2.fieldAffectsParty(u5data.StatusAsleep)
+		if q[0].Status == u5data.StatusAsleep {
+			clumsy++
+		}
+	}
+	if clumsy <= nimble {
+		t.Errorf("敏捷 1 中了 %d/%d 次,敏捷 30 中了 %d/%d 次 —— 敏捷該有用",
+			clumsy, rounds, nimble, rounds)
+	}
+	t.Logf("敏捷 30 中 %d/%d、敏捷 1 中 %d/%d", nimble, rounds, clumsy, rounds)
+}
+
+// TestPeerOpensAndCloses:In Quas Wis 是一個等按鍵的畫面,不是持續狀態。
+func TestPeerOpensAndCloses(t *testing.T) {
+	s := magicState(t)
+	if !s.Peer() {
+		t.Fatal("全景開不起來")
+	}
+	if s.Prompt != PromptPeer {
+		t.Fatalf("全景之後 Prompt 是 %v,預期 PromptPeer", s.Prompt)
+	}
+	// 32×32 的每一格都要取得到 —— 邊界靠世界地圖環繞,不該炸。
+	half := PeerSide / 2
+	for dy := -half; dy < half; dy++ {
+		for dx := -half; dx < half; dx++ {
+			_ = s.PeerTile(dx, dy)
+		}
+	}
+	s.ClosePeer()
+	if s.Prompt != PromptNone {
+		t.Error("按了鍵卻沒收起來")
 	}
 }

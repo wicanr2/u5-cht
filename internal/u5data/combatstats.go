@@ -95,8 +95,20 @@ const (
 	// 最多試 8 個空位,印「X divides!」)。全表只有史萊姆。
 	CreatureDivides = 0x0010
 	// CreatureHalfDamage:傷害減半,除非 `byte_3E0A0`(疑為魔法武器旗標)成立
-	//(`sub_B51C` 的 `test al, 0x20`)。幽靈、骷髏、惡魔、暗影領主。
+	//(`sub_B51C` 的 `test al, 0x20`)。
+	//
+	// ★ 這個位元同時是 **An Xen Corp(驅離)的唯一閘門** ——
+	// `sub_18EB0` 掃全場時只處理帶這一位元的目標。實測全 48 種帶它的是
+	// **幽靈、骷髏、惡魔、暗影領主**四種。
+	//
+	// ⚠ 別把它讀成「不死生物」:惡魔不是不死,而屍鬼(Rot Worm)也沒帶。
+	// 原版沒有另一張不死表 —— 減傷與可驅離就是同一個位元,兩種語意。
 	CreatureHalfDamage = 0x0020
+
+	// CreatureRepellable 是 CreatureHalfDamage 的另一個名字,
+	// 用在講 An Xen Corp 驅不驅得動的地方。同一位元,換個說法比較讀得懂。
+	CreatureRepellable = CreatureHalfDamage
+
 	// CreatureCharms:遠程回合可能對隨機隊員施展魅惑(`sub_1F5A4` 的 `test al, 0x40`)。
 	// 注視者(Gazer)是代表。
 	CreatureCharms = 0x0040
@@ -293,6 +305,7 @@ const (
 	CreatureFighterIdx  = 2
 	CreatureGuardIdx    = 12
 	CreatureWanderer    = 13
+	CreatureShadowLord  = 47
 	CreatureBlackthorn  = 14
 	CreatureLordBritish = 15
 	// CreatureMimicIdx / CreatureReaperIdx 是**不會移動**的兩種
@@ -364,3 +377,14 @@ const (
 	// BareHandDamage 是空手的傷害(武器欄位是 ItemNone 時)。
 	BareHandDamage = 1
 )
+
+// CreatureSpellImmune 回報這種生物是不是**完全不吃法術抗性判定的對象**。
+//
+// `sub_189BC` 只認三個編號:**黑刺(14)、不列顛王(15)、暗影領主(47)**。
+// 魅惑、變形、驅離、恐懼、風系睡眠與能量,全部先問這一句 —— 三個都答「不」。
+// 劇情人物不能被一發二圈咒語處理掉,原版是用寫死的編號擋的,不是靠數值。
+func CreatureSpellImmune(creature int) bool {
+	return creature == CreatureBlackthorn ||
+		creature == CreatureLordBritish ||
+		creature == CreatureShadowLord
+}

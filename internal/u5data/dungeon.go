@@ -65,17 +65,46 @@ const (
 	DungeonUnknownE = 0xE0
 )
 
-// 兩個具體的陷阱值(`sub_5150` 比的是**完整位元組**,不是高四位元)。
+// 陷阱與魔法力場的完整位元組(`sub_5150` 比的是**整個位元組**,不是高四位元)。
+//
+// 0x80..0x83 這一組不只是「地圖上本來就有的魔法陷阱」,它同時是**四個
+// `*Grav` 咒語放出來的力場**(`sub_18A08` 的 `byte_55E24[種類]`
+// = `82 81 80 83`)。玩家放的與地圖上的走同一段程式碼,所以是同一組編號。
+//
+//	0x80 睡眠(In Zu Grav)     0x81 毒(In Nox Grav)
+//	0x82 烈焰(In Flam Grav)   0x83 防護(In Sanct Grav)—— 踩到沒有效果
+//
+// 每一個都有 **+8 的變體**(0x88..0x8B),那是「頭上有洞」的位元疊上去的:
+// `sub_18A08` 寫回的是 `(舊值 & 8) | 力場編號`。
+//
+// ⚠ 我第一版把 0x89 寫成睡眠 —— 錯了。`jpt_52C7` 這張 10 格跳表
+//(索引 = 格子 − 0x81)排得清清楚楚:0x80 與 0x88 是睡眠、
+// 0x81 與 0x89 是毒、0x82 與 0x8A 是烈焰,0x83..0x87 與 0x8B 什麼都不做。
+// 錯因是憑「0x80 系列 = 睡眠」的印象往下填,沒把跳表逐格數完。
 const (
 	DungeonPitTrapA  = 0x61
 	DungeonPitTrapB  = 0x69
 	DungeonBombTrapA = 0x62
 	DungeonBombTrapB = 0x6A
-	DungeonSleepA    = 0x80
-	DungeonSleepB    = 0x89
-	DungeonFireA     = 0x82
-	DungeonFireB     = 0x8A
+
+	DungeonSleepA   = 0x80
+	DungeonSleepB   = 0x88
+	DungeonPoisonA  = 0x81
+	DungeonPoisonB  = 0x89
+	DungeonFireA    = 0x82
+	DungeonFireB    = 0x8A
+	DungeonProtectA = 0x83
+	DungeonProtectB = 0x8B
 )
+
+// DungeonFieldTile 是四個 `*Grav` 咒語在地牢裡放出來的力場格子。
+//
+// 索引就是 `sub_1994C` 傳給 `sub_18A08` 的種類碼:
+// 0 = In Flam Grav、1 = In Nox Grav、2 = In Zu Grav、3 = In Sanct Grav。
+// 值取自 `byte_55E24`(FM Towns 0x55E24:`82 81 80 83`)。
+var DungeonFieldTile = [4]byte{
+	DungeonFireA, DungeonPoisonA, DungeonSleepA, DungeonProtectA,
+}
 
 // DungeonHoleAbove 是「頭上有個洞」的位元。
 //
@@ -323,18 +352,4 @@ const (
 // 其餘換成 0x70。所以 **0x70 不是門,是「開過的寶箱」**。
 func DungeonOpenedChest(tile byte) byte {
 	return (tile & DungeonHoleAbove) | 0x70
-}
-
-// 上鎖的門(地表 / 城鎮)
-//
-// An Sanct 與 In Ex Por 在地表看的是世界 tile:**0xB9 與 0xBB 是鎖著的門**,
-// 解鎖就是 `tile − 1`(`sub_18D18` 的 `dec byte ptr [eax]`)。
-const (
-	TileLockedDoor      = 0xB9
-	TileLockedMagicDoor = 0xBB
-)
-
-// TileIsLockedDoor 回報這個世界 tile 是不是鎖著的門。
-func TileIsLockedDoor(tile byte) bool {
-	return tile == TileLockedDoor || tile == TileLockedMagicDoor
 }

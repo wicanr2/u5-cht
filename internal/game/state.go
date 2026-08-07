@@ -104,6 +104,11 @@ const (
 	PromptSpell
 	// PromptDirection 是原版的「Direction-」:等一個方向鍵。
 	PromptDirection
+	// PromptPeer 是 In Quas Wis 攤開的 32×32 全景 —— 按任意鍵收起來。
+	//
+	// 原版 `sub_EDD4` 畫完之後就卡在 `while (sub_27034() == 0xFFFF)`
+	// 等一個按鍵,期間畫面不動。所以它是一個**阻塞的畫面**,不是持續狀態。
+	PromptPeer
 )
 
 // State 是一局遊戲的位置狀態。
@@ -140,6 +145,16 @@ type State struct {
 	// Wind 是目前的風向(原版 byte_3E0A2),windTimer 是頂風的累計拍數。
 	Wind      int
 	windTimer int
+	// SeeThroughWalls 是 Wis An Ylem 的效果(原版 `sub_1CE0C`)。
+	//
+	// 原版做的是 `sub_2E0E8(-1, 0, 0)` —— **把視線遮蔽罩整個填成 0xFF
+	// (全可見)**,然後重畫 20 幀。也就是說它不是「揭開地圖」,而是
+	// 「這一瞬間牆壁擋不住視線」。
+	//
+	// ⚠ 引擎目前**還沒有視線遮蔽**(`internal/render` 一律把 11×11 範圍
+	// 全畫出來),所以這個旗標現在沒有可見效果。規則記在這裡,等視線做完
+	// 就會生效 —— 與地牢第一人稱透視同一類:規則對了、呈現還沒到。
+	SeeThroughWalls bool
 	// Moongates 是八個月相各自的目的地(從存檔讀進來)。
 	Moongates [u5data.MoonPhaseCount]u5data.MoongateDest
 	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。

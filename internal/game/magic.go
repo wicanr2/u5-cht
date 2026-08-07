@@ -158,44 +158,54 @@ func (s *State) rosterAt(n int) *u5data.Character {
 
 // 咒語索引。用得到的才取名 —— 其餘照編號走 spellEffect 的 default。
 const (
-	SpellInLor      = 0  // 光
-	SpellGravPor    = 1  // 魔法飛彈
-	SpellAnZu       = 2  // 喚醒
-	SpellAnNox      = 3  // 解毒
-	SpellMani       = 4  // 治療
-	SpellRelHur     = 8  // 改風向
-	SpellInWis      = 9  // 定位
-	SpellKalXen     = 10 // 召喚野獸
-	SpellInXenMani  = 11 // 造食物
-	SpellAnSanct    = 6  // 解陷阱 / 開鎖 / 開箱
-	SpellAnXenCor   = 7  // 驅離生物
-	SpellVasLor     = 12 // 大光明
-	SpellVasFlam    = 13 // 火球
-	SpellAnGrav     = 18 // 破力場
-	SpellInSanct    = 19 // 防護
-	SpellWisQuas    = 23 // 顯形
-	SpellInBetXen   = 24 // 召喚蟲群
-	SpellUusPor     = 21 // 上樓
-	SpellDesPor     = 22 // 下樓
-	SpellVasMani    = 27 // 大治療
-	SpellInExPor    = 26 // 開鎖
-	SpellRelTym     = 29 // 緩速
-	SpellInVasPorY  = 30 // 能量爆
-	SpellQuasAnWis  = 31 // 混亂
-	SpellInAn       = 32 // 抗魔
-	SpellInZu       = 28 // 睡眠風
-	SpellAnXenEx    = 34 // 魅惑
-	SpellSanctLor   = 36 // 隱形
-	SpellRelXenBet  = 35 // 變形
-	SpellInQuasCorp = 41 // 恐懼
-	SpellKalXenCorp = 43 // 召喚惡魔
-	SpellVasRelPor  = 46 // 大傳送門
-	SpellInNoxHur   = 40 // 毒風
-	SpellInVasGravC = 44 // 能量風
-	SpellInFlamHur  = 45 // 火風
-	SpellXenCorp    = 37 // 殺
-	SpellInManiCorp = 42 // 復活
-	SpellAnTym      = 47 // 時間停止
+	SpellInLor       = 0  // 光
+	SpellGravPor     = 1  // 魔法飛彈
+	SpellAnZu        = 2  // 喚醒
+	SpellAnNox       = 3  // 解毒
+	SpellMani        = 4  // 治療
+	SpellAnYlem      = 5  // 消除
+	SpellAnSanct     = 6  // 解陷阱 / 開鎖 / 開箱
+	SpellAnXenCor    = 7  // 驅離生物
+	SpellRelHur      = 8  // 改風向
+	SpellInWis       = 9  // 定位
+	SpellKalXen      = 10 // 召喚野獸
+	SpellInXenMani   = 11 // 造食物
+	SpellVasLor      = 12 // 大光明
+	SpellVasFlam     = 13 // 火球
+	SpellInFlamGrav  = 14 // 烈焰力場
+	SpellInNoxGrav   = 15 // 毒力場
+	SpellInZuGrav    = 16 // 睡眠力場
+	SpellInPor       = 17 // 瞬移
+	SpellAnGrav      = 18 // 破力場
+	SpellInSanct     = 19 // 防護
+	SpellInSanctGrav = 20 // 防護力場
+	SpellUusPor      = 21 // 上樓
+	SpellDesPor      = 22 // 下樓
+	SpellWisQuas     = 23 // 顯形
+	SpellInBetXen    = 24 // 召喚蟲群
+	SpellAnExPor     = 25 // 魔法上鎖
+	SpellInExPor     = 26 // 魔法解鎖
+	SpellVasMani     = 27 // 大治療
+	SpellInZu        = 28 // 睡眠風
+	SpellRelTym      = 29 // 緩速
+	SpellInVasPorY   = 30 // 能量爆
+	SpellQuasAnWis   = 31 // 混亂
+	SpellInAn        = 32 // 抗魔
+	SpellWisAnYlem   = 33 // 顯示地圖
+	SpellAnXenEx     = 34 // 魅惑
+	SpellRelXenBet   = 35 // 變形
+	SpellSanctLor    = 36 // 隱形
+	SpellXenCorp     = 37 // 殺
+	SpellInQuasXen   = 38 // 幻影
+	SpellInQuasWis   = 39 // 全景(Peer)
+	SpellInNoxHur    = 40 // 毒風
+	SpellInQuasCorp  = 41 // 恐懼
+	SpellInManiCorp  = 42 // 復活
+	SpellKalXenCorp  = 43 // 召喚惡魔
+	SpellInVasGravC  = 44 // 能量風
+	SpellInFlamHur   = 45 // 火風
+	SpellVasRelPor   = 46 // 大傳送門
+	SpellAnTym       = 47 // 時間停止
 )
 
 // 三個「指定目標打一下」的咒語各自帶一個攻擊碼(原版 `sub_189E4` 寫進 `byte_3E0AD`)。
@@ -307,8 +317,10 @@ func (s *State) spellEffect(caster, spell int) bool {
 	case SpellKalXenCorp: // 召喚惡魔
 		return s.summonCreature(caster, summonDaemon, 1)
 
-	case SpellAnXenCor, SpellInQuasCorp: // 嚇跑
-		return s.frighten(caster)
+	case SpellAnXenCor: // 驅離 —— 只對帶 0x20 位元的四種生物
+		return s.frighten(caster, true)
+	case SpellInQuasCorp: // 恐懼 —— 場上所有敵人
+		return s.frighten(caster, false)
 	case SpellRelXenBet: // 變形
 		return s.polymorph(caster)
 	case SpellWisQuas: // 顯形
@@ -323,11 +335,37 @@ func (s *State) spellEffect(caster, spell int) bool {
 		s.AskDirection(func(d Direction) { s.ChangeWind(d) })
 		return true
 
-	case SpellInExPor: // 開鎖 —— 原版問方向
-		s.AskDirection(func(d Direction) { s.UnlockAhead(d) })
+	case SpellInExPor: // 魔法解鎖 —— 原版問方向
+		s.AskDirection(func(d Direction) { s.MagicUnlockAhead(d) })
 		return true
+	case SpellAnExPor: // 魔法上鎖
+		s.AskDirection(func(d Direction) { s.MagicLockAhead(d) })
+		return true
+	case SpellAnYlem: // 消除
+		s.AskDirection(func(d Direction) { s.DispelAhead(d) })
+		return true
+	case SpellInPor: // 瞬移
+		return s.blink(caster)
+	case SpellWisAnYlem: // 牆壁擋不住視線
+		s.SeeThroughWalls = true
+		s.Log("石牆在汝眼前變得透明。")
+		return true
+	case SpellInQuasWis: // 全景
+		return s.Peer()
+	case SpellInQuasXen: // 幻影:複製一個目標
+		return s.illusion(caster)
 	case SpellAnGrav: // 破力場
 		return s.destroyField()
+
+	// 四個力場咒語 —— 同一支函式,差一個種類碼。
+	case SpellInFlamGrav:
+		return s.castField(fieldFire)
+	case SpellInNoxGrav:
+		return s.castField(fieldPoison)
+	case SpellInZuGrav:
+		return s.castField(fieldSleep)
+	case SpellInSanctGrav:
+		return s.castField(fieldProtect)
 
 	// 四種風。原版每一次都問方向(`sub_1CC50`),引擎現在也問。
 	case SpellInZu:
@@ -339,9 +377,16 @@ func (s *State) spellEffect(caster, spell int) bool {
 	case SpellInVasGravC:
 		return s.askWind(caster, windEnergy)
 	}
-	s.Log("(此咒語的效果尚未實作 —— 藥草與魔力已照原版消耗)")
+	s.Log(spellUndispatched)
 	return false
 }
+
+// spellUndispatched 是「跳表漏了這一格」的訊息。
+//
+// 原版 `jpt_19B27` 是一張滿的 48 格跳表,沒有漏接這回事 ——
+// 所以這一行印出來就代表引擎有缺口,不是咒語失敗。
+// `TestEverySpellIsDispatched` 拿它當偵測訊號。
+const spellUndispatched = "(此咒語的效果尚未實作 —— 藥草與魔力已照原版消耗)"
 
 // spellTarget 挑「對某個隊員生效」的咒語要作用在誰身上。
 //
@@ -472,6 +517,11 @@ func (s *State) charmNearest(caster int) bool {
 	if t.IsParty() {
 		return false
 	}
+	// `sub_194CC` 的三重閘門:不是劇情人物、站在敵方(`sub_29A64`)、抗性沒擋下。
+	if s.resists(self, target) {
+		s.Log(s.unitName(t) + "不為所動。")
+		return false
+	}
 	t.Flags |= UnitSideFlip
 	s.Log(s.unitName(t) + "被馴服了!")
 	return true
@@ -568,7 +618,7 @@ func (s *State) MixByRecipe(spell, count int) bool {
 // AdvanceTime 推進遊戲時鐘,順便讓光源燒掉同樣的分鐘數。
 //
 // 原版 `sub_29304(分鐘)` 的順序:**先看時間有沒有被停住**
-//(`byte_3E08A == 'T'` 就整段跳過),否則對 `byte_3E0B7`(火把)與
+// (`byte_3E08A == 'T'` 就整段跳過),否則對 `byte_3E0B7`(火把)與
 // `byte_3E0B6`(光明咒語)各做一次飽和減法。
 //
 // ⇒ **An Tym 期間火把不會燒。** 這不是小事:U5 玩家在地牢裡靠這一點省火把。
@@ -715,7 +765,6 @@ func (s *State) tickCombatMode() {
 	}
 }
 
-
 // askWind 問方向,然後放那一道風。
 func (s *State) askWind(caster, kind int) bool {
 	s.AskDirection(func(d Direction) { s.castWind(caster, kind, d) })
@@ -725,7 +774,7 @@ func (s *State) askWind(caster, kind int) bool {
 // castDirection 是「沒問到方向時」的退路:離最近的敵人是哪一邊。
 //
 // 正常路徑已經改成真的問(AskDirection);這支留給沒有互動的呼叫端
-//(headless 驗收與測試)。
+// (headless 驗收與測試)。
 func (s *State) castDirection(caster int) Direction {
 	self := s.combatSlotOfRoster(caster)
 	if self < 0 {
@@ -850,11 +899,21 @@ const (
 	summonDaemon = 38 // Kal Xen Corp
 )
 
-// frighten 是 An Xen Cor 與 In Quas Corp:讓目標**掉頭就跑**。
+// frighten 是 An Xen Corp(驅離不死)與 In Quas Corp(恐懼)。
 //
-// 原版兩支(`sub_18EB0` / `sub_19810`)都是 `or byte ptr [esi+2], 2` ——
-// 那正是逃跑位元(`docs/re/16`)。差別只在抗性判定與音效,效果同一個。
-func (s *State) frighten(caster int) bool {
+// **兩個都是群體法術,不是選單一目標** —— 原版 `sub_18EB0` 與 `sub_19810`
+// 都是 `for i in 0..31` 掃全場。我第一版寫成「嚇跑最近的一隻」,那是憑印象
+// 補的,組語裡沒有那回事。
+//
+// 兩者只差一個閘門:
+//
+//	An Xen Corp  額外要求 `word_3F1D0[生物] & 0x20` —— 只有四種生物吃
+//	             (幽靈、骷髏、惡魔、暗影領主)
+//	In Quas Corp 沒有這個要求 —— 場上每個敵人都吃
+//
+// 其餘完全相同:跳過劇情人物(`sub_189BC`)、擲抗性(`sub_1F48C`),
+// 然後 `Init = 1`(下一個就輪到它,馬上跑)+ 掛上逃跑旗標。
+func (s *State) frighten(caster int, repellableOnly bool) bool {
 	c := s.Combat
 	if c == nil {
 		s.Log("此地無人可嚇。")
@@ -864,17 +923,28 @@ func (s *State) frighten(caster int) bool {
 	if self < 0 {
 		return false
 	}
-	target, _, _ := s.aiTarget(self)
-	if target < 0 {
-		s.Log("沒有目標。")
+	any := false
+	for i := 0; i < CombatUnitSlots; i++ {
+		u := &c.Units[i]
+		// `(BYTE2 & 0xC0) == 0x40`:是怪物、不是隊員。
+		if u.Flags&(UnitMonster|UnitParty) != UnitMonster {
+			continue
+		}
+		if repellableOnly && !s.creatureOf(u).Has(u5data.CreatureRepellable) {
+			continue
+		}
+		if s.resists(self, i) {
+			continue
+		}
+		u.Init = 1
+		u.Flags |= UnitFleeing
+		any = true
+	}
+	if !any {
+		s.Log("沒有東西被嚇到。")
 		return false
 	}
-	t := &c.Units[target]
-	if t.Flags&UnitFleeing != 0 {
-		return false
-	}
-	t.Flags |= UnitFleeing
-	s.Log(s.unitName(t) + "嚇得轉身就跑!")
+	s.Log("牠們轉身逃走了!")
 	return true
 }
 
@@ -882,7 +952,7 @@ func (s *State) frighten(caster int) bool {
 //
 // 把目標從戰場上移除(`sub_B210`),在同一格生一個**種類 0x14** 的東西。
 // ⚠ 0x14 那個編號的語意還沒對出來 —— 它是地圖物件的種類碼,不是生物索引
-//(生物索引 0x14 = 20 是巨鼠,但這裡走的是 `sub_2EAE4(0x14, …)`
+// (生物索引 0x14 = 20 是巨鼠,但這裡走的是 `sub_2EAE4(0x14, …)`
 // 而該函式吃的正是生物索引,所以**很可能就是巨鼠**)。
 // 兩種讀法都說得通,沒有第三個證據,所以照數值實作並在此標明。
 func (s *State) polymorph(caster int) bool {
@@ -896,6 +966,10 @@ func (s *State) polymorph(caster int) bool {
 	}
 	target, _, _ := s.aiTarget(self)
 	if target < 0 || c.Units[target].IsParty() {
+		return false
+	}
+	if s.resists(self, target) {
+		s.Log(s.unitName(&c.Units[target]) + "不為所動。")
 		return false
 	}
 	t := &c.Units[target]
@@ -935,13 +1009,13 @@ func (s *State) revealHidden() bool {
 // In Zu(睡眠)、In Nox Hur(毒)、In Flam Hur(火)、In Vas Grav Corp(能量)
 // 走同一支函式,流程是:
 //
-//	1. 問方向(`sub_1CC50`)
-//	2. `sub_1AC20` 算出一串格子
-//	3. 對那串格子上的每個單位各作用一次(用 `unit[+5] |= 0x80` 標記,
-//	   同一發不會打到同一個人兩次)
+//  1. 問方向(`sub_1CC50`)
+//  2. `sub_1AC20` 算出一串格子
+//  3. 對那串格子上的每個單位各作用一次(用 `unit[+5] |= 0x80` 標記,
+//     同一發不會打到同一個人兩次)
 //
 // ⚠ **範圍的形狀還沒逆完**。`sub_1AC20` 吃一個每個咒語各自不同的參數
-//(`word_3EF44` / `word_3EF42` / `word_3EF3C` / `off_3EF3E+2`),看起來是
+// (`word_3EF44` / `word_3EF42` / `word_3EF3C` / `off_3EF3E+2`),看起來是
 // 寬度或長度。這裡先用「從施法者往那個方向的一條直線,直到戰場邊緣或
 // 被地形擋住」——**射線本身是照原版的投射物規則走的**(`docs/re/20`),
 // 只有「寬度」是近似。文件與這裡都標明了。
@@ -950,6 +1024,9 @@ const (
 	windPoison = 2 // In Nox Hur
 	windFire   = 3 // In Flam Hur
 	windEnergy = 4 // In Vas Grav Corp
+
+	// windEnergyDamage 是能量風的傷害:`sub_B51C(目標, 99)`,寫死不擲。
+	windEnergyDamage = 99
 )
 
 // castWind 是四種風的共同實作。dir 是玩家挑的方向。
@@ -985,7 +1062,13 @@ func (s *State) castWind(caster, kind int, dir Direction) bool {
 		}
 		hitAny = true
 		switch kind {
+		// ⚠ 四種風的抗性判定**不一樣**(`sub_1AC20` 的 switch):
+		// 睡眠與能量擲 `sub_1F48C`、毒走自己那一套(`sub_B398(…,-2)`)、
+		// **火完全不擲** —— 火風打到誰就是誰。
 		case windSleep:
+			if s.resists(self, i) {
+				continue
+			}
 			if v.Flags&UnitAsleep == 0 {
 				v.Flags |= UnitAsleep
 				s.Log(s.unitName(v) + "睡著了!")
@@ -996,7 +1079,13 @@ func (s *State) castWind(caster, kind int, dir Direction) bool {
 			// 原版 `sub_2B710(0x1E)` → random(0, 30)。
 			s.applyDamage(self, i, s.Roll(0, 30))
 		case windEnergy:
-			s.applyDamage(self, i, s.Roll(0, 30))
+			if s.resists(self, i) {
+				continue
+			}
+			// ★ 不是隨機 —— `sub_B51C(j, 99)` 是**寫死的 99**。
+			// 99 在傷害函式裡是特別值:對隊員直接歸零(即死),
+			// 對怪物就是 99 點(不死生物減半成 49)。
+			s.applyDamage(self, i, windEnergyDamage)
 		}
 	}
 	if !hitAny {
@@ -1043,3 +1132,219 @@ func (s *State) CancelDirection() {
 
 // AwaitingDirection 回報是不是正在等方向。
 func (s *State) AwaitingDirection() bool { return s.Prompt == PromptDirection }
+
+// blink 是 In Por(原版 `sub_19098`)。
+//
+// 兩條路:
+//
+//	戰鬥中 → 最多試 **7 次**隨機落點(`sub_B1D8`),第一個站得住的就過去
+//	地圖上 → 問方向,往那個方向直線瞬移
+//
+// 戰鬥中那條是**隨機**的,不是玩家指定 —— 這點很容易寫成「傳到想去的地方」。
+func (s *State) blink(caster int) bool {
+	if c := s.Combat; c != nil {
+		self := s.combatSlotOfRoster(caster)
+		if self < 0 {
+			return false
+		}
+		u := &c.Units[self]
+		for try := 0; try < 7; try++ {
+			x, y := s.Roll(0, u5data.CombatSide-1), s.Roll(0, u5data.CombatSide-1)
+			if s.combatBlocked(self, x, y) {
+				continue
+			}
+			u.X, u.Y = x, y
+			s.Log(s.unitName(u) + "消失又出現在別處!")
+			return true
+		}
+		return false
+	}
+	// 地圖上:問方向再瞬移。
+	s.AskDirection(func(d Direction) { s.blinkTowards(d) })
+	return true
+}
+
+// blinkTowards 是地圖上的 In Por:往一個方向直線瞬移。
+//
+// ⚠ 原版的距離是 `byte_3E0AB + 0x20`(上限 0x100)—— `byte_3E0AB` 是什麼
+// 還沒追到,所以這裡用固定的 0x20(32 格)並標明。
+func (s *State) blinkTowards(d Direction) bool {
+	dx, dy := d.Delta()
+	const dist = 0x20
+	for n := dist; n >= 1; n-- {
+		x, y := WrapWorld(s.X+dx*n), WrapWorld(s.Y+dy*n)
+		if u5data.TileBlocksWalking(int(s.TileAt(x, y))) {
+			continue
+		}
+		s.X, s.Y = x, y
+		s.Log("汝在一瞬間移動了。")
+		return true
+	}
+	s.Log("那個方向沒有落腳處。")
+	return false
+}
+
+// illusion 是 In Quas Xen(原版 `sub_196A4`)。
+//
+// 把目標的整筆戰場紀錄**複製**到一個空槽 —— 場上多出一個一模一樣的它。
+// 原版是 `dword_3EF50[空槽] = dword_3EF50[目標]` 連同 `dword_3EF54`,
+// 兩個 dword 整組搬,所以連血量與旗標都一樣。
+func (s *State) illusion(caster int) bool {
+	c := s.Combat
+	if c == nil {
+		return false
+	}
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return false
+	}
+	target, _, _ := s.aiTarget(self)
+	if target < 0 {
+		return false
+	}
+	for i := u5data.CombatPartySlots; i < CombatUnitSlots; i++ {
+		if c.Units[i].Flags != 0 {
+			continue
+		}
+		n := c.Units[target]
+		// 找一格空地擺分身。
+		placed := false
+		for try := 0; try < 8 && !placed; try++ {
+			x, y := n.X+s.Roll(-1, 1), n.Y+s.Roll(-1, 1)
+			if s.combatBlocked(target, x, y) {
+				continue
+			}
+			n.X, n.Y = x, y
+			placed = true
+		}
+		if !placed {
+			return false
+		}
+		n.Init = n.resetInit()
+		c.Units[i] = n
+		s.Log(s.unitName(&c.Units[i]) + "的幻影出現了!")
+		return true
+	}
+	return false
+}
+
+// SpellResisted 是抗性判定(原版 `sub_1F48C`)。
+//
+// **與命中判定同一套算式**:`門檻 = (目標 + 30 − 施法者) / 2`,擲 1..30,
+// 只是比較方向相反 —— 命中是 `擲 >= 門檻`,抗性是 `擲 < 門檻` 就被擋下。
+// 兩邊取的都是 `sub_B398(單位, −1)`(智力那一項)。
+//
+// ⚠ 攻擊碼 '0'、'1' 與 >= '3' 那幾種**不擲抗性**,一律成立。
+func (s *State) SpellResisted(caster, target int) bool {
+	c := s.Combat
+	if c == nil {
+		return false
+	}
+	stat := func(i int) int {
+		u := &c.Units[i]
+		if ch := s.charOf(u); ch != nil {
+			return int(ch.Intel)
+		}
+		if st := s.creatureOf(u); st != nil {
+			return int(st.Intel)
+		}
+		return 0
+	}
+	threshold := (stat(target) + 30 - stat(caster)) / 2
+	return s.AttackRoll() < threshold
+}
+
+// SpellImmune 是 `sub_189BC`:三個劇情人物擋掉全部的操控類法術。
+func (s *State) SpellImmune(slot int) bool {
+	if s.Combat == nil || slot < 0 || slot >= CombatUnitSlots {
+		return false
+	}
+	return u5data.CreatureSpellImmune(s.Combat.Units[slot].Creature)
+}
+
+// resists 把「免疫」與「抗性」併成一句 —— 原版每個操控類法術都是
+// `!sub_1F48C(…) && !sub_189BC(…)` 這一對,兩者任一成立就沒效果。
+func (s *State) resists(caster, target int) bool {
+	return s.SpellImmune(target) || s.SpellResisted(caster, target)
+}
+
+// 四個 `*Grav` 力場咒語(原版 `sub_18A08(種類)`)
+//
+// 分派表 `jpt_19B27` 把四個咒語送進同一支函式,只差一個種類碼:
+//
+//	14 In Flam Grav  → 0 → 0x82 烈焰
+//	15 In Nox Grav   → 1 → 0x81 毒
+//	16 In Zu Grav    → 2 → 0x80 睡眠
+//	20 In Sanct Grav → 3 → 0x83 防護(踩上去什麼都不會發生)
+//
+// 地牢裡的作法很單純:在**面向的下一格**寫進力場編號,而且
+//
+//	目標格必須是 `(tile & 0xF7) == 0` —— 純通道,只有「頭上有洞」那一位元可以留
+//	寫回去的是 `(舊值 & 8) | 力場編號` —— 洞保留
+//	座標 `& 7` 環繞 —— 站在邊上往外放會繞到另一側
+//
+// 戰鬥中走的是另一條路(`sub_20360` 的效果碼 0x33..0x36),那套目標選取
+// 與效果分派還沒逆完 —— 見下面的說明。
+const (
+	fieldFire    = 0 // In Flam Grav
+	fieldPoison  = 1 // In Nox Grav
+	fieldSleep   = 2 // In Zu Grav
+	fieldProtect = 3 // In Sanct Grav
+)
+
+// castField 放一個力場。回傳有沒有成功。
+func (s *State) castField(kind int) bool {
+	d := s.Dungeon
+	if d == nil {
+		// ⚠ 戰鬥中的力場尚未實作。原版走 `sub_20360(單位, byte_55E20[種類])`,
+		// 效果碼是 0x33..0x36,後面接的是一整套目標選取 + 效果分派
+		// (`byte_3F2F8` / `byte_3F330` 兩張 256 格表),還沒逆完。
+		// 這裡誠實回失敗 —— 藥草與魔力照原版消耗,但不假裝有效果。
+		s.Log("(戰鬥中的力場尚未實作)")
+		return false
+	}
+	dx, dy := d.Facing.Delta()
+	// `and ecx, 7` —— 地牢的 8×8 是環繞的。
+	x, y := (d.X+dx)&(u5data.DungeonSide-1), (d.Y+dy)&(u5data.DungeonSide-1)
+	tile := s.DungeonTileAt(x, y)
+	if tile&^u5data.DungeonHoleAbove != 0 {
+		s.Log("那裡放不下。")
+		return false
+	}
+	s.Dungeons.Set(d.Index, d.Level, x, y,
+		(tile&u5data.DungeonHoleAbove)|u5data.DungeonFieldTile[kind])
+	s.Log("一道力場在汝面前成形。")
+	return true
+}
+
+// PeerRadius 是全景視野的半徑 —— 原版 `sub_EDD4` 的兩層 `for (…; < 32; …)`,
+// 32×32 格,以隊伍為中心。
+const PeerSide = 32
+
+// Peer 是 In Quas Wis(原版 `sub_EDD4`):把周圍 32×32 格一次攤開,
+// 畫完卡住等一個按鍵。
+//
+// ⚠ 地牢裡走的是另一支(`sub_F7C0`)—— 那是從所在位置向八方泛洪、
+// 把整層畫成一張平面圖。引擎的地牢畫面本來就是 8×8 俯視全圖,
+// 資訊量已經等同,所以這裡不另外開一個模式,直接回報「已經看得到了」。
+func (s *State) Peer() bool {
+	if s.InDungeon() {
+		s.Log("汝已將這一層盡收眼底。")
+		return true
+	}
+	s.Prompt = PromptPeer
+	s.Log("汝的視野向四方展開。")
+	return true
+}
+
+// PeerTile 取全景視野裡的一格(dx, dy 以隊伍為原點,值域 −16..15)。
+func (s *State) PeerTile(dx, dy int) byte {
+	return s.TileAt(s.X+dx, s.Y+dy)
+}
+
+// ClosePeer 收起全景。原版是「按任意鍵」。
+func (s *State) ClosePeer() {
+	if s.Prompt == PromptPeer {
+		s.Prompt = PromptNone
+	}
+}

@@ -177,11 +177,16 @@ func (s *State) onDungeonTile() {
 		s.damageWholeParty()
 	case u5data.DungeonSleepA, u5data.DungeonSleepB:
 		s.Log("睡眠法術!")
-		s.sleepWholeParty()
+		s.fieldAffectsParty(u5data.StatusAsleep)
+	case u5data.DungeonPoisonA, u5data.DungeonPoisonB:
+		s.Log("中毒!")
+		s.fieldAffectsParty(u5data.StatusPoisoned)
 	case u5data.DungeonFireA, u5data.DungeonFireB:
 		s.Log("烈焰!")
 		s.damageWholeParty()
 	}
+	// ⚠ 0x83 / 0x8B(In Sanct Grav 的防護力場)**刻意沒有 case** ——
+	// `jpt_52C7` 把它們送進 default,踩上去什麼都不會發生。
 }
 
 // dungeonPitTrap 掉進陷阱坑(原版 `sub_4EB8`)。
@@ -320,12 +325,26 @@ func (s *State) damageWholeParty() {
 	}
 }
 
-// sleepWholeParty 讓全隊睡著(原版 `sub_4DC8` 印「Sleep spell!」)。
-func (s *State) sleepWholeParty() {
+// fieldAffectsParty 是睡眠力場與毒力場對全隊的判定
+//(原版 `sub_4DC8` / `sub_4E58` —— 兩支只差印出來的字與掛上的狀態)。
+//
+//	每個隊員各擲一次 random(1, 30)
+//	敏捷 > 擲出來的點數 → 躲掉
+//	已經死掉的跳過(`cmp byte_3DDBF[edx], 'D'`)
+//
+// ⚠ **不是「全隊一律中」**。我第一版寫成無條件掛狀態,那讓高敏捷完全沒有
+// 意義 —— 而敏捷正是原版在這裡唯一看的東西。
+func (s *State) fieldAffectsParty(status byte) {
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		ch := &s.Roster[i]
-		if ch.Status == u5data.StatusGood {
-			ch.Status = u5data.StatusAsleep
+		if ch.Status == u5data.StatusDead {
+			continue
 		}
+		if int(ch.Dex) > s.Roll(1, 30) {
+			continue
+		}
+		ch.Status = status
+		ch.Raw[u5data.CharStatus] = status
+		s.Log(s.charName(ch) + "受到了影響。")
 	}
 }

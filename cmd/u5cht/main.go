@@ -75,6 +75,15 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// In Quas Wis 的全景:原版畫完就卡著等一個按鍵,按什麼都收起來。
+	if st.Prompt == gamestate.PromptPeer {
+		if len(inpututil.AppendPressedKeys(nil)) > 0 {
+			st.ClosePeer()
+			g.dirty = true
+		}
+		return nil
+	}
+
 	// 打咒語名:上古語(含空格),Enter 送出、ESC 作罷。
 	if st.Prompt == gamestate.PromptSpell {
 		for _, r := range ebiten.AppendInputChars(nil) {

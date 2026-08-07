@@ -718,9 +718,11 @@ func playScript(st *game.State, script string) error {
 			st.Answer(true)
 		case 'N':
 			st.Answer(false)
+		case 'P':
+			st.Peer() // In Quas Wis 的 32×32 全景
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、P 全景、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

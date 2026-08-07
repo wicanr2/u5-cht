@@ -187,10 +187,7 @@ func (s *State) spellFacing() Direction {
 	return North
 }
 
-// UnlockAhead 解開某個方向那一扇鎖著的門(An Sanct 與 In Ex Por 共用)。
-//
-// 原版問方向(`sub_1CC50`),解鎖就是 `dec byte ptr [eax]`
-// —— 0xB9 → 0xB8、0xBB → 0xBA。
+// UnlockAhead 是 **An Sanct** 解一般的鎖:`tile − 1`(0xB9 → 0xB8、0xBB → 0xBA)。
 func (s *State) UnlockAhead(dir Direction) bool {
 	dx, dy := dir.Delta()
 	x, y := s.X+dx, s.Y+dy
@@ -204,5 +201,55 @@ func (s *State) UnlockAhead(dir Direction) bool {
 		return false
 	}
 	s.Log("鎖開了。")
+	return true
+}
+
+// MagicUnlockAhead 是 **In Ex Por**:解魔法鎖(0x97 → 0xB8、0x98 → 0xBA)。
+//
+// ⚠ 與 An Sanct **不是同一條規則**。我第一版把兩個都寫成 `tile − 1`,
+// 那會讓 In Ex Por 把 0x97 變成 0x96(一個完全不相干的圖)。
+func (s *State) MagicUnlockAhead(dir Direction) bool {
+	dx, dy := dir.Delta()
+	x, y := s.X+dx, s.Y+dy
+	next := u5data.MagicUnlock(s.TileAt(x, y))
+	if next == 0 {
+		s.Log("那裡沒有魔法的封印。")
+		return false
+	}
+	if !s.SetTileAt(x, y, next) {
+		return false
+	}
+	s.Log("封印解開了。")
+	return true
+}
+
+// MagicLockAhead 是 **An Ex Por**:魔法上鎖(0xB8/0xB9 → 0x97、0xBA/0xBB → 0x98)。
+func (s *State) MagicLockAhead(dir Direction) bool {
+	dx, dy := dir.Delta()
+	x, y := s.X+dx, s.Y+dy
+	next := u5data.MagicLock(s.TileAt(x, y))
+	if next == 0 {
+		s.Log("那裡沒有門。")
+		return false
+	}
+	if !s.SetTileAt(x, y, next) {
+		return false
+	}
+	s.Log("門被魔法封住了。")
+	return true
+}
+
+// DispelAhead 是 **An Ylem**:抹掉某個方向的力場 / 能量(原版 `sub_18C00`)。
+func (s *State) DispelAhead(dir Direction) bool {
+	dx, dy := dir.Delta()
+	x, y := s.X+dx, s.Y+dy
+	if !u5data.AnYlemTiles[s.TileAt(x, y)] {
+		s.Log("此處沒有可以抹去的東西。")
+		return false
+	}
+	if !s.SetTileAt(x, y, u5data.TileBrickFloor) {
+		return false
+	}
+	s.Log("噗!")
 	return true
 }

@@ -78,6 +78,11 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 	// 場景移動函式 sub_86C 讀鄰格用的 byte_3F789[32*dy+dx] 是一個固定位址,
 	// 也就是視窗緩衝裡玩家那一格,四鄰用 ±1 / ±32 直接定址(docs/re/03 §7)。
 	half := ViewTiles / 2
+	// In Quas Wis 的全景:32×32 一次攤開,蓋掉平常的 11×11。
+	if s.State.Prompt == game.PromptPeer {
+		s.drawPeer(dst)
+		return
+	}
 	// 戰鬥中:11×11 的戰場正好等於視窗大小,直接鋪滿。
 	if s.State.InCombat() {
 		s.drawCombat(dst)
@@ -343,4 +348,45 @@ func dungeonViewTile(t byte) int {
 		return 0x43 // 房間入口
 	}
 	return 0x04 // 通道:草地當地板
+}
+
+// PeerTilePixels 是全景模式下一格佔幾個像素。
+//
+// 352 / 32 = 11 —— 地圖視窗的大小不變,只是塞進 32×32 格。原版在
+// 320×200 下是同一個做法(`sub_24824(16, 80, 367, 431)` 圈出的正是地圖窗,
+// 而裡面畫的是 32×32),所以縮小倍率與原版一致。
+const PeerTilePixels = ViewPixels / game.PeerSide
+
+// drawPeer 畫 In Quas Wis 的 32×32 全景。
+//
+// 每一格用 nearest 縮到 11×11 —— tile 是 16×16,縮小倍率不是整數,
+// 但這是原版就有的取捨(它也是把 16×16 塞進 11 px),照做。
+func (s *Scene) drawPeer(dst *image.NRGBA) {
+	half := game.PeerSide / 2
+	for dy := -half; dy < half; dy++ {
+		for dx := -half; dx < half; dx++ {
+			s.drawTileScaled(dst, int(s.State.PeerTile(dx, dy)),
+				MapOriginX+(dx+half)*PeerTilePixels,
+				MapOriginY+(dy+half)*PeerTilePixels,
+				PeerTilePixels)
+		}
+	}
+	DrawFrame(dst,
+		MapOriginX+half*PeerTilePixels, MapOriginY+half*PeerTilePixels,
+		PeerTilePixels, PeerTilePixels, ColorMarker)
+}
+
+// drawTileScaled 把一個 tile 用 nearest 取樣畫成 size×size。
+func (s *Scene) drawTileScaled(dst *image.NRGBA, idx, x, y, size int) {
+	if idx < 0 || idx >= len(s.Tiles) {
+		return
+	}
+	t := &s.Tiles[idx]
+	for py := 0; py < size; py++ {
+		sy := py * u5data.TileSize / size
+		for px := 0; px < size; px++ {
+			sx := px * u5data.TileSize / size
+			SetPixel(dst, x+px, y+py, u5data.TilePalette[t.At(sx, sy)&0x0F])
+		}
+	}
 }
