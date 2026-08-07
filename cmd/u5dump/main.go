@@ -400,7 +400,7 @@ func cmdScene(args []string) error {
 
 	st := &game.State{
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
-		NPCs: bundle.NPCs, Talks: bundle.Talks, Clock: game.NewClock(), MaxMessages: 8,
+		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Clock: game.NewClock(), MaxMessages: 8,
 	}
 	if bundle.Save != nil {
 		st.LoadFrom(bundle.Save)

@@ -35,6 +35,10 @@ const (
 	MsgFrightened = "「別傷害我!請走開!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
 	MsgMerchantClosed = "「營業時再來吧。」"
+	// "A merchant says:\n\"GET THAT HORSE OUT …" —— 騎馬進店(馬廄除外)。
+	MsgGetThatHorseOut = "把那匹馬牽出去!"
+	// 交易流程尚未實作:誠實說明(CLAUDE.md §3.0)。
+	MsgShopNotImplemented = "(買賣流程尚未實作 —— 缺物品表與價格表)"
 	// "\"I cannot help thee with that." —— 打了 NPC 不認得的關鍵字。
 	MsgDoesNotUnderstand = "「此事我幫不上汝。」"
 	// "\"My name is " —— 問 NAME 時的固定開頭。

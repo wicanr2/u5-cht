@@ -43,8 +43,8 @@ func (s *State) Talk() {
 	case n.Dialogue == u5data.DialogueNone:
 		s.Log(MsgNoResponse)
 	case n.IsShopkeeper():
-		// 商店交易要 SHOPPE.DAT 的內容與營業時間表,還沒接上。
-		s.Log(MsgMerchantClosed)
+		s.talkingTo = found.Index
+		s.enterShop(n)
 	case n.Dialogue == u5data.DialogueFrightened:
 		s.Log(MsgFrightened)
 	case n.Dialogue >= u5data.DialogueSpecialFE:
@@ -214,6 +214,47 @@ func (s *State) applyEffects(fx u5data.Effects) {
 	if fx.EndTalk {
 		s.EndConversation()
 	}
+}
+
+// enterShop 與商人搭話(原版 sub_1B52C 的 0x80–0xFC 分支 → sub_1B294)。
+//
+// 原版先看營業時間:`sub_9C7C(npc, hour)` 挑出這名商人此刻的排程 slot,
+// 只有在店裡(而不是回家睡覺)才談得成,否則回一句「營業時再來」。
+// 這裡用同一份排程判斷:商人不在他的工作位置就是沒開門。
+//
+// 騎在馬上時原版只有馬廄肯招呼你,其餘一律「GET THAT HORSE OUT...」。
+func (s *State) enterShop(n *u5data.NPC) {
+	if s.Shops == nil {
+		s.Log(MsgMerchantClosed)
+		return
+	}
+	shop, ok := s.Shops.ForDialogue(n.Dialogue, s.Location)
+	if !ok {
+		// 對話號碼 0x89–0xFC 沒有對應的店種(原版只有 0x81–0x88 八種)。
+		s.Log(MsgMerchantClosed)
+		return
+	}
+	if s.Transport&0xFE == u5data.TransportHorse && shop.Type != u5data.ShopStable {
+		s.Log("「" + MsgGetThatHorseOut + "」")
+		return
+	}
+	name := shop.Name
+	if name == "" {
+		name = shop.Owner + "的店"
+	}
+	s.Log(shop.Type.TypeName() + "「" + name + "」")
+	// 四句問候語隨機挑一句(原版 sub_111CC 用 random(0,3))。
+	if g := s.Shops.Greeting(shop, s.greetVariant(), s.Clock.Hour); g != "" {
+		s.Log("「" + oneLine(g) + "」")
+	}
+	// 交易流程(買賣、療傷、住宿、買馬買船)要物品表與價格表,還沒解。
+	s.Log(MsgShopNotImplemented)
+}
+
+// greetVariant 挑一句問候語。原版是亂數;這裡用時鐘當種子,
+// 讓 headless 截圖可以重現 —— 隨機在測試裡只會製造雜訊。
+func (s *State) greetVariant() int {
+	return (s.Clock.Hour + s.Clock.Minute) % 4
 }
 
 // ask 讓 NPC 反問玩家(原版 opcode 0x91–0x9F → sub_1C0AC)。

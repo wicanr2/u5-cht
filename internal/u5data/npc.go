@@ -54,6 +54,9 @@ const (
 	DialogueSpecialFF  = 0xFF
 )
 
+// TransportHorse 是騎馬時的載具 tile 群(原版比的是 `byte_3E08C & 0xFE == 0x12`)。
+const TransportHorse = 0x12
+
 // NPCSchedule 是一筆 16 B 的排程記錄。
 //
 // 欄位位置由 `sub_9358` 證實:它用 `rec[slot+3]` / `rec[slot+6]` / `rec[slot+9]`

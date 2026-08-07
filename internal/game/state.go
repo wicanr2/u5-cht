@@ -96,6 +96,7 @@ type State struct {
 	Scenes *u5data.SceneSet // 城鎮 / 城堡 / 民居 / 要塞;可為 nil
 	NPCs   *u5data.NPCSet   // 各地點的居民與排程;可為 nil
 	Talks  *u5data.TalkSet  // 對話文字;可為 nil
+	Shops  *u5data.ShopSet  // 商店目錄與對白;可為 nil
 
 	// Clock 是遊戲內時間。NPC 站在哪裡完全由它決定(排程以小時為單位)。
 	Clock Clock
