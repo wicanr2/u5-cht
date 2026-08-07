@@ -241,10 +241,10 @@ func (s *State) SleepUntilMorning() {
 	s.Log("Zzzzzz....")
 	// 原版先推 12 次 5 分鐘,再每次 9 分鐘直到早上六點。
 	for i := 0; i < 12; i++ {
-		s.Clock.Advance(5)
+		s.AdvanceTime(5)
 	}
 	for guard := 0; s.Clock.Hour != WakeHour && guard < 24*60; guard++ {
-		s.Clock.Advance(9)
+		s.AdvanceTime(9)
 	}
 	for _, c := range s.Party() {
 		s.wakeUp(c)

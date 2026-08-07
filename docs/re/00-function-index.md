@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **286** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **329** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -18,6 +18,7 @@
 | `sub_1678` | 0  /  空槽  /  `sub_1678` 清表寫 0;`sub_118CC` 用 `!= 0` 找空槽  / | `11-map-objects.md` |
 | `sub_1DC8` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md` |
 | `sub_23FC` | 船的四個朝向 tile 0x2C..0x2F 確實存在(`sub_23FC` 的轉向),但那是 | `11-map-objects.md` |
+| `sub_3F34` | Uus Por / Des Por  /  `sub_3F34(∓1, 1)`  /  地牢上 / 下一層  / | `17-magic.md` |
 | `sub_6730` | 2. 或查 `byte_41C18` 的 xref(`sub_6730` 開頭有 `for(i=0;i<256;i++) byte_41C18[i]=i`, | `01-tileset-and-dot16-loader.md` |
 | `sub_8858` | 來源:FM Towns `WORRIORS.EXP`。相關函式 `sub_8858`(載入)、`sub_9C7C`(排程 slot)、 | `04-npc-schedule-and-clock.md` |
 | `sub_8924` | 0 號槽是隊伍自己**:`sub_8924` 的更新迴圈從 `esi = 1` 起跑。檔案裡 0 號槽的內容 | `04-npc-schedule-and-clock.md`, `12-npc-movement.md` |
@@ -34,8 +35,8 @@
 | `sub_9C7C` | 來源:FM Towns `WORRIORS.EXP`。相關函式 `sub_8858`(載入)、`sub_9C7C`(排程 slot)、 | `04-npc-schedule-and-clock.md`, `08-shops.md` |
 | `sub_9E10` | 0x8000  /  施法  /  `sub_9E10` / `sub_9F08`  /  法師、注視者、收割者、惡魔、海馬  / | `16-combat-turns-and-ai.md` |
 | `sub_9F08` | 0x8000  /  施法  /  `sub_9E10` / `sub_9F08`  /  法師、注視者、收割者、惡魔、海馬  / | `16-combat-turns-and-ai.md` |
-| `sub_A108` | 1. **每回合只有 1/2 機率真的射出來**。沒射成就回 0,`sub_A108` 接著去跑移動 | `16-combat-turns-and-ai.md` |
-| `sub_A360` | 同一類的還有 `sub_A360` 開頭:**握著混沌之劍(裝備 0x23)的隊員** | `16-combat-turns-and-ai.md` |
+| `sub_A108` | 1. **敵人整個不動**:`sub_A108` 一開頭 `cmp byte_3E08A, 'T'` 就 return。 | `16-combat-turns-and-ai.md`, `17-magic.md` |
+| `sub_A360` | 同一類的還有 `sub_A360` 開頭:**握著混沌之劍(裝備 0x23)的隊員** | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_A9EC` | `sub_A9EC` 是一個 0..31 的無窮掃描: | `16-combat-turns-and-ai.md` |
 | `sub_AC40` | 在 `sub_AC40` 裡被當成 (dx, dy) 暫存重用** —— 同名不同義,追值的時候 | `16-combat-turns-and-ai.md` |
 | `sub_AE20` | 0x2000  /  **瞬間移動**  /  `sub_AE20`  /  鬼火  / | `16-combat-turns-and-ai.md` |
@@ -65,13 +66,38 @@
 | `sub_12794` | `sub_12794` 收錢時有一條**與地點綁定的例外**: | `10-shop-prices-and-trade.md` |
 | `sub_12838` | 解毒 20、療傷 35、復活 200。各有前置判斷(`sub_12838`): | `10-shop-prices-and-trade.md` |
 | `sub_15DD4` | `sub_15DD4` 每次行動後重數兩邊。⚠ 它用的兩個全域 `word_3E086` / `word_3E088` | `16-combat-turns-and-ai.md` |
+| `sub_16370` | 倒數走在 `sub_16370`,而那是**玩家單位回合結束時**呼叫的 —— | `17-magic.md` |
 | `sub_16454` | 0x02  /  逃跑中  /  `sub_AC40` 反轉方向、`sub_16454` 放行出界  / | `16-combat-turns-and-ai.md` |
 | `sub_16538` | 我方全滅時原版**不會立刻判負**:先叫 `sub_16538` 找一個被魅惑的隊員, | `16-combat-turns-and-ai.md` |
 | `sub_16DA4` | 上馬 / 上毯 / 上小艇都要求**先下來走路**(`sub_16DA4` 判 `byte_3E08C` ∈ {0x1C, 0x1D}) | `11-map-objects.md` |
 | `sub_16DC8` | 上大船的限制不同(`sub_16DC8` 的跳表):放行魔毯、步行、小艇 —— | `11-map-objects.md` |
 | `sub_16E58` | `sub_16E58` 是「附近有沒有陸地」:查視窗的 (4,5)(6,5)(5,4)(5,6),也就是玩家四鄰 | `11-map-objects.md` |
 | `sub_16F08` | 8. Board / X-it(`sub_16F08` / `sub_177AC`) | `11-map-objects.md` |
+| `sub_17630` | 點一把火把是 `random(0,15) + 0x70`(`sub_17630`),也就是 112..127 分鐘。 | `17-magic.md` |
 | `sub_177AC` | 8. Board / X-it(`sub_16F08` / `sub_177AC`) | `11-map-objects.md` |
+| `sub_18704` | ⚠ **位元順序是反的**。原版 `sub_18704` 用 `mov ebx, 80h` 起頭、每輪 `sar ebx, 1`, | `17-magic.md` |
+| `sub_189E4` | Grav Por / Vas Flam / Xen Corp  /  `sub_189E4(0x30/0x31/0x32)`  /  指定目標的攻擊咒語  / | `17-magic.md` |
+| `sub_18AF0` | An Zu  /  `sub_18AF0`  /  狀態 `'S'` → `'G'`,戰場上清掉睡著旗標  / | `17-magic.md` |
+| `sub_18B88` | An Nox  /  `sub_18B88`  /  狀態 `'P'` → `'G'`  / | `17-magic.md` |
+| `sub_18C00` | 其餘的效果函式看得到入口(`sub_18C00`、`sub_18D18`、`sub_18EB0`、`sub_18F2C`、 | `17-magic.md` |
+| `sub_18D18` | 其餘的效果函式看得到入口(`sub_18C00`、`sub_18D18`、`sub_18EB0`、`sub_18F2C`、 | `17-magic.md` |
+| `sub_18EB0` | 其餘的效果函式看得到入口(`sub_18C00`、`sub_18D18`、`sub_18EB0`、`sub_18F2C`、 | `17-magic.md` |
+| `sub_18F2C` | 其餘的效果函式看得到入口(`sub_18C00`、`sub_18D18`、`sub_18EB0`、`sub_18F2C`、 | `17-magic.md` |
+| `sub_1904C` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
+| `sub_19098` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
+| `sub_19264` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
+| `sub_192BC` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
+| `sub_193C8` | Vas Mani  /  `sub_193C8`  /  `HP = MaxHP`  / | `17-magic.md` |
+| `sub_19440` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_194CC` | An Xen Ex  /  `sub_194CC`  /  「Creature: X charmed!」  / | `17-magic.md` |
+| `sub_195C0` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_19674` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_196A4` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_19810` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_1986C` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_198E0` | An Tym  /  `sub_198E0`  /  `byte_3E08A = 'T'`、`byte_3E09E = 10`  / | `17-magic.md` |
+| `sub_1994C` | └ sub_1994C   ★ 施法主流程 | `17-magic.md` |
+| `sub_1AEB4` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md` |
 | `sub_1B294` | 來源:FM Towns `WORRIORS.EXP`。`sub_1B294`(進店)、`sub_111CC`(挑問候語)、 | `08-shops.md`, `10-shop-prices-and-trade.md` |
 | `sub_1B52C` | 驗收:編號 0x70 → tile 368,算繪出來是持戟的鎧甲士兵,正對應 `sub_1B52C` 那句 | `04-npc-schedule-and-clock.md`, `06-conversation-script.md`, `08-shops.md` |
 | `sub_1B760` | 0xFF  /  結束整段對話  /  `sub_1B760` + `sub_1BF08`  / | `06-conversation-script.md` |
@@ -93,13 +119,23 @@
 | `sub_1C2FC` | 0x88  /  `sub_1C2FC`  /  未定  / | `06-conversation-script.md` |
 | `sub_1C3F8` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_1C3F8`(展開)與 `dword_41990`(槽表); | `05-text-compression.md`, `06-conversation-script.md` |
 | `sub_1C840` | 帶一張 31 路跳表;周邊有 `sub_1C840`(載入記錄)、`sub_1B52C`(分派)、 | `05-text-compression.md`, `06-conversation-script.md` |
+| `sub_1CA0C` | 原版問「Spell name:」,玩家把**上古語**打進去(`sub_1CA0C`)。 | `17-magic.md` |
+| `sub_1CD3C` | Mani  /  `sub_1CD3C`  /  回 **1..30**(與命中骰同一顆 `sub_2B724`),上限 MaxHP,死人無效  / | `17-magic.md` |
+| `sub_1CE0C` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md` |
+| `sub_1CE70` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md` |
+| `sub_1CFC8` | In Mani Corp  /  `sub_1CFC8`  /  復活(對活人印「Not dead!」)  / | `17-magic.md` |
+| `sub_1D1B8` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
+| `sub_1D310` | In Lor / Vas Lor  /  `sub_1D310(100)` / `(255)`  /  光明計時器設成 100 / 255 **分鐘**  / | `17-magic.md` |
+| `sub_1D31C` | `sub_1904C`、`sub_19098`、`sub_1D1B8`、`sub_1D31C`、`sub_19264`、`sub_192BC`、 | `17-magic.md` |
 | `sub_1DA10` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md` |
+| `sub_1E9A0` | sub_1E9A0       Z-stats 畫面(咒語 / 藥草 / 裝備 / 物品四張清單) | `17-magic.md` |
 | `sub_1F5A4` | `sub_1F5A4`:魅惑(0x0040)與另外兩個位元(0x0400 / 0x0800)的遠程特殊行為。 | `16-combat-turns-and-ai.md` |
 | `sub_1F9CC` | 距離是 `sub_1F9F8`:`sub_1F9CC` 算出 dx²+dy² 之後用「連續減奇數」 | `16-combat-turns-and-ai.md` |
 | `sub_1F9F8` | 距離是 `sub_1F9F8`:`sub_1F9CC` 算出 dx²+dy² 之後用「連續減奇數」 | `16-combat-turns-and-ai.md` |
 | `sub_1FA6C` | ├ sub_1FA6C   瞄準(射程來自 byte_3F2F8[武器]) | `15-combat-formulas.md` |
 | `sub_1FD80` | ├ sub_1FD80   選中目標 | `15-combat-formulas.md` |
 | `sub_1FE54` | `sub_1FE54` / `sub_20CB4` 的投射物飛行路徑(會不會被地形擋)。 | `16-combat-turns-and-ai.md` |
+| `sub_200BC` | └ sub_200BC   ★ 有沒有人在旁邊干擾 | `17-magic.md` |
 | `sub_20134` | sub_20134   一次攻擊 | `15-combat-formulas.md` |
 | `sub_20CB4` | `sub_1FE54` / `sub_20CB4` 的投射物飛行路徑(會不會被地形擋)。 | `16-combat-turns-and-ai.md` |
 | `sub_20E6C` | 餐點  /  `sub_210D8` → `sub_20E6C`  /  `Haggle(單價 × 活著的人數)`  /  存糧 += 活人數  / | `10-shop-prices-and-trade.md` |
@@ -123,7 +159,7 @@
 | `sub_27D24` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_27D24`(讀)與 `sub_284CC`(寫)。 | `07-save-format.md`, `10-shop-prices-and-trade.md`, `13-save-writing.md` |
 | `sub_284CC` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_27D24`(讀)與 `sub_284CC`(寫)。 | `07-save-format.md`, `13-save-writing.md` |
 | `sub_28E14` | `sub_2B710(60)` → `sub_28E14(0, 60)`,而 `sub_28E14` 算範圍時是 | `15-combat-formulas.md`, `16-combat-turns-and-ai.md` |
-| `sub_29304` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md` |
+| `sub_29304` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_29A64` | 0x01 在兩種單位上意義相反**,而 `sub_29A64` 就是靠這一點把兩邊算清楚: | `16-combat-turns-and-ai.md` |
 | `sub_29EEC` | 0x8F  /  等待按鍵  /  `sub_29EEC`  / | `06-conversation-script.md` |
 | `sub_2A610` | case 2: return (tile & 0xF0) == 0x60  /  /  sub_2A674(tile)  /  /  sub_2A610(mover, tile);  // 水陸兩棲 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md` |
@@ -132,7 +168,7 @@
 | `sub_2B360` | obj  = sub_2B360(x+dx, y+dy, 樓層);      // 這一格有沒有 NPC / 物件 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md` |
 | `sub_2B3DC` | 別的 NPC  /  離目標 **≥ 4 格**才算障礙  /  `sub_2B3DC`:有人就是不能走  / | `12-npc-movement.md` |
 | `sub_2B710` | `sub_2B710(60)` → `sub_28E14(0, 60)`,而 `sub_28E14` 算範圍時是 | `15-combat-formulas.md` |
-| `sub_2B724` | roll      = max(1, random(0, 60) / 2)          ← sub_2B724,值域 1..30 | `15-combat-formulas.md` |
+| `sub_2B724` | Mani  /  `sub_1CD3C`  /  回 **1..30**(與命中骰同一顆 `sub_2B724`),上限 MaxHP,死人無效  / | `15-combat-formulas.md`, `17-magic.md` |
 | `sub_2BBB8` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md` |
 | `sub_2BBDC` | 金幣上限 **9999**(`sub_2BBDC(&gold, price, 0x270F)`)。 | `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md` |
 | `sub_2BBFC` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md` |
@@ -141,7 +177,7 @@
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md` |
 | `sub_2D72C` | (其餘地點的編號要把 `sub_2D72C` 的每個 case 讀完才齊。) | `03-scene-entry-and-tile-semantics.md` |
-| `sub_2E364` | └ sub_2E364   備份物件表 → 挑戰鬥地圖 | `16-combat-turns-and-ai.md` |
+| `sub_2E364` | 地點 > 0x7F      → 測 0x01   戰鬥中(sub_2E364 把 byte_3E0A3 設成 −1) | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_2E51C` | 格式看起來像「另一種入場方向」的位置,但 `sub_2E51C` 沒有搬它們 —— | `14-combat-maps.md` |
 | `sub_2E58C` | 3. 進入戰鬥(`sub_2E58C`) | `14-combat-maps.md`, `16-combat-turns-and-ai.md` |
 | `sub_2F0EC` | ├ sub_2F0EC  ★ 決定出現幾隻、哪幾種、站哪裡 | `16-combat-turns-and-ai.md` |
@@ -168,6 +204,8 @@
 | `byte_3DDB8` | cmp  byte_3DDB8[eax], 6Ah ; 'j' | `16-combat-turns-and-ai.md` |
 | `byte_3DDBF` | byte_3DDBF[32*i] != 'P'  → 「汝無需此術」   ; 解毒要中毒 | `10-shop-prices-and-trade.md` |
 | `byte_3DDC2` | movzx edx, byte_3DDC2[買家*32]         ; INT(角色紀錄 offset 0x0E) | `10-shop-prices-and-trade.md` |
+| `byte_3DDC3` | 魔力消耗**(`sub byte_3DDC3[角色*32], 圈數`) | `17-magic.md` |
+| `byte_3DDCA` | 最低等級**(`byte_3DDCA[角色*32] < 圈數` → 直接失敗) | `17-magic.md` |
 | `byte_3DDCB` | 0x17 與 0x1F 的依據是位址:日期進位那段對 16 名角色跑 `byte_3DDCB[i*32]` | `09-items-and-creatures.md` |
 | `byte_3DDCC` | `sub_B274` 對角色讀 `byte_3DDCC[角色*32]`,而 `0x3DDCC − 0x3DDB4 = 0x18`。 | `15-combat-formulas.md` |
 | `byte_3DDD3` | 而 `0x3DDCB − 0x3DDB4 = 0x17`;入隊時寫 `byte_3DDD3[i*32]` 而差是 `0x1F`。 | `09-items-and-creatures.md` |
@@ -175,18 +213,19 @@
 | `byte_3DFB9` | `0x0207`  /  `byte_3DFB9`  /  寶石  / | `10-shop-prices-and-trade.md` |
 | `byte_3DFBA` | `0x0208`  /  `byte_3DFBA`  /  火把  / | `10-shop-prices-and-trade.md` |
 | `byte_3DFBC` | 上船時原本騎的東西會一起帶上:魔毯記進 `byte_3DFBC`、小艇讓船上的小艇數 +1 | `11-map-objects.md` |
+| `byte_3DFC0` | 地點 == 0x12 且 byte_3DFC0 == 0 → 「Absorbed!」 | `17-magic.md` |
 | `byte_3DFC4` | byte_3DFC4(4)  byte_3DFD0(48 裝備)   byte_3E000(48) | `13-save-writing.md` |
-| `byte_3DFD0` | `0x021A`  /  `byte_3DFD0`  /  裝備持有數 48 B,索引 = 裝備編號  / | `10-shop-prices-and-trade.md`, `13-save-writing.md` |
-| `byte_3E000` | `byte_3E000` 那 48 B** 是什麼(位置在裝備數量表之後,同樣 48 筆 —— | `13-save-writing.md` |
+| `byte_3DFD0` | `0x021A`  /  `byte_3DFD0`  /  裝備持有數 48 B,索引 = 裝備編號  / | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md` |
+| `byte_3E000` | 3. ★ byte_3E000[咒語] −−                          ← 從這裡開始都不退 | `13-save-writing.md`, `17-magic.md` |
 | `byte_3E030` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
 | `byte_3E038` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
 | `byte_3E040` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
 | `byte_3E048` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
 | `byte_3E050` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `13-save-writing.md` |
 | `byte_3E058` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `13-save-writing.md` |
-| `byte_3E060` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `10-shop-prices-and-trade.md`, `13-save-writing.md` |
+| `byte_3E060` | `byte_3E060`(藥草)對應 `0x02AA`,兩者的差都是 `0x3DDB6` —— 一致, | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md` |
 | `byte_3E06B` | 0x02B5  /  隊伍人數  /  3(`sub_1BB5C` 用 `cmp byte_3E06B, 6` 判滿員)  / | `07-save-format.md` |
-| `byte_3E08A` | 全域 byte_3E08A == 'T'                  → 整場不動(時間停止 An Tym,10 回合) | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md` |
+| `byte_3E08A` | 全域 byte_3E08A == 'T'                  → 整場不動(時間停止 An Tym,10 回合) | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `byte_3E08C` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md` |
 | `byte_3E08D` | byte_3E08D 月   > 13  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08E` | byte_3E08E 日   > 28  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
@@ -194,14 +233,18 @@
 | `byte_3E091` | byte_3E091 分   += minutes;  > 59 → 減 60 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E092` | 每 10 個單位行動 = 遊戲內 1 分鐘**(`byte_3E092` 數到 10 → `sub_29304(1)`)。 | `16-combat-turns-and-ai.md` |
 | `byte_3E098` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md` |
+| `byte_3E09E` | An Tym  /  `sub_198E0`  /  `byte_3E08A = 'T'`、`byte_3E09E = 10`  / | `17-magic.md` |
 | `byte_3E09F` | 判斷依據是 cdecl 的壓棧順序:`push esi(武器); push -byte_3E09F; | `15-combat-formulas.md` |
 | `byte_3E0A0` | 傷害減半(0x0020)      → 除以 2(除非 byte_3E0A0 成立,那個旗標還沒解) | `16-combat-turns-and-ai.md` |
-| `byte_3E0A3` | esi = byte_3E0A3 >> 3            ; 檔案 = {TOWNE,DWELLING,CASTLE,KEEP}.NPC[(編號-1)/8] | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md` |
+| `byte_3E0A3` | esi = byte_3E0A3 >> 3            ; 檔案 = {TOWNE,DWELLING,CASTLE,KEEP}.NPC[(編號-1)/8] | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `17-magic.md` |
 | `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md` |
 | `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md` |
 | `byte_3E0A7` | byte_3E0A7 = 30;      // 場景內 Y(靠底部 → 城鎮南方入口) | `03-scene-entry-and-tile-semantics.md` |
-| `byte_3E0AD` | `byte_3E0AD`(武器附加效果:`'3'` 下毒、`'4'` 催眠)。 | `16-combat-turns-and-ai.md` |
+| `byte_3E0AD` | 三個攻擊咒語的傷害也還沒逆到底(`sub_189E4` 只把攻擊碼寫進 `byte_3E0AD`, | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `byte_3E0B2` | 且目標是隊員時直接 `byte_3E0B2 = 0x20` 走人,完全擋下。 | `16-combat-turns-and-ai.md` |
+| `byte_3E0B6` | `byte_3E0B6`(咒語)與 `byte_3E0B7`(火把)各自是一個分鐘倒數, | `17-magic.md` |
+| `byte_3E0B7` | `byte_3E0B6`(咒語)與 `byte_3E0B7`(火把)各自是一個分鐘倒數, | `17-magic.md` |
+| `byte_3E0B8` | byte_3E0B8[施法者] 記著「上一個攻擊我的是誰」 | `17-magic.md` |
 | `byte_3E165` | mov   byte_3E165, dl | `11-map-objects.md` |
 | `byte_3E166` | mov   byte_3E166, al | `11-map-objects.md` |
 | `byte_3E570` | sub_2C740(file, edi,       0x200, byte_3E570)   ; 512 B  32 × 16 B 排程 | `04-npc-schedule-and-clock.md` |

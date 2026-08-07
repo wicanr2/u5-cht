@@ -83,15 +83,20 @@ func (s *State) beginConversation(dialogue byte) {
 
 // TypeRune 把一個字元加進輸入列(對話中用)。
 func (s *State) TypeRune(r rune) {
-	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer {
+	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer && s.Prompt != PromptSpell {
 		return
 	}
 	switch {
 	case r >= 'a' && r <= 'z':
 	case r >= 'A' && r <= 'Z':
-		r = r - 'A' + 'a'
+		// 咒語名保留大小寫原樣(比對本來就不分大小寫),關鍵字一律小寫。
+		if s.Prompt != PromptSpell {
+			r = r - 'A' + 'a'
+		}
+	case r == ' ' && s.Prompt == PromptSpell:
+		// 上古語咒語名有空格(「An Tym」)。
 	default:
-		return // 關鍵字只有英文字母
+		return
 	}
 	if len(s.Input) >= 16 {
 		return
@@ -101,7 +106,7 @@ func (s *State) TypeRune(r rune) {
 
 // Backspace 刪掉輸入列最後一個字元。
 func (s *State) Backspace() {
-	if (s.Prompt == PromptTalk || s.Prompt == PromptAnswer) && s.Input != "" {
+	if (s.Prompt == PromptTalk || s.Prompt == PromptAnswer || s.Prompt == PromptSpell) && s.Input != "" {
 		s.Input = s.Input[:len(s.Input)-1]
 	}
 }

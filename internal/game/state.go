@@ -91,8 +91,10 @@ const (
 	PromptAnswer
 	// PromptShop 是在店裡:按鍵是選單字母或 Y/N,不是指令鍵。
 	PromptShop
-	// PromptCombat 是戰鬥中:方向鍵移動、A 攻擊、Esc 撤離。
+	// PromptCombat 是戰鬥中:方向鍵移動、A 攻擊、C 施法、空白 Pass、Esc 撤離。
 	PromptCombat
+	// PromptSpell 是在打咒語名:輸入的是上古語,不是指令鍵。
+	PromptSpell
 )
 
 // State 是一局遊戲的位置狀態。
@@ -114,11 +116,22 @@ type State struct {
 	Creatures *u5data.CreatureTable
 	// Stats 是戰鬥數值(怪物三圍、裝備防禦 / 射程 / 類別);可為 nil。
 	Stats *u5data.CombatStats
+	// Spells 是咒語表(名稱 / 圈數 / 藥草 / 可施法場合);可為 nil。
+	Spells *u5data.SpellTable
+	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。
+	LightTurns int
+	// TorchTurns 是火把還亮幾分鐘(原版 byte_3E0B7)。點一把是 random(0,15) + 0x70。
+	TorchTurns int
+	// TimeStop 是 An Tym 還停幾回合(原版 byte_3E09E;byte_3E08A == 'T' 期間)。
+	TimeStop int
 	// rng 是戰鬥骰子。留空時用固定種子 —— headless 與測試要可重現;
 	// 遊戲啟動時 cmd/u5cht 換成時間種子。
 	rng *rand.Rand
 	// Combat 是進行中的戰鬥(Prompt == PromptCombat 時有效)。
 	Combat *Combat
+	// castReturn 是打完咒語名要回到哪個 Prompt,castBy 是誰在施法。
+	castReturn Prompt
+	castBy     int
 
 	// BaseSave 是讀進來的那份存檔,存檔時當底稿用 —— 引擎還沒解出來的欄位
 	// (魔法、任務旗標、地牢狀態…)靠它原樣保留。見 savegame.go。
@@ -325,7 +338,7 @@ func (s *State) loadNPCs() {
 // 原版一般行動每回合 1 分鐘(sub_1DC8 → sub_29304(1)),之後才輪到
 // `sub_9690` 讓 NPC 動。順序不能反 —— NPC 的模式判定要看新的小時。
 func (s *State) tick() {
-	s.Clock.Advance(MinutesPerTurn)
+	s.AdvanceTime(MinutesPerTurn)
 	s.advanceNPCs()
 }
 

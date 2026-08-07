@@ -54,6 +54,24 @@ func (g *game) Update() error {
 	snapshot := g.key()
 
 	// 對話中鍵盤打的是關鍵字,不是指令鍵。ESC 退出對話(不是離開遊戲)。
+	// 打咒語名:上古語(含空格),Enter 送出、ESC 作罷。
+	if st.Prompt == gamestate.PromptSpell {
+		for _, r := range ebiten.AppendInputChars(nil) {
+			st.TypeRune(r)
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.SubmitSpell()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.Backspace()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.CancelSpell()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	if st.Prompt == gamestate.PromptTalk || st.Prompt == gamestate.PromptAnswer {
 		for _, r := range ebiten.AppendInputChars(nil) {
 			st.TypeRune(r)
@@ -100,6 +118,8 @@ func (g *game) Update() error {
 		case inpututil.IsKeyJustPressed(ebiten.KeyA):
 			g.combatAiming = true
 			st.Log("攻擊 —— 哪個方向?")
+		case inpututil.IsKeyJustPressed(ebiten.KeyC):
+			st.BeginCastPrompt()
 		case inpututil.IsKeyJustPressed(ebiten.KeySpace):
 			st.CombatPass()
 		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
@@ -152,6 +172,13 @@ func (g *game) Update() error {
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyX) {
 			st.Exit()
+		}
+		// C 施法(問上古語咒語名),I 點火把 —— 兩個都照原版鍵位。
+		if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+			st.BeginCastPrompt()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+			st.LightTorch()
 		}
 		// Q 存檔(不離開)。原版 Q 是「存檔並離開」,這裡拆開:
 		// 離開走 F10 / Ctrl+Q 並自動存檔,見上面與 esc-cancel-f10-quit-autosave。
@@ -247,6 +274,7 @@ func main() {
 		Objects:      bundle.Objects,
 		CombatMaps:   bundle.Combat,
 		Stats:        bundle.Stats,
+		Spells:       bundle.Spells,
 		Creatures:    bundle.Creatures,
 		UnderObjects: bundle.UnderObjs,
 		MaxMessages:  maxMessages,

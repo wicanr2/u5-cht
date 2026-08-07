@@ -157,6 +157,8 @@ type Inventory struct {
 	Items [ItemCount]int
 	// Reagents[藥草編號] 是持有份數,順序同 ReagentNames。
 	Reagents [ReagentCount]int
+	// Spells[咒語編號] 是已調配好的份數,上限 SpellStackLimit。
+	Spells [SpellCount]int
 	// Carpets 是持有的魔毯數(原版 byte_3DFBC)。
 	// ⚠ 存檔位移還沒對出來,目前只在遊戲中維護,讀檔不會帶進來。
 	Carpets int
@@ -224,6 +226,9 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.Inventory.Torches = int(raw[SaveTorchesOffset])
 	for i := 0; i < ItemCount; i++ {
 		s.Inventory.Items[i] = int(raw[SaveItemsOffset+i])
+	}
+	for i := 0; i < SpellCount; i++ {
+		s.Inventory.Spells[i] = int(raw[SaveSpellsOffset+i])
 	}
 	for i := 0; i < ReagentCount; i++ {
 		s.Inventory.Reagents[i] = int(raw[SaveReagentsOffset+i])
@@ -360,6 +365,9 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveTorchesOffset] = byte(s.Inventory.Torches)
 	for i := 0; i < ItemCount; i++ {
 		out[SaveItemsOffset+i] = byte(s.Inventory.Items[i])
+	}
+	for i := 0; i < SpellCount; i++ {
+		out[SaveSpellsOffset+i] = byte(s.Inventory.Spells[i])
 	}
 	for i := 0; i < ReagentCount; i++ {
 		out[SaveReagentsOffset+i] = byte(s.Inventory.Reagents[i])

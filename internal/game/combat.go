@@ -129,6 +129,9 @@ type Combat struct {
 	Over bool
 	// Won 記勝負,離場時決定要不要把怪物從地圖上清掉。
 	Won bool
+	// LastAttacker[槽] 是上一個攻擊這一槽的單位(原版 `byte_3E0B8`);
+	// −1 代表沒有。施法被打斷的判定只看這個人。
+	LastAttacker [CombatUnitSlots]int8
 	// fromSlot 是觸發戰鬥的那個物件槽,打完要清掉。
 	fromSlot int
 	// scan 是排程掃到第幾槽,actions 是累計行動數(每 10 次 = 1 分鐘)。
@@ -173,6 +176,9 @@ func (s *State) BeginCombat(slot int) bool {
 
 	c := &Combat{Map: m, MapIndex: idx, fromSlot: slot, Turn: -1,
 		EnemyName: s.enemyDisplayName(o.Kind)}
+	for i := range c.LastAttacker {
+		c.LastAttacker[i] = -1
+	}
 	// 隊員照圖裡的入場位置排;人數不足就只排前 n 個。
 	for i, ch := range s.Party() {
 		if i >= u5data.CombatPartySlots {
@@ -402,7 +408,7 @@ func (s *State) advanceCombat() {
 		c.actions++
 		if c.actions%10 == 0 {
 			// 每 10 個單位行動走 1 分鐘(原版 `byte_3E092` 數到 10)。
-			s.Clock.Advance(1)
+			s.AdvanceTime(1)
 		}
 		if u.Flags&UnitFrozen != 0 {
 			continue
@@ -418,6 +424,11 @@ func (s *State) advanceCombat() {
 		if s.playerControlled(u) {
 			c.Turn = i
 			return
+		}
+		// An Tym 期間敵人整個不動(原版 `sub_A108` 一開頭
+		// `cmp byte_3E08A, 'T'` 就直接 return)。
+		if s.TimeStop > 0 {
+			continue
 		}
 		s.aiTurn(i)
 		if s.checkCombatOver() {
@@ -550,7 +561,16 @@ func (s *State) unitIndex(u *Combatant) int {
 }
 
 // afterPlayerAction 玩家動完之後接回排程。
+//
+// 時間停止的倒數在這裡走 —— 原版 `sub_16370` 是在**玩家單位的回合結束時**
+// 遞減 `byte_3E09E`,所以 An Tym 是「十個玩家回合」而不是「十分鐘」。
 func (s *State) afterPlayerAction() {
+	if s.TimeStop > 0 {
+		s.TimeStop--
+		if s.TimeStop == 0 {
+			s.Log("時間又開始流動了。")
+		}
+	}
 	if s.checkCombatOver() {
 		return
 	}

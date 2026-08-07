@@ -272,6 +272,10 @@ func (s *State) resolveAttack(attacker, target int) {
 	a, t := &c.Units[attacker], &c.Units[target]
 	an, tn := s.unitName(a), s.unitName(t)
 
+	// 記下「誰打了我」—— 原版 `byte_3E0B8[目標] = 攻擊者`,
+	// 施法被打斷的判定只認這個人。
+	c.LastAttacker[target] = int8(attacker)
+
 	weapon := byte(u5data.ItemNone)
 	if ch := s.charOf(a); ch != nil {
 		weapon = ch.Equipment().Weapon
