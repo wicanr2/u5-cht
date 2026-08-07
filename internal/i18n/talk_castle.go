@@ -22,7 +22,7 @@ func init() {
 	addTalk(map[string]string{
 		// id 1 ─ Alistair the Bard(吟遊詩人,城堡大廳)
 		"CASTLE.TLK#1#desc":  "一名神情鬱鬱的樂師。",
-		"CASTLE.TLK#1#greet": "願卿今日安好！",
+		"CASTLE.TLK#1#greet": "願%A今日安好！",
 		"CASTLE.TLK#1#job":   "吾以樂音提振眾人的心緒！",
 		"CASTLE.TLK#1#bye":   "願卿日安，朋友！",
 		"CASTLE.TLK#1#e1": "從前這裡是個歡快的地方，人人都能來此，把塵世的憂煩暫且擱下。" +

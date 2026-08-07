@@ -32,7 +32,7 @@ func init() {
 
 		// TOWNE.TLK#22 — 年邁的老法師、曾在大評議會
 		"TOWNE.TLK#22#desc":  "一名年邁的老法師。",
-		"TOWNE.TLK#22#greet": "再次見面甚好。",
+		"TOWNE.TLK#22#greet": "幸會，%A，再次見面甚好。",
 		"TOWNE.TLK#22#job":   "吾未被囚禁之時、曾在大評議會效力。",
 		"TOWNE.TLK#22#bye":   "祝汝旅途順利！",
 		"TOWNE.TLK#22#e1":    "大評議會曾侍奉不列顛王陛下、並封印了八座地牢！",
@@ -111,7 +111,7 @@ func init() {
 
 		// TOWNE.TLK#27 — 貧瘦破衣的小女孩
 		"TOWNE.TLK#27#desc":  "一個貧瘦破衣的小女孩。",
-		"TOWNE.TLK#27#greet": "你好、很高興見到你。",
+		"TOWNE.TLK#27#greet": "你好，%A，很高興見到你。",
 		"TOWNE.TLK#27#job":   "我縫帆。",
 		"TOWNE.TLK#27#bye":   "再來跟我聊天！",
 		"TOWNE.TLK#27#e1":    "這是很辛苦的工作。",
@@ -133,7 +133,7 @@ func init() {
 
 		// TOWNE.TLK#28 — 悲傷衰弱的被奴役裁縫
 		"TOWNE.TLK#28#desc":  "一個悲傷衰弱的靈魂。",
-		"TOWNE.TLK#28#greet": "你好、希望你最近不錯。",
+		"TOWNE.TLK#28#greet": "你好，%A，希望你最近不錯。",
 		"TOWNE.TLK#28#job":   "我為船長布萊茲縫帆。",
 		"TOWNE.TLK#28#bye":   "明天見。",
 		"TOWNE.TLK#28#e1":    "他是「烏鴉窩」的老闆！說句實話、他是個真正的壞傢伙！",
@@ -179,7 +179,7 @@ func init() {
 
 		// TOWNE.TLK#31 — 閃亮盔甲的熱心鐵匠
 		"TOWNE.TLK#31#desc":  "一名穿著閃閃發亮盔甲的結實男人！",
-		"TOWNE.TLK#31#greet": "很高興見到你、祝你今日安好！",
+		"TOWNE.TLK#31#greet": "幸會，%A，祝你今日安好！",
 		"TOWNE.TLK#31#job":   "吾是聖騎士護衛所的工匠。",
 		"TOWNE.TLK#31#bye":   "珍重、朋友！",
 		"TOWNE.TLK#31#e2":    "吾鍛造精良的武器和堅牢的盔甲！",

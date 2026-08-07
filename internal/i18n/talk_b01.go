@@ -5,7 +5,7 @@ package i18n
 func init() {
 	addTalk(map[string]string{
 		"TOWNE.TLK#1#desc":  "一位儀容端庄、白髮蒼蒼的老者。",
-		"TOWNE.TLK#1#greet": "歡迎，，在這黑暗的年月。",
+		"TOWNE.TLK#1#greet": "歡迎，%A，在這黑暗的年月。",
 		"TOWNE.TLK#1#job":   "吾研習星辰之學。",
 		"TOWNE.TLK#1#bye":   "祝汝一路平安。",
 		"TOWNE.TLK#1#e1":    "吾觀測行星間的訊象！",
@@ -21,7 +21,7 @@ func init() {
 		"TOWNE.TLK#1#q1y": "吾有訊息可助汝……「一位名叫戈斯的魔法師悟得月門的新秘密。」" +
 			"「速往傑隆尋他。小心，有人言他已瘋癲！」",
 
-		"TOWNE.TLK#2#desc": "一位年邁、有些似曾相識的吉普賽人。「歡迎，，見到汝甚喜！」「吾能如何效勞？」",
+		"TOWNE.TLK#2#desc": "一位年邁、有些似曾相識的吉普賽人。「歡迎，%A，見到汝甚喜！」「吾能如何效勞？」",
 		"TOWNE.TLK#2#job": "吾眼中所見，超越常人所知。",
 		"TOWNE.TLK#2#e2": "汝究竟尋求何物？",
 		"TOWNE.TLK#2#e3": "吾見他住於一座三火山之島，遙在南海之遠。",
@@ -36,7 +36,7 @@ func init() {
 		"TOWNE.TLK#2#q0y": "015汝之恩德吾當銘記！",
 
 		"TOWNE.TLK#3#desc":  "一位年幼的吉普賽孩童。",
-		"TOWNE.TLK#3#greet": "嘿。",
+		"TOWNE.TLK#3#greet": "嘿，%A。",
 		"TOWNE.TLK#3#job":   "大多是玩耍罷了。",
 		"TOWNE.TLK#3#bye":   "珍重！",
 		"TOWNE.TLK#3#e11":   "他住在斯卡拉布雷，問他吧。",
@@ -61,7 +61,7 @@ func init() {
 		"TOWNE.TLK#4#e7": "正是！",
 		"TOWNE.TLK#4#e8": "厄運相伴！",
 		"TOWNE.TLK#4#q0":   "日安，%A，汝今日安好否？",
-		"TOWNE.TLK#4#q0n":  "吾見。",
+		"TOWNE.TLK#4#q0n":  "原來如此……",
 		"TOWNE.TLK#4#q0y":  "甚好，聞之大喜！",
 		"TOWNE.TLK#4#q1": "日安。」「吾乃唐恩·皮亞特，此佳城之首席議員！」「汝有所需乎？",
 		"TOWNE.TLK#4#q1n":  "此城為汝效勞！",
@@ -84,7 +84,7 @@ func init() {
 		"TOWNE.TLK#5#q1y": "此乃第二圈之魔法，吟誦 IN XEN MANI，需人參、蒜頭與曼陀羅根。",
 
 		"TOWNE.TLK#6#desc":  "一位武藝高強的吟游詩人。",
-		"TOWNE.TLK#6#greet": "日安，！",
+		"TOWNE.TLK#6#greet": "日安，%A！",
 		"TOWNE.TLK#6#job":   "吾乃冒險者！",
 		"TOWNE.TLK#6#bye":   "明日再見。",
 		"TOWNE.TLK#6#e0":    "吾游歷四方，見聞廣博！",
@@ -100,7 +100,7 @@ func init() {
 		"TOWNE.TLK#6#q1y":  "慈悲之真言乃 MU！",
 
 		"TOWNE.TLK#7#desc":  "一位口味獨特的廚師。",
-		"TOWNE.TLK#7#greet": "日安！",
+		"TOWNE.TLK#7#greet": "日安，%A！",
 		"TOWNE.TLK#7#job":   "吾乃此廚房之主！",
 		"TOWNE.TLK#7#bye":   "到時見。",
 		"TOWNE.TLK#7#e1":    "吾之拿手菜乃羊腿烤，不列塔尼風味！",
@@ -164,7 +164,7 @@ func init() {
 		"TOWNE.TLK#9#q3y": "甚好！",
 
 		"TOWNE.TLK#10#desc": "一位衣衫襤褸、神情刻薄的女子。",
-		"TOWNE.TLK#10#greet": "你好，。",
+		"TOWNE.TLK#10#greet": "你好，%A。",
 		"TOWNE.TLK#10#job": "吾打掃房間。",
 		"TOWNE.TLK#10#bye": "再見。",
 		"TOWNE.TLK#10#e0": "雖非重活，但甚為繁瑣。",

@@ -6,7 +6,7 @@ func init() {
 	addTalk(map[string]string{
 		// TOWNE.TLK#44 - 明快陽氣的年輕人
 		"TOWNE.TLK#44#desc":  "一名明快陽氣的年輕人。",
-		"TOWNE.TLK#44#greet": "汝好呀、今日天氣甚美！",
+		"TOWNE.TLK#44#greet": "願汝今日安好，%A。",
 		"TOWNE.TLK#44#job":   "吾勤奮工作、並深思人生之大義。",
 		"TOWNE.TLK#44#bye":   "願汝日日行走美德之路！",
 		"TOWNE.TLK#44#e3":    "美德之基乃善念、然人必須自由地選擇美德之路！",
@@ -17,7 +17,7 @@ func init() {
 
 		// TOWNE.TLK#45 - 堅強的年輕女性
 		"TOWNE.TLK#45#desc":  "一名堅強勇敢的年輕女性。",
-		"TOWNE.TLK#45#greet": "你好！近日安康否？",
+		"TOWNE.TLK#45#greet": "你好，%A，想必汝近來安康。",
 		"TOWNE.TLK#45#job":   "吾在共同農田裡工作。",
 		"TOWNE.TLK#45#bye":   "珍重了。」「咦、對了……",
 		"TOWNE.TLK#45#e1":    "吾等雖日日勞苦、然此乃吾等自由之選！",

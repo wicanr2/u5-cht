@@ -66,15 +66,18 @@ func TalkKey(file string, id int, field string) string {
 // Talk 查一段對話的譯文。查不到就回原文 —— 半套中文比整段亂碼好懂。
 //
 // avatar 用來代入譯文裡的 `%A`;傳空字串就原樣留著記號(dump 工具會這樣用)。
+// ⚠ 沒翻到的段落也要代入 —— 四個固定欄位的英文原文裡本來就帶著記號
+// (`u5data.markAvatar`),只在譯文那一支代入的話,英文 fallback 會把
+// `%A` 原樣印給玩家。兩支共用同一條代入路徑,行為才會一致。
 func Talk(file string, id int, field, en, avatar string) string {
-	zh, ok := talks[TalkKey(file, id, field)]
+	s, ok := talks[TalkKey(file, id, field)]
 	if !ok {
-		return en
+		s = en
 	}
 	if avatar != "" {
-		zh = strings.ReplaceAll(zh, AvatarToken, avatar)
+		s = strings.ReplaceAll(s, AvatarToken, avatar)
 	}
-	return zh
+	return s
 }
 
 // TalkTranslated 回報這一段翻過了沒。統計覆蓋率用。

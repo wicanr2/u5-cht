@@ -113,13 +113,44 @@ type Conversation struct {
 	dict *Dictionary
 }
 
+// AvatarToken 是「這裡要插入聖者的名字」的可見記號(原版 opcode 0x81)。
+//
+// 四個固定欄位(外觀 / 招呼 / 職業 / 道別)不走 render 那條 opcode 路徑,
+// 而是 Expand + cleanText。0x81 在 Expand 眼中是字面文字,清掉 bit7 之後
+// 變成 0x01,再被 cleanText 當控制碼丟掉 —— **玩家的名字就這樣整個消失**。
+// 症狀是招呼語印成 `G'day, !`(CASTLE.TLK#20),看起來像譯文漏字,
+// 其實英文原文那條路一樣壞。
+//
+// 用記號而不是當場代入,是因為解析時還不知道玩家叫什麼;代入的時機
+// 統一在 i18n 那一層,譯文與英文原文共用同一條代入路徑。
+const AvatarToken = "%A"
+
+// markAvatar 把 opcode 0x81 換成「帶 bit7 的 `%A`」,好讓它活著通過 Expand。
+//
+// 0xA5 = '%'|0x80、0xC1 = 'A'|0x80。兩個都 ≥ DictLiteralMin,Expand 會當
+// 字面文字清掉 bit7 還原成 `%A`,不會被誤認成詞典 token。
+func markAvatar(raw []byte) []byte {
+	if !hasByte(raw, OpAvatarName) {
+		return raw
+	}
+	out := make([]byte, 0, len(raw)+2)
+	for _, c := range raw {
+		if c == OpAvatarName {
+			out = append(out, '%'|0x80, 'A'|0x80)
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
 // ParseConversation 把一筆記錄解析成對話。
 func ParseConversation(r *TalkRecord, d *Dictionary) *Conversation {
 	segs := r.Segments()
 	c := &Conversation{ID: r.NPCIndex, dict: d}
 	get := func(i int) string {
 		if i < len(segs) {
-			return cleanText(d.Expand(segs[i]))
+			return cleanText(d.Expand(markAvatar(segs[i])))
 		}
 		return ""
 	}

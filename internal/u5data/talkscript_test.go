@@ -146,6 +146,30 @@ func TestEffects(t *testing.T) {
 	}
 }
 
+// TestAvatarNameSurvivesTheFixedFields:招呼語裡的玩家名字不准被吃掉。
+//
+// 四個固定欄位走的是 Expand + cleanText,不是 render 的 opcode 路徑。
+// 0x81 在 Expand 眼中是字面文字,清掉 bit7 之後變成 0x01,再被 cleanText
+// 當控制碼丟掉 —— 招呼語就印成 `G'day, !`(CASTLE.TLK#20 的真實症狀)。
+//
+// ⚠ 這條壞在**英文原文那一支**,所以「譯文漏字」的直覺是錯的:
+// 工作單上根本看不到那個名字,譯者無從得知該補。
+func TestAvatarNameSurvivesTheFixedFields(t *testing.T) {
+	d := synthDict(t)
+	r := buildRecord(
+		lit("A"),
+		lit("a farmer."),
+		join(lit("G'day, "), []byte{OpAvatarName}, lit("!")),
+		lit("I farm."),
+		lit("Bye."),
+	)
+	c := ParseConversation(r, d)
+	if !strings.Contains(c.Greeting, AvatarToken) {
+		t.Errorf("招呼語 %q 裡沒有 %s —— 玩家的名字被 cleanText 吃掉了",
+			c.Greeting, AvatarToken)
+	}
+}
+
 // TestAllConversationsParse 用原版資料把四個 .TLK 全部走一遍。
 //
 // 檢查的是「不會爆、不會無窮迴圈、每個關鍵字都給得出答案」——

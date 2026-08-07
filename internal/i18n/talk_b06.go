@@ -80,7 +80,7 @@ func init() {
 		"DWELLING.TLK#14#q3y":  "善！故首樂句乃『678 987 8767653』！今汝須勤加練習！",
 
 		"DWELLING.TLK#15#desc": "一名無表情的男性。",
-		"DWELLING.TLK#15#greet": "啊，聖者，是汝啊。",
+		"DWELLING.TLK#15#greet": "啊，%A，是汝啊。",
 		"DWELLING.TLK#15#job":  "吾乃王室造幣師！",
 		"DWELLING.TLK#15#bye":  "珍重。",
 		"DWELLING.TLK#15#e1":   "嗯……那是說，吾成為通緝犯前的事。",
@@ -112,7 +112,7 @@ func init() {
 		"CASTLE.TLK#3#q4":      "正是！吾聞其住於尤洛之深林小屋旁之農舍！",
 
 		"CASTLE.TLK#4#desc":   "一名活力十足的年長女性。",
-		"CASTLE.TLK#4#greet":  "是啊，聖者，總是吾之樂事！",
+		"CASTLE.TLK#4#greet": "是啊，%A，總是吾之樂事！",
 		"CASTLE.TLK#4#job":    "吾乃樓上廚房之主廚。",
 		"CASTLE.TLK#4#bye":    "稍後再來，吾備汝熱湯一碗。",
 		"CASTLE.TLK#4#e2":     "吾等在此餵飽眾多人等！",
