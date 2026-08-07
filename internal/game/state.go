@@ -163,13 +163,11 @@ type State struct {
 	windTimer int
 	// SeeThroughWalls 是 Wis An Ylem 的效果(原版 `sub_1CE0C`)。
 	//
-	// 原版做的是 `sub_2E0E8(-1, 0, 0)` —— **把視線遮蔽罩整個填成 0xFF
-	// (全可見)**,然後重畫 20 幀。也就是說它不是「揭開地圖」,而是
-	// 「這一瞬間牆壁擋不住視線」。
+	// 原版做的是 `sub_2E0E8(-1, …)` —— 半徑傳負數,`sub_2E0E8` 就**跳過整段
+	// flood fill**,直接把 11×11 全部填上地形碼,然後重畫 20 幀。
+	// 也就是說它不是「揭開地圖」,而是「這一瞬間牆壁擋不住視線」。
 	//
-	// ⚠ 引擎目前**還沒有視線遮蔽**(`internal/render` 一律把 11×11 範圍
-	// 全畫出來),所以這個旗標現在沒有可見效果。規則記在這裡,等視線做完
-	// 就會生效 —— 與地牢第一人稱透視同一類:規則對了、呈現還沒到。
+	// 由 `SightMask()` 消費(見 sight.go)。
 	SeeThroughWalls bool
 	// Moongates 是八個月相各自的目的地(從存檔讀進來)。
 	Moongates [u5data.MoonPhaseCount]u5data.MoongateDest

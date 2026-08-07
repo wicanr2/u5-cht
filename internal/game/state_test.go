@@ -28,9 +28,15 @@ func synthScenes(t *testing.T, fill byte) *u5data.SceneSet {
 
 // walkable 找一個原版通行表允許行走的 tile,當合成地圖的地板。
 // 不寫死數字 —— 通行表是從執行檔取出來的,寫死會在表更新時悄悄失效。
+//
+// ⚠ **跳過 0**。通行表說 0 可以走,但 0 在引擎裡是**「這一格沒有資料」的哨兵**:
+// 視線遮蔽判「在不在場景內」看的就是場景緩衝那一格是不是 0
+//(`cmp byte_3F8F4[edx], 0`),而遮蔽罩最後也把 0 併成「看不見」。
+// 拿 0 當地板的話,合成地圖等於一整片「沒有資料」——
+// 移動規則照樣驗得過,但任何跟可見度有關的測試都會全黑而看不出原因。
 func walkable(t *testing.T) byte {
 	t.Helper()
-	for i := 0; i < 256; i++ {
+	for i := 1; i < 256; i++ {
 		if !u5data.TileBlocksWalking(i) && i != u5data.TileBlank {
 			if _, isStairs := u5data.StairsFacing(byte(i)); !isStairs {
 				return byte(i)

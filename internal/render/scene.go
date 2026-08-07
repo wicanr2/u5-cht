@@ -108,8 +108,14 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 		s.drawDungeon(dst)
 		return
 	}
+	// 視線遮蔽:被牆擋住、或落在光照之外的格子不畫(原版 `sub_2DDB0`)。
+	// mask 為 nil 代表這個場合不做遮蔽(戰鬥、石室)。
+	mask := s.State.SightMask()
 	for dy := -half; dy <= half; dy++ {
 		for dx := -half; dx <= half; dx++ {
+			if !game.SightVisible(mask, dx, dy) {
+				continue
+			}
 			s.drawTile(dst, int(s.State.TileAt(s.State.X+dx, s.State.Y+dy)),
 				MapOriginX+(dx+half)*TilePixels,
 				MapOriginY+(dy+half)*TilePixels)
@@ -117,9 +123,15 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 	}
 	// NPC 疊在地形上。原版把 NPC 寫進同一個 11×11 視窗緩衝再一起畫,
 	// 效果等同於「先地形後 NPC」。
+	//
+	// ⚠ 看不到的格子上的 NPC 也不畫 —— 原版是把 NPC 寫進**同一個罩子**,
+	// 而罩子上那一格已經是 0xFF。少了這一段,黑暗裡會浮出一排無主的小人。
 	for _, n := range s.State.VisibleNPCs() {
 		dx, dy := n.X-s.State.X, n.Y-s.State.Y
 		if dx < -half || dx > half || dy < -half || dy > half {
+			continue
+		}
+		if !game.SightVisible(mask, dx, dy) {
 			continue
 		}
 		s.drawTile(dst, n.Tile,
@@ -131,6 +143,9 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 	for _, o := range s.State.VisibleObjects() {
 		dx, dy := o.X-s.State.X, o.Y-s.State.Y
 		if dx < -half || dx > half || dy < -half || dy > half {
+			continue
+		}
+		if !game.SightVisible(mask, dx, dy) {
 			continue
 		}
 		s.drawTile(dst, o.Tile,
