@@ -66,7 +66,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 地點類型 | `DATA.OVL` 0x2AB3 列 9 種;`sub_2D72C` 分派 12 種;**lighthouse 由四座燈塔的座標反推出是 tile 27** | ✅ tile 對應已知 |
 | 進出場景(portal) | ✅ **已實作**(`internal/game`):E 進入、走到邊界問是否離開、離開回城門格、ARARAT 通地下世界。原版分派 `sub_2D72C` 依腳下 tile:16=hut、17=法典聖壇、18=keep、19=village、20=towne、21=castle、22=cave、23=mine、24=dungeon、25=八德聖壇、**27=lighthouse**、61=Blackthorn 宮殿、62=LB 城堡 | ✅ 規則全解 + 已接進引擎 |
 | 地形通行規則 | **已從原版執行檔取得**:`byte_5FF6C` 64 B bitmap(阻擋 195/512)+ `sub_2A610`/`sub_2A674` 判定式,見 `docs/re/02` | ✅ 已接進引擎(走進海裡會顯示「受阻!」) |
-| 移動成本分級 | `"Slow progress!"` / `"Very slow!"` @ `sub_2D0BC` | ⬜ 訊息已定位,規則未讀 |
+| 移動成本分級 | `sub_2D0BC` + `sub_2E24` + `sub_29304` | ✅ **已實作**(`docs/re/38`):草地 0 級、沼澤/灌木/荒漠 1 級、林/丘/山 2 級;代價是**多跑 1–2 個完整世界回合**(怪物照走)+ 多 2 / 4 分鐘;那一步遇上事情就不印慢 |
 | 移動者→模式表 | `byte_5FF8C[mover>>2]`,11 種模式(一般/水上/兩棲/陸上/方向性…) | ⬜ |
 | 世界環繞(wrap) | 已實作並測試 | ✅ |
 | 方向 | `DATA.OVL` 0x2C8C:`North East South West` + `Dir:` | ✅ 中文化(北/東/南/西) |

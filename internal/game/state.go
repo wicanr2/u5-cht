@@ -612,6 +612,9 @@ func (s *State) moveInWorld(d Direction) {
 	}
 	s.X, s.Y = nx, ny
 	s.tick()
+	// 粗糙地形要多付世界回合與時間(原版 `sub_2D0BC`)。
+	// ⚠ 位置在 tick 之後、月門之前 —— 原版 `sub_2D174` 就是這個順序。
+	s.payTerrainCost(int(s.TileAt(nx, ny)))
 	// 踏上月門就被捲走(原版 `sub_E084`)。
 	s.EnterMoongateHere()
 	if loc, ok := u5data.LocationAt(nx, ny); ok {

@@ -200,4 +200,8 @@ const (
 	// "the sun!" / "the night sky! " —— 抬頭看天的兩種結果。
 	MsgTheSun   = "烈日當空!"
 	MsgNightSky = "滿天星斗!"
+
+	// "Slow progress!" / "Very slow!" —— 粗糙地形(原版 `sub_2D0BC`)。
+	MsgSlowProgress = "步履維艱!"
+	MsgVerySlow     = "寸步難行!"
 )
