@@ -1,0 +1,136 @@
+# `.TLK` 對白翻譯指南
+
+派給翻譯 agent 的規格。每一批都照這一份做,不然十一批會譯出十一種語氣。
+
+---
+
+## 1. 語氣
+
+《Ultima V》的英文對白刻意帶古語(`thou` / `thee` / `dost` / `'Tis` / `wilt`)。
+**不要逐字對譯成「你」「這是」** —— 那會把原版最明顯的語言特徵抹掉。
+換成中文對應的文言口吻,對齊《軟體世界》手冊的中世紀羊皮紙腔:
+
+| 英文 | 中文 |
+|---|---|
+| thou / thee / thy | 汝 / 卿 / 汝之 |
+| I / my | 吾 / 吾之 |
+| 'Tis / 'Twas | 此乃 / 那時 |
+| Dost thou…? | 汝可…? |
+| Hail! / Well met! | 幸會! / 有禮了! |
+| Fare thee well! | 珍重! |
+
+**但不是每個人都文謅謅。** 原文自己就分了層,中文跟著分:
+
+| 說話的人 | 語氣 |
+|---|---|
+| 城堡的人、神職、法師、貴族 | 文言(汝 / 卿 / 吾) |
+| 一般村民、農夫、店家 | 平白口語(你 / 我),偶爾一句「俺」 |
+| 孩童 | 短句、直白、天真 |
+| 乞丐、醉漢、盜賊 | 粗俗直接,不要打磨得漂亮 |
+
+判斷依據是**該筆記錄的外觀敘述**(`#desc`)與原文用字 —— 原文用 `Hiya!`
+就不要譯成「幸會」。
+
+## 2. 標點一律全形
+
+`,` `。` `!` `?` `;` `:` `「」` 全部用全形。
+半形標點在中文句子裡是看得出來的醜,而且倚天字庫走 Big5,全形才有字模。
+
+⚠ 檢查工具會直接擋下半形 `,!?;:`。
+
+## 3. 佔位符與控制字元
+
+- 譯文要放**玩家角色名字**的地方寫 `%A`(對應原版 opcode 0x81)。
+  ⚠ **原文沒有玩家名字的段落,譯文不准自己加 `%A`。**
+- 原文裡的 `"` 引號:中文用「」,不要留半形引號。
+- 原文的換行與多餘空白不用保留,引擎會自己排版。
+
+## 4. 名詞一律查表,不要自己翻
+
+**這是硬規則。** 系列共通名要與姊妹專案 u4-cht / u6-cht 對齊,自己譯會漂掉。
+
+| 英文 | 中文 |
+|---|---|
+| Lord British | 不列顛王 |
+| Britannia | 不列顛尼亞 |
+| Avatar | 聖者 |
+| Blackthorn | 黑棘 |
+| Shadowlord / Shadow Lord | 暗影君主 / 影主 |
+| Codex | 終極智慧之寶典 |
+| Iolo / Shamino / Dupre | 尤洛 / 夏米諾 / 杜普瑞 |
+| Britain | 不列顛城 |
+| Moonglow | 月華城 |
+| Jhelom | 傑隆 |
+| Yew | 尤伊 |
+| Minoc | 米諾克 |
+| Trinsic | 特林希克 |
+| Skara Brae | 斯卡拉布雷 |
+| New Magincia | 新馬精西亞 |
+| Cove | 海灣鎮 |
+| Paws | 波斯村 |
+| Buccaneer's Den | 海盜窩 |
+| The Lycaeum | 學苑 |
+| Empath Abbey | 共感修道院 |
+| Serpent's Hold | 巨蛇堡 |
+| Stonegate | 石門 |
+| Windemere | 溫德米爾 |
+| Bordermarch | 邊境堡 |
+| Farthing | 法辛 |
+| Ararat | 亞拉臘 |
+| Fogsbane / Stormcrow / Greyhaven / Waveguide | 破霧塔 / 暴風鴉塔 / 灰港塔 / 導浪塔 |
+| West / North / East Britanny | 西 / 北 / 東不列塔尼 |
+
+八德:Honesty 誠實、Compassion 慈悲、Valour 勇氣、Justice 正義、
+Sacrifice 犧牲、Honour 榮譽、Spirituality 靈性、Humility 謙遜。
+
+裝備、藥草、怪物名見 [`internal/i18n/names.go`](../internal/i18n/names.go);
+表裡沒有的專有名詞,**照原文抄,不要自創** —— 之後統一補。
+
+## 5. 不要翻的東西
+
+- **玩家要打進去的關鍵字**:`name` / `job` / `join` / `bye` / `yes` / `no`
+  以及咒語(`An Nox`)、力量之言(`FALLAX`)、真言。
+  對白裡提到這些字時,**保留英文原字並在後面加中文說明**,
+  例如:`……問吾的 job(職業)吧。`
+  少了這一步,玩家看得懂卻打不出來。
+- 符文、密語(`IMPE`)、數字、專有的地名縮寫。
+
+## 6. 日文那一欄怎麼用
+
+工作單第三欄是 FM Towns 日文版的同一段。它**只當語意佐證** ——
+古英文的雙關與省略吃不準時,看日譯怎麼理解。
+
+⚠ **不是譯名來源。** 日譯多用片假名音譯,搬過來會變成二手轉譯。
+名詞一律回到 §4 的表。日文欄空白是正常的(兩版段落數不一定對得上)。
+
+## 7. 產出格式
+
+一個 Go 檔,`package i18n`,只有一個 `init()` 呼叫 `addTalk`:
+
+```go
+package i18n
+
+// `TOWNE.TLK` 第 N 批(id 1–20)
+
+func init() {
+	addTalk(map[string]string{
+		"TOWNE.TLK#1#desc":  "一名神情鬱鬱的樂師。",
+		"TOWNE.TLK#1#greet": "願卿今日安好!",
+	})
+}
+```
+
+- key **原樣照抄工作單第一欄**,一個字都不能改。
+- 工作單裡的每一段都要有,不能漏、不能多。
+- 長句用 Go 的字串相加換行,不要塞進一行。
+
+## 8. 自我檢查
+
+交件前自己跑一次:
+
+```bash
+tools/dev.sh python3 tools/checktalk.py build/talkbatch/batch-NN.tsv internal/i18n/<你的檔>.go
+```
+
+它查 key 對不對、有沒有漏、半形標點、多餘的 `%A`、整段沒中文(漏翻)。
+**不查文筆** —— 那是 §1–§6 的事。
