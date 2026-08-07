@@ -131,6 +131,8 @@ const (
 	PromptMenu
 	// PromptZtats 是角色數值畫面:左右翻頁、ESC 收起。
 	PromptZtats
+	// PromptPick 是通用選單:上下移動、Enter 選定、ESC 放棄。
+	PromptPick
 	// PromptGuard 是衛兵的盤查:多數地方是 Y / N(要不要繳),
 	// 黑棘的宮殿是打字答密語。
 	PromptGuard
@@ -312,6 +314,8 @@ type State struct {
 	Zstats *Ztats
 	// ShipRigged 是那份 HMS Cape 圖紙的效果:船速加倍(原版 Use case 33)。
 	ShipRigged bool
+	// Pick 是進行中的選單(Prompt == PromptPick 時有效)。
+	Pick *Picker
 	// HasBadge 是有沒有黑棘的黑徽章(原版 `byte_3DFCC`)。
 	//
 	// ⚠ 這一格的存檔位移**還沒釘死**:`sub_1E8D4` 的道具清單讀的是

@@ -186,6 +186,23 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 通用選單(R / W / N / U / M):上下移動、Enter 選定、ESC 放棄。
+	if st.Prompt == gamestate.PromptPick {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowUp):
+			st.PickMove(-1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowDown):
+			st.PickMove(1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.PickChoose()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.PickCancel()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 主選單:上下移動、Enter 選定、ESC 收起(等同「回到景色」)。
 	if st.Prompt == gamestate.PromptMenu {
 		switch {
@@ -474,6 +491,22 @@ func (g *game) Update() error {
 		// F 開砲(船上打舷側 / 陸上要緊鄰大砲)。
 		if inpututil.IsKeyJustPressed(ebiten.KeyF) {
 			st.Fire()
+		}
+		// R 拿武器、W 穿裝備、N 換位、U 用道具、M 調藥 —— 五支都走通用選單。
+		if inpututil.IsKeyJustPressed(ebiten.KeyR) {
+			st.BeginReady()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyW) {
+			st.BeginWear()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+			st.BeginNewOrder()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyU) {
+			st.BeginUse()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyM) {
+			st.BeginMix()
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 			st.Board()

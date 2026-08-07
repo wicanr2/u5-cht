@@ -224,6 +224,27 @@ const (
 	// "You have none!" —— 沒有寶石可看。
 	MsgYouHaveNone = "汝一顆也沒有!"
 
+	// 選單(R / W / N / U / M 共用)。
+	MsgPickWho   = "由誰?"
+	MsgPickItem  = "哪一件?"
+	MsgPickSwap  = "換誰?"
+	MsgPickWith  = "與誰交換?"
+	MsgPickSpell = "調哪個咒語?(照配方各一份)"
+	MsgNevermind = "作罷。"
+	// 特殊道具的中文名(選單上顯示;英文原文見 `docs/re/44` 的表)。
+	MsgItemCarpet    = "魔毯"
+	MsgItemSkullKey  = "骷髏鑰匙"
+	MsgItemAmulet    = "不列顛王的護符"
+	MsgItemCrown     = "不列顛王的王冠"
+	MsgItemSceptre   = "不列顛王的權杖"
+	MsgItemShard     = "寶石碎片"
+	MsgItemSpyglass  = "望遠鏡"
+	MsgItemPlans     = "海角號圖紙"
+	MsgItemSextant   = "六分儀"
+	MsgItemWatch     = "懷錶"
+	MsgItemBadge     = "黑徽章"
+	MsgItemWoodenBox = "檀香木盒"
+
 	// Fire(F)與 Mix(M)。
 	MsgBroadsidesOnly       = "只能打舷側!"
 	MsgBooom                = "轟隆!"

@@ -91,6 +91,13 @@ func (s *Scene) Render() *image.NRGBA {
 		s.drawHints(dst)
 		return dst
 	}
+	// 選單同樣整頁。原版是在地圖旁邊的側欄列候選,但側欄只有 ~16 欄寬,
+	// 中文一列放得下 8 個字 —— 裝備名放不進去。整頁才擺得開。
+	if s.State != nil && s.State.Prompt == game.PromptPick {
+		s.drawLines(dst, s.State.PickLines())
+		s.drawHints(dst)
+		return dst
+	}
 	s.drawMapView(dst)
 	s.drawPanel(dst)
 	s.drawMessages(dst)
@@ -290,6 +297,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "↑↓ 移動,Enter 選定"
 	case game.PromptZtats:
 		hint = "←→ 翻頁,ESC 收起"
+	case game.PromptPick:
+		hint = "↑↓ 移動,Enter 選定,ESC 作罷"
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
 		}
@@ -772,12 +781,15 @@ func creationHint(st *game.State) string {
 }
 
 // drawZtats 畫角色數值畫面(原版的 Ztats)。
-func (s *Scene) drawZtats(dst *image.NRGBA) {
+func (s *Scene) drawZtats(dst *image.NRGBA) { s.drawLines(dst, s.State.ZtatsLines()) }
+
+// drawLines 從固定的起點往下畫幾行 —— 整頁式畫面共用。
+func (s *Scene) drawLines(dst *image.NRGBA, lines []string) {
 	if s.Text == nil {
 		return
 	}
 	const top = 88
-	for i, line := range s.State.ZtatsLines() {
+	for i, line := range lines {
 		s.Text.Draw(dst, MapOriginX, top+i*LineHeight, line)
 	}
 }
