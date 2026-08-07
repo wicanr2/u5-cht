@@ -56,6 +56,8 @@ type Bundle struct {
 	// Story 是 STORY.DAT,IntroArt 是六個 STORY*.16。
 	Story    *u5data.TextFile
 	Misc     *u5data.TextFile
+	// EndMsg 是 ENDMSG.DAT —— 結局那一幕的十一段文字。
+	EndMsg   *u5data.TextFile
 	IntroArt []u5data.PictureSet
 	CJK      *cjk.Font
 }
@@ -116,6 +118,11 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("MISCMSG.DAT:%v", err))
 	} else {
 		b.Misc = tf
+	}
+	if tf, err := u5data.LoadText(filepath.Join(opts.GameData, "ENDMSG.DAT")); err != nil {
+		warn = append(warn, fmt.Sprintf("ENDMSG.DAT:%v", err))
+	} else {
+		b.EndMsg = tf
 	}
 	for _, name := range u5data.IntroStoryFiles {
 		set, err := u5data.LoadPictures(filepath.Join(opts.GameData, name))

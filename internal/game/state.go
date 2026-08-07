@@ -119,6 +119,8 @@ const (
 	PromptBlackthorn
 	// PromptArrest 是「汝束手就擒否?」—— 只收 Y / N。
 	PromptArrest
+	// PromptEnding 是結局:先答一個 Y / N,之後按任意鍵翻頁。
+	PromptEnding
 	// PromptYell 是 Yell 指令的「what?」:打一個力量之言或暗影君主的名字。
 	//
 	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
@@ -232,6 +234,13 @@ type State struct {
 	Codex *Codex
 	// Blackthorn 是進行中的審問(Prompt == PromptBlackthorn 時有效)。
 	Blackthorn *Blackthorn
+	// Ending 是進行中的結局(Prompt == PromptEnding 時有效)。
+	Ending *Ending
+	// EndMsg 是 ENDMSG.DAT —— 結局的十一段文字。
+	EndMsg *u5data.TextFile
+	// SandalwoodBox 是有沒有那只檀香木盒(原版 byte_3DFCD)——
+	// 真結局的**唯一**額外條件。
+	SandalwoodBox bool
 	// Shards[i] 是有沒有第 i 塊寶石碎片(原版 byte_3DFC4)。
 	Shards [u5data.ShadowlordCount]bool
 	// ShrineQuestGiven / ShrineQuestActive 是八德的兩組位元
@@ -769,6 +778,7 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	for i := range s.Shards {
 		s.Shards[i] = sv.Shards[i] != 0
 	}
+	s.SandalwoodBox = sv.SandalwoodBox != 0
 	s.removed = nil
 	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
 	s.Location = 0

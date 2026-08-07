@@ -69,6 +69,10 @@ func (s *State) ExportSave(base *u5data.Save) (*u5data.Save, error) {
 	out.ShadowlordAt = s.ShadowlordAt
 	out.ShadowlordHere = s.ShadowlordHere
 	out.RemovedNPC = s.RemovedNPC
+	out.SandalwoodBox = 0
+	if s.SandalwoodBox {
+		out.SandalwoodBox = 1
+	}
 	// ⚠ 只覆蓋前三格 —— 第 4 個位元組原版沒用,底稿裡有什麼就留什麼。
 	for i := range s.Shards {
 		out.Shards[i] = 0

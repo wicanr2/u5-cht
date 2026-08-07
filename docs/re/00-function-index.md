@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **528** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **544** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -17,7 +17,7 @@
 | `sub_B44` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `29-npc-behaviour-and-arrest.md` |
 | `sub_B98` | else if (random(0, 0xFF) < 0x80)          sub_B98(i);          // ★ 一半逃跑 | `04-npc-schedule-and-clock.md`, `09-items-and-creatures.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_C10` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `06-conversation-script.md`, `14-combat-maps.md`, `29-npc-behaviour-and-arrest.md` |
-| `sub_C74` | 場景裡與 NPC 的戰鬥**(`sub_C74`)—— 敵對的非衛兵貼上來時目前只印說明。 | `29-npc-behaviour-and-arrest.md` |
+| `sub_C74` | 7. 補記:在城裡跟 NPC 打起來(`sub_C74`),以及「誰再也不會出現」 | `29-npc-behaviour-and-arrest.md` |
 | `sub_EA0` | 梯子  /  0xC8 上 / 0xC9 下 / 0x86 活板門(下)  /  站在上面按 **K**(Klimb)  /  `sub_EA0` → `sub_758(0 或 2, 196)`  / | `03-scene-entry-and-tile-semantics.md` |
 | `sub_154C` | if (對話號碼 == 0xFE)      sub_154C(npc);      // 特殊 | `29-npc-behaviour-and-arrest.md` |
 | `sub_1678` | 0  /  空槽  /  `sub_1678` 清表寫 0;`sub_118CC` 用 `!= 0` 找空槽  / | `11-map-objects.md` |
@@ -113,6 +113,10 @@
 | `sub_1258C` | 武具店  /  0x81  /  `sub_1258C`  /  9  /  ✅ 買 + 賣  / | `10-shop-prices-and-trade.md` |
 | `sub_12794` | `sub_12794` 收錢時有一條**與地點綁定的例外**: | `10-shop-prices-and-trade.md` |
 | `sub_12838` | 解毒 20、療傷 35、復活 200。各有前置判斷(`sub_12838`): | `10-shop-prices-and-trade.md` |
+| `sub_13258` | 製作名單(`sub_13258`,含 "to Lord British at Origin Systems!")。 | `30-ending.md` |
+| `sub_134CC` | 王座廳的 11×11 畫面(`MISCMAPS.DAT` 位移 0x210)與走位動畫(`sub_134CC`)—— | `30-ending.md` |
+| `sub_13554` | for (;;) { sub_13554(1); sub_13554(3); sub_13554(4); sub_13554(5); }  // ★ 無窮迴圈 | `30-ending.md` |
+| `sub_135FC` | 位址:`sub_135FC`(整幕)、`sub_134CC`(走位動畫)、`sub_13258`(製作名單) | `30-ending.md` |
 | `sub_14F68` | 種類 2 的語意確定:`sub_14F68` 對它算 `random(1, 等級 × 3)`、上限 90 | `21-chests-fields-locks.md` |
 | `sub_15020` | 獎品(`sub_15020`,DOS `0x4134` / `0x413C` / `0x4144`) | `21-chests-fields-locks.md` |
 | `sub_1509C` | ├ sub_1509C  隨機物品(48 B 的表) | `21-chests-fields-locks.md` |
@@ -259,7 +263,7 @@
 | `sub_2BC34` | 2. 沿線一步一步走,每一步 `sub_2BC34` 查那一格擋不擋;**擋住就停在那裡**。 | `20-projectiles.md` |
 | `sub_2BC70` | ├ sub_2BC70   把像素座標換回格子,順便判出不出界 | `20-projectiles.md` |
 | `sub_2C4F4` | } else { "Blocked!"; 嗶一聲 sub_2C4F4(165, 200); } | `03-scene-entry-and-tile-semantics.md` |
-| `sub_2C740` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `11-map-objects.md`, `14-combat-maps.md`, `18-dungeons.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
+| `sub_2C740` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `11-map-objects.md`, `14-combat-maps.md`, `18-dungeons.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `30-ending.md` |
 | `sub_2CBEC` | An Ylem(`sub_18C00` 的 32-case 消除表)、In Por(瞬移,`sub_2CBEC`)、 | `17-magic.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md` |
 | `sub_2D2D0` | (`sub_2D2D0` 的 `switch (風 − 1)`)算 (dx, dy) 讀出來的: | `23-wind-and-sailing.md` |
@@ -316,6 +320,8 @@
 | `byte_3DFBC` | 上船時原本騎的東西會一起帶上:魔毯記進 `byte_3DFBC`、小艇讓船上的小艇數 +1 | `11-map-objects.md` |
 | `byte_3DFC0` | 地點 == 0x12 且 byte_3DFC0 == 0 → 「Absorbed!」 | `17-magic.md` |
 | `byte_3DFC4` | 碎片的持有旗標是 `byte_3DFC4[3]`,存檔位移 **0x0210**(4 B,第 4 B 未用)—— | `13-save-writing.md`, `28-shadowlords-and-blackthorn.md` |
+| `byte_3DFC8` | `byte_3DFC8`..`byte_3DFCD` 六個單位元組,之後 0x021A 就是既有且已驗過的 | `30-ending.md` |
+| `byte_3DFCD` | if (答案 == 'Y' && byte_3DFCD != 0) {               // ★ 兩個條件是 and | `30-ending.md` |
 | `byte_3DFD0` | `0x021A`  /  `byte_3DFD0`  /  裝備持有數 48 B,索引 = 裝備編號  / | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md`, `22-moongates.md` |
 | `byte_3E000` | 3. ★ byte_3E000[咒語] −−                          ← 從這裡開始都不退 | `13-save-writing.md`, `17-magic.md` |
 | `byte_3E030` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
@@ -424,7 +430,16 @@
 | `byte_542B0` | `byte_54298` / `byte_542B0`  /  擺放座標(FM Towns 640×480)  / | `24-intro.md` |
 | `byte_542C8` | `byte_542C8[頁]`  /  頁的種類  / | `24-intro.md` |
 | `byte_54524` | ⚠⚠ **`byte_54524` 不是玩家那張通行表。** 玩家走 `byte_5FF6C`,NPC 走這張, | `12-npc-movement.md`, `20-projectiles.md` |
-| `byte_54700` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
+| `byte_54700` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `30-ending.md` |
+| `byte_54721` | `byte_54721`  /  0x021  /  1  /  「汝可帶來了吾的盒子?」  / | `30-ending.md` |
+| `byte_54749` | `byte_54749`  /  0x049  /  2  /  「那只檀香木盒……汝可帶來了?」  / | `30-ending.md` |
+| `byte_547AB` | `byte_547AB`  /  0x0AB  /  3  /  「不列顛王小心翼翼地打開盒子……」  / | `30-ending.md` |
+| `byte_547D3` | `byte_547D3`  /  0x0D3  /  4  /  星界器物  / | `30-ending.md` |
+| `byte_54867` | `byte_54867`  /  0x167  /  6  /  「它將帶我們脫出此獄!」  / | `30-ending.md` |
+| `byte_548C9` | `byte_548C9`  /  0x1C9  /  7  /  「比蒙丹之惡更為久遠」  / | `30-ending.md` |
+| `byte_54911` | `byte_54911`  /  0x211  /  8  /  「但月之球的力量,比那更為久遠!」  / | `30-ending.md` |
+| `byte_5494B` | `byte_5494B`  /  0x24B  /  9  /  「隨吾來!」  / | `30-ending.md` |
+| `byte_549D5` | `byte_549D5`  /  0x2D5  /  10  /  「那麼,搬張椅子坐下吧。」  / | `30-ending.md` |
 | `byte_54A6D` | `byte_54A6D`  /  28  /  「……汝跪倒在聖壇之前。」  / | `27-codex-and-the-shrine-chamber.md` |
 | `byte_54AE1` | `byte_54AE1`  /  31  /  「聖壇開口,一項試煉就此降下!」  / | `27-codex-and-the-shrine-chamber.md` |
 | `byte_54BB9` | `byte_54BB9`  /  36  /  「做得好!」  / | `27-codex-and-the-shrine-chamber.md` |
@@ -456,8 +471,8 @@
 | `byte_5FF8C` | switch (byte_5FF8C[mover >> 2]) {          // 移動者 → 移動模式(0–10) | `02-movement-and-tile-flags.md` |
 | `byte_5FFA8` | case 5: /* 方向性通行:用 byte_5FFA8[tile] / byte_5FF6C[tile] 的方向 bit */ | `02-movement-and-tile-flags.md` |
 | `byte_60018` | 1. 擋箭的表:`byte_60018`(DOS `0x6A24`) | `20-projectiles.md` |
-| `word_3DDC4` | mov  word_3DDC4[eax], dx     ; 目前生命 —— 一併補滿 | `19-levelup.md` |
-| `word_3DDC6` | mov  word_3DDC6[eax], dx     ; 生命上限 | `19-levelup.md` |
+| `word_3DDC4` | 而且做兩件事:狀態 `'D'` → `'G'`,**以及** `word_3DDC4 = word_3DDC6`(目前 HP = 最大 HP)。 | `19-levelup.md`, `30-ending.md` |
+| `word_3DDC6` | 而且做兩件事:狀態 `'D'` → `'G'`,**以及** `word_3DDC4 = word_3DDC6`(目前 HP = 最大 HP)。 | `19-levelup.md`, `30-ending.md` |
 | `word_3DDC8` | movsx eax, word_3DDC8[eax]   ; 經驗值(紀錄 0x14) | `19-levelup.md` |
 | `word_3DFB4` | byte_3DDB0(2)  byte_3DDB4(512 名冊)  word_3DFB4  word_3DFB6 | `10-shop-prices-and-trade.md`, `13-save-writing.md` |
 | `word_3DFB6` | byte_3DDB0(2)  byte_3DDB4(512 名冊)  word_3DFB4  word_3DFB6 | `10-shop-prices-and-trade.md`, `11-map-objects.md`, `13-save-writing.md` |
@@ -499,6 +514,7 @@
 | `dword_4FD50` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md` |
 | `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md` |
 | `dword_541B4` | `dword_541B4[頁]`  /  這一頁的文字在 `STORY.DAT` 裡的**檔案位移**  / | `24-intro.md` |
+| `dword_54828` | `dword_54828`  /  0x128  /  5  /  「來自汝與吾同稱為故鄉的那個世界」  / | `30-ending.md` |
 | `dword_54A98` | `dword_54A98`  /  29  /  「汝欲冥想何種美德?」  / | `27-codex-and-the-shrine-chamber.md` |
 | `dword_54D80` | `byte_54C7F`…`dword_54D80`  /  41–44  /  四段符文  / | `27-codex-and-the-shrine-chamber.md` |
 | `dword_552C4` | mov  ax, word ptr dword_552C4[edi*4]  ; base | `10-shop-prices-and-trade.md` |

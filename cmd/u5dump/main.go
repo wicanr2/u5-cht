@@ -409,7 +409,7 @@ func cmdScene(args []string) error {
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
 		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Items: bundle.Items,
 		CombatMaps: bundle.Combat, Creatures: bundle.Creatures, Stats: bundle.Stats,
-		Spells: bundle.Spells, Story: bundle.Story, Misc: bundle.Misc, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
+		Spells: bundle.Spells, Story: bundle.Story, Misc: bundle.Misc, EndMsg: bundle.EndMsg, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
 		Objects: bundle.Objects, UnderObjects: bundle.UnderObjs,
 		Clock: game.NewClock(), MaxMessages: 8,
 	}
@@ -736,24 +736,33 @@ func playScript(st *game.State, script string) error {
 		case 'X':
 			st.Exit()
 		case 'y':
-			if st.Prompt == game.PromptArrest {
+			switch st.Prompt {
+			case game.PromptArrest:
 				st.AnswerArrest(true)
-			} else {
+			case game.PromptEnding:
+				st.AnswerEnding(true)
+			default:
 				st.Answer(true)
 			}
 		case 'N':
-			if st.Prompt == game.PromptArrest {
+			switch st.Prompt {
+			case game.PromptArrest:
 				st.AnswerArrest(false)
-			} else {
+			case game.PromptEnding:
+				st.AnswerEnding(false)
+			default:
 				st.Answer(false)
 			}
 		case 'I':
 			st.BeginIntro() // 播開場動畫(截圖用:接著用 . 翻頁)
 		case '.':
 			// 翻頁:開場動畫與寶典共用(兩者都是「一頁一個按鍵」)。
-			if st.Prompt == game.PromptCodex {
+			switch st.Prompt {
+			case game.PromptCodex:
 				st.AdvanceCodex()
-			} else {
+			case game.PromptEnding:
+				st.AdvanceEnding()
+			default:
 				st.AdvanceIntro()
 			}
 		case 'P':
@@ -774,6 +783,8 @@ func playScript(st *game.State, script string) error {
 			st.BeginInterrogation() // 黑棘的審問(接著用 "…" 回答)
 		case 'G':
 			st.CallGuards() // 叫衛兵(衛兵敵對、其餘一半逃跑)
+		case 'Z':
+			st.BeginEnding() // 結局(接著用 y/N 回答,再用 . 翻頁)
 		case 'f':
 			st.DungeonForward(false) // 地牢:前進
 		case 'b':
@@ -784,7 +795,7 @@ func playScript(st *game.State, script string) error {
 			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、R 讀寶典、A 黑棘審問、G 叫衛兵、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、R 讀寶典、A 黑棘審問、G 叫衛兵、Z 結局、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

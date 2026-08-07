@@ -139,6 +139,22 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 結局:先答一個 Y / N,之後按任意鍵翻頁。**沒有 ESC** —— 這是最後一幕。
+	if st.Prompt == gamestate.PromptEnding {
+		if st.Ending != nil && st.Ending.Asking {
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyY):
+				st.AnswerEnding(true)
+			case inpututil.IsKeyJustPressed(ebiten.KeyN):
+				st.AnswerEnding(false)
+			}
+		} else if len(inpututil.AppendJustPressedKeys(nil)) > 0 {
+			st.AdvanceEnding()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 讀寶典:任意鍵翻頁,ESC 直接闔上。
 	if st.Prompt == gamestate.PromptCodex {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
@@ -441,6 +457,7 @@ func main() {
 		Spells:       bundle.Spells,
 		Story:        bundle.Story,
 		Misc:         bundle.Misc,
+		EndMsg:       bundle.EndMsg,
 		Dungeons:     bundle.Dungeons,
 		Moons:        bundle.Moons,
 		WindDelay:    bundle.WindDelay,
