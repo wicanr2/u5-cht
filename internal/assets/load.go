@@ -49,7 +49,10 @@ type Bundle struct {
 	Objects   *u5data.ObjectSet     // 地表的地圖物件(BRIT.OOL)
 	UnderObjs *u5data.ObjectSet     // 地下世界的地圖物件(UNDER.OOL)
 	Shops     *u5data.ShopSet       // 商店目錄與商店對白
-	Items     *u5data.ItemTable     // 48 件裝備的名字
+	Items     *u5data.ItemTable     // 48 件裝備的名字(長名)
+	// SpecialItems 是短名字表:U 指令的 22 個特殊道具 + 48 件裝備的縮寫名
+	// (同一批裝備在原版有長短兩套名字,見 `docs/re/56`)。
+	SpecialItems *u5data.SpecialItemTable
 	Creatures *u5data.CreatureTable // 生物名
 	Charset   *u5data.Charset
 	// DungeonViews 是 DNG1/2/3.16 的透視切片,索引 0..2 對應三種外觀。
@@ -190,6 +193,13 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("裝備表:%v", err))
 	} else {
 		b.Items = it
+	}
+
+	// 短名字表(U 指令的特殊道具 + 裝備的縮寫名,見 `docs/re/56`)。
+	if si, err := u5data.LoadSpecialItems(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("特殊道具短名表:%v", err))
+	} else {
+		b.SpecialItems = si
 	}
 
 	if ct, err := u5data.LoadCreatureTable(opts.GameData); err != nil {

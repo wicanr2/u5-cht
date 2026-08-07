@@ -41,3 +41,29 @@ func TestTimeOfDayIsNotEnglish(t *testing.T) {
 		}
 	}
 }
+
+// U 指令的 22 個特殊道具:除了原版留的八個佔位名,其餘都要有中譯。
+//
+// ⚠ key 是原版的**縮寫**(`Magic Crpt` 不是 `Magic Carpet`)—— 查表用的
+// 就是檔案裡那個字串,寫成完整拼法會查不到而默默顯示英文。
+func TestSpecialItemNamesAreTranslated(t *testing.T) {
+	want := []string{
+		"Magic Crpt", "Skull Keys", "Amulet", "Crown", "Sceptre",
+		"Shard/Falsehd", "Shard/Hatred", "Shard/Cowrdce",
+		"Spyglass", "HMS Cape Plan", "Sextant", "Pocket Watch",
+		"Black Badge", "Wooden Box",
+	}
+	for _, en := range want {
+		zh := Name(en)
+		if zh == "" || zh == en {
+			t.Errorf("%q 沒有中譯", en)
+			continue
+		}
+		for _, r := range zh {
+			if r < 128 {
+				t.Errorf("%q 的譯名 %q 裡有 ASCII 字元 %q", en, zh, r)
+				break
+			}
+		}
+	}
+}

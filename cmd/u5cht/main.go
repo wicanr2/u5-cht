@@ -717,6 +717,7 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		Talks:        bundle.Talks,
 		Shops:        bundle.Shops,
 		Items:        bundle.Items,
+		SpecialItems: bundle.SpecialItems,
 		Objects:      bundle.Objects,
 		CombatMaps:   bundle.Combat,
 		Stats:        bundle.Stats,

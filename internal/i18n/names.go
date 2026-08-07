@@ -178,6 +178,24 @@ var equipment = map[string]string{
 	"Mystic Sword":   "秘法之劍",
 	// 飾品
 	"Ring of Invisibility": "隱形戒指",
+
+	// U 指令的特殊道具 —— **短名字表**(`DATA.OVL` 0x1946,見 `docs/re/56`)。
+	// ⚠ key 要照原版的縮寫寫死(`Magic Crpt` 不是 `Magic Carpet`),
+	// 因為查表用的就是檔案裡那個字串。
+	"Magic Crpt":    "魔毯",
+	"Skull Keys":    "骷髏鑰匙",
+	"Amulet":        "護符",
+	"Crown":         "王冠",
+	"Sceptre":       "權杖",
+	"Shard/Falsehd": "虛偽之晶",
+	"Shard/Hatred":  "憎恨之晶",
+	"Shard/Cowrdce": "怯懦之晶",
+	"Spyglass":      "望遠鏡",
+	"HMS Cape Plan": "海角號圖紙",
+	"Sextant":       "六分儀",
+	"Pocket Watch":  "懷錶",
+	"Black Badge":   "黑徽章",
+	"Wooden Box":    "檀木盒",
 	"Ring of Protection":   "防護戒指",
 	"Ring of Regeneration": "再生戒指",
 	"Amulet/Turning":       "轉化護符",

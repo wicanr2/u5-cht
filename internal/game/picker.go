@@ -3,6 +3,8 @@ package game
 import (
 	"fmt"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
+
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -164,11 +166,26 @@ func (s *State) BeginUse() bool {
 }
 
 // usableEntries 是身上有的特殊道具(原版 `sub_1E8D4` 那份清單)。
+//
+// 名字走**原版的短名字表**(`docs/re/56`):索引 0 = `Magic Crpt` = case 16,
+// 由 `i18n.Name` 翻成中文,翻不到就照原樣顯示英文短名。
+// 這樣清單的內容與順序來自玩家自己的檔案,而不是我在程式裡打的一串字。
 func (s *State) usableEntries() []PickEntry {
 	var out []PickEntry
-	add := func(have bool, label string, item int) {
+	// label 先查短名字表 + i18n,查不到才退回寫死的中文。
+	label := func(code int, fallback string) string {
+		en := s.SpecialItems.NameForUseCode(code)
+		if en == "" || u5data.SpecialItemPlaceholder(en) {
+			return fallback
+		}
+		if zh := i18n.Name(en); zh != "" && zh != en {
+			return zh
+		}
+		return en
+	}
+	add := func(have bool, name string, item int) {
 		if have {
-			out = append(out, PickEntry{Label: label, Value: item})
+			out = append(out, PickEntry{Label: label(item, name), Value: item})
 		}
 	}
 	add(s.Inventory.Carpets > 0, MsgItemCarpet, UseCarpet)
@@ -186,9 +203,9 @@ func (s *State) usableEntries() []PickEntry {
 	// 所以**先無條件列出來**。列了但沒有比不列好:效果本身是照原版做的,
 	// 缺的只是「有沒有」那一格 —— 而藏起來會讓玩家以為這幾樣沒實作。
 	out = append(out,
-		PickEntry{Label: MsgItemSpyglass, Value: UseSpyglass},
-		PickEntry{Label: MsgItemSextant, Value: UseSextant},
-		PickEntry{Label: MsgItemWatch, Value: UseWatch})
+		PickEntry{Label: label(UseSpyglass, MsgItemSpyglass), Value: UseSpyglass},
+		PickEntry{Label: label(UseSextant, MsgItemSextant), Value: UseSextant},
+		PickEntry{Label: label(UseWatch, MsgItemWatch), Value: UseWatch})
 	return out
 }
 

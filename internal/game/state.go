@@ -159,6 +159,8 @@ type State struct {
 	CombatMaps *u5data.CombatMapSet
 	// Creatures 是生物名表,戰鬥時報敵人名字用;可為 nil。
 	Creatures *u5data.CreatureTable
+	// SpecialItems 是 U 指令的短名字表(`docs/re/56`);可為 nil。
+	SpecialItems *u5data.SpecialItemTable
 	// Stats 是戰鬥數值(怪物三圍、裝備防禦 / 射程 / 類別);可為 nil。
 	Stats *u5data.CombatStats
 	// Spells 是咒語表(名稱 / 圈數 / 藥草 / 可施法場合);可為 nil。
