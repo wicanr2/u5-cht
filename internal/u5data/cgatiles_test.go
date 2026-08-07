@@ -166,3 +166,53 @@ func TestLoadTileSetForMapsCGAOntoTheSixteenColourIndex(t *testing.T) {
 		t.Error("CGA 與 EGA 的 tileset 完全相同 —— .4 沒有被讀進來")
 	}
 }
+
+// ★ `EGAPalette` 必須與**原版自己載入的那張表**逐格相符。
+//
+// 這條是整份調色盤從「抄慣例」升級成「從原版推導」的那一步。
+// 它同時釘住三件事:表的位移 0x52EE、6-bit 值 → RGB 的換算、以及色號 6
+// **是暗黃不是棕**(慣例的棕是 0x14,原版寫的是 0x06)。
+func TestEGAPaletteMatchesTheTableInDataOVL(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA,跳過需要原版資料的測試")
+	}
+	pal, overscan, err := LoadEGAPalette(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range pal {
+		if pal[i] != EGAPalette[i] {
+			t.Errorf("色號 %d:表裡是 %v,常數是 %v", i, pal[i], EGAPalette[i])
+		}
+	}
+	// 邊框是黑的(表的第 17 個值是 0)。
+	if overscan != (EGAPalette[0]) {
+		t.Errorf("overscan 是 %v,預期與色號 0 相同(黑)", overscan)
+	}
+	// 色號 6 特別點出來 —— 這是最容易被「修回」慣例的一格。
+	if got := pal[6]; got.R != 0xAA || got.G != 0xAA || got.B != 0x00 {
+		t.Errorf("色號 6 是 %v,原版載的是 0x06 = 暗黃 (AA,AA,00);棕色 0x14 是別的遊戲的慣例", got)
+	}
+}
+
+// 6-bit 調色盤值 → RGB 的四級換算,連兩個容易搞混的值一起釘住。
+func TestEGAColorFromValueHasFourLevelsPerChannel(t *testing.T) {
+	cases := map[byte][3]byte{
+		0x00: {0x00, 0x00, 0x00}, // 黑
+		0x01: {0x00, 0x00, 0xAA}, // 藍(主級)
+		0x06: {0xAA, 0xAA, 0x00}, // ★ 暗黃 —— 原版色號 6
+		0x14: {0xAA, 0x55, 0x00}, // ★ 棕 —— 慣例的色號 6,原版**沒用**
+		0x07: {0xAA, 0xAA, 0xAA}, // 淺灰
+		0x38: {0x55, 0x55, 0x55}, // 深灰(只有次級)
+		0x3F: {0xFF, 0xFF, 0xFF}, // 白(主級 + 次級)
+		0x3E: {0xFF, 0xFF, 0x55}, // 黃
+	}
+	for v, want := range cases {
+		got := EGAColorFromValue(v)
+		if got.R != want[0] || got.G != want[1] || got.B != want[2] {
+			t.Errorf("0x%02X → (%02X,%02X,%02X),預期 (%02X,%02X,%02X)",
+				v, got.R, got.G, got.B, want[0], want[1], want[2])
+		}
+	}
+}

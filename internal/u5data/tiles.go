@@ -38,6 +38,18 @@ func (t *Tile) At(x, y int) byte {
 //
 // **Tile.Pix 存的就是這一組索引。** 兩個來源在載入時都已經正規化成標準 EGA:
 // DOS 的 `TILES.16` 本來就是,FM Towns 的 `EGA*.TIL` 由 `tileColorRemap` 換過。
+//
+// ★ **色號 6 是暗黃(0xAAAA00),不是一般說的棕(0xAA5500)。**
+// 這不是選擇,是原版自己載進去的:`EGA.DRV` 與 `T1K.DRV` 都用
+// `int 10h` AH=10h/AL=02h 一次載入 17 B 的調色盤表,而那張表在
+// `DATA.OVL` 0x52EE(`EGAPaletteTableOffset`),第 7 個值是 **0x06**。
+// EGA 的調色盤值裡棕色是 **0x14**(次級綠位元),0x06 是「紅 + 綠皆為主級」= 暗黃。
+//
+// 色號 6 佔整份 tileset 的 **7.70%**(黑與白之後第三多)—— 木地板、門、桌子、
+// 箱子、泥土全是它,所以這一格錯了每一張畫面都會偏色。
+//
+// 其餘 15 格與那張表逐一相符(`TestEGAPaletteMatchesTheTableInDataOVL`),
+// 所以這份常數現在是**從原版的表推導出來的**,不是抄慣例。
 var EGAPalette = [16]color.NRGBA{
 	{0x00, 0x00, 0x00, 0xFF}, // 0  黑
 	{0x00, 0x00, 0xAA, 0xFF}, // 1  藍
@@ -45,7 +57,7 @@ var EGAPalette = [16]color.NRGBA{
 	{0x00, 0xAA, 0xAA, 0xFF}, // 3  青
 	{0xAA, 0x00, 0x00, 0xFF}, // 4  紅
 	{0xAA, 0x00, 0xAA, 0xFF}, // 5  洋紅
-	{0xAA, 0x55, 0x00, 0xFF}, // 6  棕
+	{0xAA, 0xAA, 0x00, 0xFF}, // 6  暗黃 ★ 不是棕 —— 見 EGAPaletteTableOffset
 	{0xAA, 0xAA, 0xAA, 0xFF}, // 7  淺灰
 	{0x55, 0x55, 0x55, 0xFF}, // 8  深灰
 	{0x55, 0x55, 0xFF, 0xFF}, // 9  亮藍
@@ -410,4 +422,108 @@ func LoadTileSetFor(dir string, m DisplayMode) ([]Tile, error) {
 		}
 	}
 	return tiles, nil
+}
+
+// 原版載入的 EGA / Tandy 調色盤表
+//
+// `EGA.DRV` 與 `T1K.DRV` 的初始化序列在設完模式之後都做同一件事:
+//
+//	pop     dx              ; DX = 呼叫端傳進來的 BX
+//	add     dx, 24h         ; DX = BX + 0x24
+//	push    ds / pop es     ; ES = DS
+//	mov     al, 2
+//	mov     ah, 10h
+//	int     10h             ; 一次載入 ES:DX 起的 17 B 調色盤表
+//
+// ★ **表的位址是呼叫端給的,不在驅動程式裡** —— 而兩個驅動程式算的都是
+// `BX + 0x24`、呼叫端又是同一段遊戲程式碼。所以 **EGA 與 Tandy 載的是同一張表**:
+// 這不是「比對兩張表發現一樣」,是**根本只有一張**。
+// 兩者的差別只在 BIOS 模式(0Dh vs 9),畫面顏色相同。
+//
+// 表本體在 `DATA.OVL` 0x52EE,內容是:
+//
+//	00 01 02 03 04 05 06 07 38 39 3A 3B 3C 3D 3E 3F   16 個調色盤暫存器
+//	00                                                overscan(邊框)
+//
+// # 三條獨立佐證,不是「找到一段看起來像的資料」
+//
+// 1. 全部 17 個值都 ≤ 0x3F(調色盤值只有 6 bit),而且這段前後都是 0 填充;
+//    整個 `gamedata/` 只有這一處出現這個 pattern。
+// 2. 它正是 EGA 十六色的標準表 —— **只有第 7 個值不同**(0x06 而非慣例的 0x14)。
+// 3. ★ 反推 `BX = 0x52EE − 0x24 = 0x52CA`,那裡是一個顯示參數結構:
+//
+//	+0x00  0
+//	+0x02  8, 8            ← 字元格 8×8
+//	+0x06  16, 16          ← 圖磚 16×16
+//	+0x18  0x013F = 319    ← 螢幕最大 X(320 − 1)
+//	+0x1C  0x00C7 = 199    ← 螢幕最大 Y(200 − 1)
+//	+0x24  調色盤表        ← 驅動程式算的正是這個位移
+//
+//    319×199 與 8×8 / 16×16 一次全部對上 —— 這塊就是驅動程式收到的那個結構,
+//    而調色盤表確實掛在它的 +0x24。
+const (
+	// EGAPaletteTableOffset 是那張 17 B 表在 `DATA.OVL` 裡的位移。
+	EGAPaletteTableOffset = 0x52EE
+	// EGAPaletteTableSize 是表的長度(16 個暫存器 + 1 個 overscan)。
+	EGAPaletteTableSize = 17
+)
+
+// EGAColorFromValue 把一個 EGA 調色盤值(6 bit)換成 RGB。
+//
+// 位元佈局是 `r g b R G B`:bit 5/4/3 是次級(secondary)的紅綠藍,
+// bit 2/1/0 是主級(primary)。每個通道兩個位元 → 四級:
+//
+//	00 → 0x00    01(只有次級)→ 0x55    10(只有主級)→ 0xAA    11 → 0xFF
+//
+// 所以 0x06(000110)是紅與綠皆主級 = 暗黃,而棕色是 0x14(010100:紅主級 + 綠次級)。
+func EGAColorFromValue(v byte) color.NRGBA {
+	level := func(primary, secondary bool) byte {
+		switch {
+		case primary && secondary:
+			return 0xFF
+		case primary:
+			return 0xAA
+		case secondary:
+			return 0x55
+		}
+		return 0x00
+	}
+	return color.NRGBA{
+		R: level(v&0x04 != 0, v&0x20 != 0),
+		G: level(v&0x02 != 0, v&0x10 != 0),
+		B: level(v&0x01 != 0, v&0x08 != 0),
+		A: 0xFF,
+	}
+}
+
+// ParseEGAPaletteTable 從 `DATA.OVL` 的內容讀出原版載入的 16 色調色盤。
+//
+// 回傳的第 17 個值(overscan / 邊框色)另外給,因為它不是圖磚用的顏色。
+func ParseEGAPaletteTable(ovl []byte) (pal [16]color.NRGBA, overscan color.NRGBA, err error) {
+	end := EGAPaletteTableOffset + EGAPaletteTableSize
+	if len(ovl) < end {
+		return pal, overscan, fmt.Errorf("DATA.OVL 只有 %d B,放不下 0x%X 的調色盤表",
+			len(ovl), EGAPaletteTableOffset)
+	}
+	raw := ovl[EGAPaletteTableOffset:end]
+	// 調色盤值只有 6 bit —— 有超出的就是位移不對。
+	for i, v := range raw {
+		if v > 0x3F {
+			return pal, overscan, fmt.Errorf("第 %d 個調色盤值是 0x%02X,超過 6 bit", i, v)
+		}
+	}
+	for i := 0; i < 16; i++ {
+		pal[i] = EGAColorFromValue(raw[i])
+	}
+	return pal, EGAColorFromValue(raw[16]), nil
+}
+
+// LoadEGAPalette 從 `DATA.OVL` 讀出原版的調色盤。
+func LoadEGAPalette(dir string) ([16]color.NRGBA, color.NRGBA, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, "DATA.OVL"))
+	if err != nil {
+		var pal [16]color.NRGBA
+		return pal, color.NRGBA{}, err
+	}
+	return ParseEGAPaletteTable(raw)
 }
