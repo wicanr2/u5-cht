@@ -232,6 +232,10 @@ func (s *State) stepNPC(i int) {
 
 	switch rt.Mode {
 	case ModeIdle:
+		// ⚠ **閒置不等於靜止。** 走到崗位之後才輪到排程裡的**行為型別**接手
+		//(原版 `sub_9690` 在同層時呼叫 `sub_95BC`)—— 遊走、怕生、跟隨、
+		// 敵對追擊全在那裡。見 npcai.go。
+		s.npcAIStep(i)
 		return
 	case ModeOffscreen:
 		// 玩家看不到那一層,原版直接把 NPC 放到目標位置。

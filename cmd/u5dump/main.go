@@ -736,9 +736,17 @@ func playScript(st *game.State, script string) error {
 		case 'X':
 			st.Exit()
 		case 'y':
-			st.Answer(true)
+			if st.Prompt == game.PromptArrest {
+				st.AnswerArrest(true)
+			} else {
+				st.Answer(true)
+			}
 		case 'N':
-			st.Answer(false)
+			if st.Prompt == game.PromptArrest {
+				st.AnswerArrest(false)
+			} else {
+				st.Answer(false)
+			}
 		case 'I':
 			st.BeginIntro() // 播開場動畫(截圖用:接著用 . 翻頁)
 		case '.':
@@ -764,6 +772,8 @@ func playScript(st *game.State, script string) error {
 			st.ReadCodex() // 讀寶典(接著用 . 翻頁)
 		case 'A':
 			st.BeginInterrogation() // 黑棘的審問(接著用 "…" 回答)
+		case 'G':
+			st.CallGuards() // 叫衛兵(衛兵敵對、其餘一半逃跑)
 		case 'f':
 			st.DungeonForward(false) // 地牢:前進
 		case 'b':
@@ -774,7 +784,7 @@ func playScript(st *game.State, script string) error {
 			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、R 讀寶典、A 黑棘審問、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、R 讀寶典、A 黑棘審問、G 叫衛兵、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

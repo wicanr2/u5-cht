@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **509** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **518** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -12,11 +12,15 @@
 | `sub_5C8` | `sub_5C8` 就是載入場景地圖的函式。組語三行講完: | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md` |
 | `sub_758` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md` |
 | `sub_86C` | 方向樓梯  /  0xC4–0xC7(低 2 bit = 朝向)  /  **走進去**:同向上樓、反向(`facing ^ 2`)下樓  /  `sub_86C` → `sub_758`  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md` |
-| `sub_B98` | 0x40–0x73  /  **人**(`sub_B98` 判「可以被嚇跑的平民」用的就是這個範圍),4 的倍數  / | `04-npc-schedule-and-clock.md`, `09-items-and-creatures.md` |
-| `sub_C10` | 0x8B  /  叫衛兵  /  `sub_C10` 掃 32 個 NPC 槽找 tile 0x70 那批  / | `06-conversation-script.md`, `14-combat-maps.md` |
+| `sub_B44` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `29-npc-behaviour-and-arrest.md` |
+| `sub_B98` | else if (random(0, 0xFF) < 0x80)          sub_B98(i);          // ★ 一半逃跑 | `04-npc-schedule-and-clock.md`, `09-items-and-creatures.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_C10` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `06-conversation-script.md`, `14-combat-maps.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_C74` | 場景裡與 NPC 的戰鬥**(`sub_C74`)—— 敵對的非衛兵貼上來時目前只印說明。 | `29-npc-behaviour-and-arrest.md` |
 | `sub_EA0` | 梯子  /  0xC8 上 / 0xC9 下 / 0x86 活板門(下)  /  站在上面按 **K**(Klimb)  /  `sub_EA0` → `sub_758(0 或 2, 196)`  / | `03-scene-entry-and-tile-semantics.md` |
+| `sub_154C` | if (對話號碼 == 0xFE)      sub_154C(npc);      // 特殊 | `29-npc-behaviour-and-arrest.md` |
 | `sub_1678` | 0  /  空槽  /  `sub_1678` 清表寫 0;`sub_118CC` 用 `!= 0` 找空槽  / | `11-map-objects.md` |
-| `sub_1884` | 逮捕的觸發**(`sub_1884`):衛兵發現偷竊 / 攻擊平民時「Thou art under arrest!」, | `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
+| `sub_1884` | else if (tile == 0x70)     sub_1884();         // ★ 衛兵 → 逮捕 | `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_195C` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `29-npc-behaviour-and-arrest.md` |
 | `sub_1DC8` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md` |
 | `sub_23FC` | 船的四個朝向 tile 0x2C..0x2F 確實存在(`sub_23FC` 的轉向),但那是 | `11-map-objects.md` |
 | `sub_2D38` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md` |
@@ -47,11 +51,14 @@
 | `sub_8BA0` | dir  /  BFS(`sub_8BA0`)  /  走路 / 回溯(`sub_8EA4`、`sub_8D28`)  / | `12-npc-movement.md` |
 | `sub_8D28` | dir  /  BFS(`sub_8BA0`)  /  走路 / 回溯(`sub_8EA4`、`sub_8D28`)  / | `12-npc-movement.md` |
 | `sub_8EA4` | dir  /  BFS(`sub_8BA0`)  /  走路 / 回溯(`sub_8EA4`、`sub_8D28`)  / | `12-npc-movement.md` |
+| `sub_8F3C` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `29-npc-behaviour-and-arrest.md` |
+| `sub_8F60` | 位址:`sub_95BC`(行為型別跳表)、`sub_94E0`(遊走)、`sub_8F60`(追擊 / 逃)、 | `29-npc-behaviour-and-arrest.md` |
 | `sub_91A4` | 只有模式 ≤ 1(不存在或閒置)才重新呼叫 `sub_91A4`**。正在移動中的 NPC | `12-npc-movement.md` |
-| `sub_9358` | 欄位位置由 `sub_9358` 證實(`rec[slot+3]` / `rec[slot+6]` / `rec[slot+9]`,slot ∈ 0..2)。 | `04-npc-schedule-and-clock.md`, `12-npc-movement.md` |
-| `sub_9428` | 建圖(`sub_8A1C`)  /  走一步(`sub_9428`)  / | `12-npc-movement.md` |
-| `sub_94E0` | `sub_94E0`** —— 尋路失敗時的 fallback(疑似隨機遊走),還沒讀。 | `12-npc-movement.md` |
-| `sub_9690` | ⚠ 還有一條容易漏的:`sub_9690` 用 `cmp word ptr [ebx], 1 / jg` 判斷 —— | `11-map-objects.md`, `12-npc-movement.md` |
+| `sub_9358` | 欄位位置由 `sub_9358` 證實(`rec[slot+3]` / `rec[slot+6]` / `rec[slot+9]`,slot ∈ 0..2)。 | `04-npc-schedule-and-clock.md`, `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_9428` | if (!sub_9428(nx, ny, npc, slot)) return; | `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_94E0` | 位址:`sub_95BC`(行為型別跳表)、`sub_94E0`(遊走)、`sub_8F60`(追擊 / 逃)、 | `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_95BC` | 原版不是這樣:`sub_9690` 在 NPC **與玩家同層**時呼叫 `sub_95BC(npc, slot)`, | `29-npc-behaviour-and-arrest.md` |
+| `sub_9690` | 原版不是這樣:`sub_9690` 在 NPC **與玩家同層**時呼叫 `sub_95BC(npc, slot)`, | `11-map-objects.md`, `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_9C7C` | 來源:FM Towns `WORRIORS.EXP`。相關函式 `sub_8858`(載入)、`sub_9C7C`(排程 slot)、 | `04-npc-schedule-and-clock.md`, `08-shops.md` |
 | `sub_9CE8` | ⚠ **同一支函式裡兩個參數用兩套編號**:`sub_9CE8` 吃 tile 碼、 | `17-magic.md` |
 | `sub_9E10` | `'N'`  /  In An  /  10  /  `sub_9E10` / `sub_AE20`  /  施法者放不出遠程、不能瞬移  / | `16-combat-turns-and-ai.md`, `17-magic.md` |
@@ -75,7 +82,7 @@
 | `sub_C13C` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
 | `sub_C2D0` | if (!ebx) { ebx = 1; sub_C2D0(); }    // ★ 第一次拒絕只嗆一句 | `28-shadowlords-and-blackthorn.md` |
 | `sub_C318` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
-| `sub_C414` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `28-shadowlords-and-blackthorn.md` |
+| `sub_C414` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_C778` | 寫  0xC790   sub_C778    mov dword_65334, 1 | `03-scene-entry-and-tile-semantics.md` |
 | `sub_CE78` | `0x50`  /  噴泉  /  `sub_CE78` 印「a gurgling fountain!」  / | `18-dungeons.md` |
 | `sub_DB10` | call sub_DB10                     ; → 指向那一格地形的指標 | `26-yell-words-of-power-shadowlords.md` |
@@ -154,7 +161,7 @@
 | `sub_1AC20` | ⚠ **範圍的形狀還沒逆完**。`sub_1AC20` 吃一個每個咒語各自不同的參數 | `20-projectiles.md` |
 | `sub_1AEB4` | `sub_1CE70`、`sub_1CE0C`、`sub_1AEB4`…),字串也認得出幾個 | `17-magic.md`, `20-projectiles.md` |
 | `sub_1B294` | 來源:FM Towns `WORRIORS.EXP`。`sub_1B294`(進店)、`sub_111CC`(挑問候語)、 | `08-shops.md`, `10-shop-prices-and-trade.md` |
-| `sub_1B52C` | 驗收:編號 0x70 → tile 368,算繪出來是持戟的鎧甲士兵,正對應 `sub_1B52C` 那句 | `04-npc-schedule-and-clock.md`, `06-conversation-script.md`, `08-shops.md` |
+| `sub_1B52C` | } else if (arg != 0  /  /  (對話號碼 != 0 && sub_1B52C(npc))) { | `04-npc-schedule-and-clock.md`, `06-conversation-script.md`, `08-shops.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_1B760` | 0xFF  /  結束整段對話  /  `sub_1B760` + `sub_1BF08`  / | `06-conversation-script.md` |
 | `sub_1B800` | call sub_1B800 | `05-text-compression.md` |
 | `sub_1BA80` | 關鍵字表在遇到位元組 0x90 時結束。** 跳段用的 `sub_1BA80(0, 0x90)` 是 | `06-conversation-script.md` |
@@ -231,7 +238,7 @@
 | `sub_284CC` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_27D24`(讀)與 `sub_284CC`(寫)。 | `07-save-format.md`, `13-save-writing.md`, `26-yell-words-of-power-shadowlords.md` |
 | `sub_28E14` | `sub_2B710(60)` → `sub_28E14(0, 60)`,而 `sub_28E14` 算範圍時是 | `15-combat-formulas.md`, `16-combat-turns-and-ai.md`, `28-shadowlords-and-blackthorn.md` |
 | `sub_28F40` | `repe cmpsb`。也就是說,如果輸入層(`sub_2B770` / `sub_28F40`)沒有幫忙轉大寫, | `26-yell-words-of-power-shadowlords.md` |
-| `sub_29304` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
+| `sub_29304` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_29A64` | 0x01 在兩種單位上意義相反**,而 `sub_29A64` 就是靠這一點把兩邊算清楚: | `16-combat-turns-and-ai.md` |
 | `sub_29EEC` | 原版就得全大寫打才會過。輸入層存的是 `sub_29EEC` 的原始回傳值,沒有看到轉大寫的指令, | `06-conversation-script.md`, `25-shrines.md`, `26-yell-words-of-power-shadowlords.md` |
 | `sub_2A4D0` | 印「Ouch!」「Electric field!」、畫面閃白、全隊受傷(`sub_2A4D0`)、 | `18-dungeons.md` |
@@ -300,7 +307,7 @@
 | `byte_3DDCC` | `sub_B274` 對角色讀 `byte_3DDCC[角色*32]`,而 `0x3DDCC − 0x3DDB4 = 0x18`。 | `15-combat-formulas.md` |
 | `byte_3DDD3` | 而 `0x3DDCB − 0x3DDB4 = 0x17`;入隊時寫 `byte_3DDD3[i*32]` 而差是 `0x1F`。 | `09-items-and-creatures.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
 | `byte_3DFB3` | byte_3DFB3 = 0x7F;                            // = 0x3DDB4 + 15×32 + 31 | `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
-| `byte_3DFB8` | 而全域變數之間有對齊留下的空隙:`byte_3DFB8` 讀完 10 B 到 `0x3DFC2`, | `10-shop-prices-and-trade.md`, `28-shadowlords-and-blackthorn.md` |
+| `byte_3DFB8` | byte_3DFB8 = 0;                            // ★ 鑰匙歸零 | `10-shop-prices-and-trade.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
 | `byte_3DFB9` | `0x0207`  /  `byte_3DFB9`  /  寶石  / | `10-shop-prices-and-trade.md` |
 | `byte_3DFBA` | `0x0208`  /  `byte_3DFBA`  /  火把  / | `10-shop-prices-and-trade.md` |
 | `byte_3DFBB` | `byte_3DFBB`(繩索)的存檔位移沒對出來,所以「用繩索從洞爬回上一層」 | `18-dungeons.md` |
@@ -321,7 +328,7 @@
 | `byte_3E08C` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
 | `byte_3E08D` | byte_3E08D 月   > 13  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08E` | byte_3E08E 日   > 28  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
-| `byte_3E08F` | `@` 0x40  /  `byte_3E08F`  /  時段:< 12 morning、< 18 afternoon、其餘 evening  / | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md` |
+| `byte_3E08F` | `@` 0x40  /  `byte_3E08F`  /  時段:< 12 morning、< 18 afternoon、其餘 evening  / | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md`, `29-npc-behaviour-and-arrest.md` |
 | `byte_3E091` | byte_3E091 分   += minutes;  > 59 → 減 60 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E092` | 每 10 個單位行動 = 遊戲內 1 分鐘**(`byte_3E092` 數到 10 → `sub_29304(1)`)。 | `16-combat-turns-and-ai.md` |
 | `byte_3E093` | sub_2A984(風)   設 byte_3E0A2,把變化計時器 byte_3E093 歸零 | `23-wind-and-sailing.md` |
@@ -332,10 +339,10 @@
 | `byte_3E09F` | 判斷依據是 cdecl 的壓棧順序:`push esi(武器); push -byte_3E09F; | `15-combat-formulas.md`, `17-magic.md` |
 | `byte_3E0A0` | 傷害減半(0x0020)      → 除以 2(除非 byte_3E0A0 成立,那個旗標還沒解) | `16-combat-turns-and-ai.md` |
 | `byte_3E0A2` | sub_2A984(風)   設 byte_3E0A2,把變化計時器 byte_3E093 歸零 | `23-wind-and-sailing.md` |
-| `byte_3E0A3` | if (byte_3E0A3 != 0x1E && byte_3E0A3 != 0x1F && byte_3E0A3 != 0x20) { puts("No effect!"); return 1; } | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `17-magic.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
-| `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
-| `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
-| `byte_3E0A7` | if (byte_3E0A7 < 2)             goto no_effect;   // 玩家 Y < 2,上方擠不出位置 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
+| `byte_3E0A3` | if (byte_3E0A3 != 0x1E && byte_3E0A3 != 0x1F && byte_3E0A3 != 0x20) { puts("No effect!"); return 1; } | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `17-magic.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
+| `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
+| `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
+| `byte_3E0A7` | if (byte_3E0A7 < 2)             goto no_effect;   // 玩家 Y < 2,上方擠不出位置 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
 | `byte_3E0A8` | 0x02F2  /  16  /  `byte_3E0A8..B7`  /  逐一單位元組  / | `26-yell-words-of-power-shadowlords.md` |
 | `byte_3E0AB` | 地圖上的距離是 `byte_3E0AB + 0x20`(上限 0x100),`byte_3E0AB` 還沒追到, | `17-magic.md` |
 | `byte_3E0AD` | 三個攻擊咒語的傷害也還沒逆到底(`sub_189E4` 只把攻擊碼寫進 `byte_3E0AD`, | `16-combat-turns-and-ai.md`, `17-magic.md` |
@@ -352,9 +359,11 @@
 | `byte_3E165` | mov   byte_3E165, dl | `11-map-objects.md` |
 | `byte_3E166` | mov   byte_3E166, al | `11-map-objects.md` |
 | `byte_3E16A` | 盤據中的暗影君主怎麼影響那座城,`sub_48C` 只把索引記進 `byte_3E16A`, | `28-shadowlords-and-blackthorn.md` |
-| `byte_3E570` | sub_2C740(file, edi,       0x200, byte_3E570)   ; 512 B  32 × 16 B 排程 | `04-npc-schedule-and-clock.md` |
+| `byte_3E570` | sub_2C740(file, edi,       0x200, byte_3E570)   ; 512 B  32 × 16 B 排程 | `04-npc-schedule-and-clock.md`, `29-npc-behaviour-and-arrest.md` |
 | `byte_3E970` | `byte_3E970[npc*32]` —— 路徑本身,**(步數, 方向) 成對**,共 16 段 | `12-npc-movement.md` |
-| `byte_3EDB0` | sub_2C740(file, edi+0x200, 0x20,  byte_3EDB0)   ;  32 B  每個 NPC 的生物編號 | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `12-npc-movement.md`, `26-yell-words-of-power-shadowlords.md` |
+| `byte_3EDB0` | sub_2C740(file, edi+0x200, 0x20,  byte_3EDB0)   ;  32 B  每個 NPC 的生物編號 | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `12-npc-movement.md`, `26-yell-words-of-power-shadowlords.md`, `29-npc-behaviour-and-arrest.md` |
+| `byte_3EDD0` | byte_3EDD0 = ((ai == 4  /  /  ai == 5) && 對話號碼 != 0) ? 't' : 'a'; | `29-npc-behaviour-and-arrest.md` |
+| `byte_3EDD1` | byte_3EDD1 = npc; | `29-npc-behaviour-and-arrest.md` |
 | `byte_3EE15` | movzx eax, byte_3EE15            ; 面向 | `21-chests-fields-locks.md` |
 | `byte_3EE17` | `byte_3EE17` 的旗標(帆船 0x82、小艇 0x40)加上兩個座標 —— 船停在碼頭等你, | `11-map-objects.md` |
 | `byte_3EE18` | 結尾多一個 2 B 欄位 `byte_3EE18` | `07-save-format.md` |

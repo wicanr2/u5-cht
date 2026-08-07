@@ -55,6 +55,20 @@ const (
 	MsgDraggedAway = "壯碩的衛兵把汝拖走了!"
 	// "\n\nYour response?\n:"
 	MsgYourResponse = "汝如何回答?"
+	// 逮捕(原版 `sub_1884`)。
+	//
+	// "\n\"Thou art under arrest!\"\n\n" + "\"Wilt thou come quietly?\"\n\n:"
+	MsgUnderArrest = "「汝被逮捕了!」「汝束手就擒否?」(Y/N)"
+	// "No\n\n\"Then defend thyself, rogue!\"\n"
+	MsgDefendThyself = "否 ——「那就自衛吧,惡棍!」"
+	// "Yes\n\nThe guard strikes thee unconscious!"
+	MsgStruckUnconscious = "是 —— 衛兵一擊把汝打昏了!"
+	// "\nThou dost awaken to...\n"
+	MsgAwakenTo = "汝悠悠轉醒……"
+	// "\nAttacked!\n"
+	MsgAttacked = "遭到攻擊!"
+	// 場景裡與 NPC 的戰鬥(原版 sub_C74)還沒逆 —— 誠實說明。
+	MsgSceneCombatNotImplemented = "(城裡的戰鬥尚未實作 —— 對方撲了上來)"
 	// "Don't hurt me!\nPlease go away!"
 	MsgFrightened = "「別傷害我!請走開!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
@@ -77,8 +91,8 @@ const (
 	MsgNoMatch = "(名冊中查無此人 —— 對話記錄與名冊對不上)"
 	// 入隊成功的提示。原版沒有專屬訊息(直接把人放進隊伍),這是引擎自己加的回饋。
 	MsgJoined = "加入了汝的隊伍。"
-	// 尚未實作的副作用:誠實說明,不要假裝發生了(CLAUDE.md §3.0)。
-	MsgGuardsNotImplemented = "(對方喚來衛兵 —— 衛兵反應尚未實作)"
+	// 對話 opcode 0x8B:對方喚來衛兵(原版 sub_C10)。
+	MsgGuardsCalled = "「衛兵!」"
 	// "\nNot here!\n" —— 在不能做這件事的地方按了 B / X。
 	MsgNotHere = "此處不可。"
 	// "What?\n"

@@ -254,6 +254,18 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 「汝束手就擒否?」—— 只收 Y / N。**ESC 不是取消**:原版沒有第三條路。
+	if st.Prompt == gamestate.PromptArrest {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyY):
+			st.AnswerArrest(true)
+		case inpututil.IsKeyJustPressed(ebiten.KeyN):
+			st.AnswerArrest(false)
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 有提問待答時只收 Y / N / ESC —— 原版 sub_86C 的 do-while 就是這個行為,
 	// ESC 等同於 N。
 	if st.Prompt != gamestate.PromptNone {

@@ -39,7 +39,19 @@ func (s *State) Talk() {
 		s.Log(MsgNobodyHere)
 		return
 	}
-	n := found.NPC
+	s.talkToNPC(found.Index)
+}
+
+// talkToNPC 對指定槽位的 NPC 起話頭。
+//
+// 拆出來是因為**對話不只玩家能發起** —— 行為型別 4 / 5 的 NPC 走到玩家
+// 身邊時會自己搭話(原版 `sub_8F60` 設 `byte_3EDD0 = 't'`,見 npcai.go)。
+func (s *State) talkToNPC(idx int) {
+	if s.npcs == nil || idx < 0 || idx >= len(s.npcs) {
+		return
+	}
+	n := &s.npcs[idx]
+	found := &VisibleNPC{Index: idx, NPC: n}
 	switch {
 	case n.Dialogue == u5data.DialogueNone:
 		s.Log(MsgNoResponse)
@@ -223,7 +235,11 @@ func (s *State) applyEffects(fx u5data.Effects) {
 		s.joinParty()
 	}
 	if fx.CallGuards {
-		s.Log(MsgGuardsNotImplemented)
+		// ⚠ 原版 `sub_C10` 做兩件事:衛兵變敵對**而且**其餘的人一半機率逃跑。
+		// 見 npcai.go 的 CallGuards。
+		s.Log(MsgGuardsCalled)
+		s.EndConversation()
+		s.CallGuards()
 	}
 	if fx.AsksPlayer {
 		s.ask(fx.AskCode)

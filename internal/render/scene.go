@@ -229,6 +229,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "喊一個字後按 Enter,ESC 作罷"
 	case game.PromptBlackthorn:
 		hint = "回答黑棘後按 Enter —— 說出真言就是招了"
+	case game.PromptArrest:
+		hint = "Y 束手就擒 / N 反抗"
 	}
 	s.Text.Draw(dst, MapOriginX, HintY, hint)
 }

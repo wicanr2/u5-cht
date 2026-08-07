@@ -117,6 +117,8 @@ const (
 	PromptCodex
 	// PromptBlackthorn 是黑棘的審問:打字回答「真言是什麼」。
 	PromptBlackthorn
+	// PromptArrest 是「汝束手就擒否?」—— 只收 Y / N。
+	PromptArrest
 	// PromptYell 是 Yell 指令的「what?」:打一個力量之言或暗影君主的名字。
 	//
 	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
