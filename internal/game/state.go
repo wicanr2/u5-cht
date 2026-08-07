@@ -100,7 +100,7 @@ const (
 	PromptShop
 	// PromptCombat 是戰鬥中:方向鍵移動、A 攻擊、C 施法、空白 Pass、Esc 撤離。
 	PromptCombat
-	// PromptSpell 是在打咒語名:輸入的是上古語,不是指令鍵。
+	// PromptSpell 是在收符文首字母(最多四個),不是打咒語全名。
 	PromptSpell
 	// PromptDirection 是原版的「Direction-」:等一個方向鍵。
 	PromptDirection
@@ -165,6 +165,8 @@ type State struct {
 	Stats *u5data.CombatStats
 	// Spells 是咒語表(名稱 / 圈數 / 藥草 / 可施法場合);可為 nil。
 	Spells *u5data.SpellTable
+	// Runes 是符文詞與咒語代碼 —— 施法與調藥的輸入法靠它;可為 nil。
+	Runes *u5data.RuneTable
 	// Dungeons 是八座地牢的地圖(DUNGEON.DAT);可為 nil。
 	Dungeons *u5data.DungeonSet
 	// DungeonRooms 是地牢房間(DUNGEON.CBT,格式同地表戰鬥地圖);可為 nil。
@@ -210,9 +212,13 @@ type State struct {
 	rng *rand.Rand
 	// Combat 是進行中的戰鬥(Prompt == PromptCombat 時有效)。
 	Combat *Combat
-	// castReturn 是打完咒語名要回到哪個 Prompt,castBy 是誰在施法。
+	// castReturn 是打完符文要回到哪個 Prompt,castBy 是誰在施法。
 	castReturn Prompt
 	castBy     int
+	// spellLetters 是目前打進去的符文首字母(最多 RuneInputMax 個)。
+	spellLetters []byte
+	// runeThen 是符文輸入送出之後要做的事(施法與調藥共用同一個輸入)。
+	runeThen func(idx int)
 	// dirReturn 是選完方向要回到哪個 Prompt,dirThen 是拿到方向之後做什麼。
 	dirReturn Prompt
 	dirThen   func(Direction)
@@ -261,6 +267,9 @@ type State struct {
 	numThen   func(int)
 	numMax    int
 	numReturn Prompt
+	// numDigits 是這次問的是幾位數(1 = 按下去就送出);numInput 是多位數的暫存。
+	numDigits int
+	numInput  string
 	yesNoThen func(bool)
 	ynReturn  Prompt
 

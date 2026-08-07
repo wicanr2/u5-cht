@@ -34,6 +34,14 @@ type Picker struct {
 	Title   string
 	Entries []PickEntry
 	Cursor  int
+	// Marks 是複選模式下每一項的勾選狀態;nil 代表單選。
+	//
+	// 只有調藥的藥草清單是複選(原版 `sub_18468`):空白鍵或 Enter 勾 / 取消勾,
+	// 按 **M** 才確定。單選的選單 Enter 就是確定 —— 兩種模式的 Enter 語意不同,
+	// 所以要靠這個欄位分。
+	Marks []bool
+	// confirm 是複選模式按下 M 之後要做的事,參數是勾選遮罩。
+	confirm func(mask byte) bool
 	// then 是選定之後要做的事。回傳 true 代表流程結束(選單關掉);
 	// false 代表**還有下一步**,由 then 自己接著開下一個選單。
 	then func(value int) bool
@@ -101,10 +109,49 @@ func (s *State) PickLines() []string {
 		if i == p.Cursor {
 			mark = "→"
 		}
-		out = append(out, mark+e.Label)
+		// 複選模式多一個勾記 —— 原版在數量與名字之間印一個特殊字元(0x0F)。
+		sel := ""
+		if p.Marks != nil {
+			sel = " "
+			if p.Marks[i] {
+				sel = "*"
+			}
+		}
+		out = append(out, mark+sel+e.Label)
 	}
 	return out
 }
+
+// PickToggle 是複選模式下的空白鍵 / Enter:勾或取消勾游標那一項。
+func (s *State) PickToggle() {
+	p := s.Pick
+	if p == nil || p.Marks == nil || p.Cursor >= len(p.Marks) {
+		return
+	}
+	p.Marks[p.Cursor] = !p.Marks[p.Cursor]
+}
+
+// PickConfirm 是複選模式下的 M:把勾選遮罩交出去。
+func (s *State) PickConfirm() {
+	p := s.Pick
+	if p == nil || p.Marks == nil {
+		return
+	}
+	var mask byte
+	for i, on := range p.Marks {
+		if on {
+			mask |= u5data.ReagentBit(p.Entries[i].Value)
+		}
+	}
+	confirm, back := p.confirm, p.back
+	s.Pick, s.Prompt = nil, back
+	if confirm != nil {
+		confirm(mask)
+	}
+}
+
+// PickMulti 回報現在的選單是不是複選模式。
+func (s *State) PickMulti() bool { return s.Pick != nil && s.Pick.Marks != nil }
 
 // ---------------------------------------------------------------- 各指令的入口
 
@@ -209,54 +256,111 @@ func (s *State) usableEntries() []PickEntry {
 	return out
 }
 
-// BeginMix 是 M 指令:挑一個咒語,照它自己的配方調配。
+// BeginMix 是 M 指令(原版 `sub_18704` → `sub_1CA0C` → `sub_18468` → `sub_18698`)。
 //
-// ⚠ 原版讓玩家**自己挑藥草**(`sub_18468`),挑錯就浪費 —— 那是它的張力。
-// 這裡先做「照配方調」的捷徑,並在選單標題說明:亂試配方的那條路
-// 走 `State.Mix(spell, count, reagents)`,API 還在。
-// 逐味挑選的畫面是介面工作,不是機制落差。
+// ⚠ **這裡原本是捷徑**:列一張咒語選單、照配方自動調。那把原版最大的張力
+// 拿掉了 —— 原版是你**自己挑藥草**,挑錯就白費。現在照原版的四步走:
+//
+//	1. 身上一種藥草都沒有 → 「無藥草!」
+//	2. 「為哪個咒語?」→ 打符文首字母(與施法**同一個輸入法**)
+//	   ⚠ 只有「什麼都沒打」會中止;**湊不出咒語(−2)照樣往下走** ——
+//	   原版是 `inc eax; jnz`,只擋 −1。所以亂打符文會讓你把藥草調成廢渣。
+//	3. 藥草清單(只列身上有的)勾選:方向鍵移動、空白 / Enter 勾、**M 確定**、ESC 放棄
+//	4. 「要幾份?」→ 兩位數;不夠就印「藥草不足!」**重問一次**
+//
+// 挑到的藥草一定會被扣掉,遮罩要與配方**完全相符**才調得出咒語。
 func (s *State) BeginMix() bool {
 	if !s.hasAnyReagent() {
 		s.Log(MsgNoReagents)
 		return false
 	}
-	if s.Spells == nil {
+	if s.Spells == nil || s.Runes == nil {
 		return false
 	}
-	var out []PickEntry
-	for i := 0; i < u5data.SpellCount; i++ {
-		sp := &s.Spells.Spells[i]
-		if sp.Name == "" || sp.Reagents == 0 {
-			continue
+	s.beginRunePrompt(MsgForWhatSpell, func(spell int) {
+		if spell == u5data.SpellInputCancelled {
+			s.Log(MsgSpellNone)
+			return
 		}
-		if !s.canMixOnce(sp.Reagents) {
+		s.beginReagentPick(spell)
+	})
+	return true
+}
+
+// beginReagentPick 打開藥草勾選畫面(原版 `sub_18468`)。
+//
+// 只列**身上有的**藥草,每一列印出擁有數量;spell 可能是
+// `u5data.SpellInputNoSpell`,那代表玩家打的符文湊不出咒語 ——
+// 照原版仍然讓他挑、仍然扣藥草,只是永遠調不出東西。
+func (s *State) beginReagentPick(spell int) bool {
+	var out []PickEntry
+	for r := 0; r < u5data.ReagentCount; r++ {
+		n := s.Inventory.Reagents[r]
+		if n < 1 {
 			continue
 		}
 		out = append(out, PickEntry{
-			Label: fmt.Sprintf("%s(%d 圈)", sp.Name, sp.Circle),
-			Value: i,
+			Label: fmt.Sprintf("%02d %s", n, s.reagentName(r)),
+			Value: r,
 		})
 	}
-	return s.beginPick(MsgPickSpell, out, MsgNoReagents, func(spell int) bool {
-		s.MixByRecipe(spell, 1)
+	if !s.beginPick(MsgReagents, out, MsgNoReagents, nil) {
+		return false
+	}
+	s.Pick.Marks = make([]bool, len(out))
+	s.Pick.confirm = func(mask byte) bool {
+		s.askMixAmount(spell, mask)
 		return true
+	}
+	return true
+}
+
+// askMixAmount 問份數並收尾(原版 `sub_18698` + `sub_18704` 的後半)。
+//
+// ⚠ 順序照原版:**先問份數,才檢查有沒有勾到東西**。所以一個都沒勾就按 M,
+// 原版還是會問「要幾份?」,答完才說「沒東西可調!」。
+func (s *State) askMixAmount(spell int, mask byte) {
+	s.Log(MsgHowMuch)
+	s.AskNumberDigits(2, u5data.MixAmountMax, func(n int) {
+		if n <= 0 {
+			return
+		}
+		// 藥草不夠 → 印一句然後**重問份數**,不是取消整個流程。
+		for r := 0; r < u5data.ReagentCount; r++ {
+			if mask&u5data.ReagentBit(r) == 0 {
+				continue
+			}
+			if s.Inventory.Reagents[r] < n {
+				s.Log(MsgInsufficientReagents)
+				s.askMixAmount(spell, mask)
+				return
+			}
+		}
+		if mask == 0 {
+			s.Log(MsgNothingToMix)
+			return
+		}
+		var picked []int
+		for r := 0; r < u5data.ReagentCount; r++ {
+			if mask&u5data.ReagentBit(r) != 0 {
+				picked = append(picked, r)
+			}
+		}
+		s.Log(MsgMixing)
+		s.Mix(spell, n, picked)
 	})
 }
 
-// canMixOnce 回報這個配方至少調得出一份。
-//
-// 選單只列調得出來的 —— 列出調不出來的會讓玩家白挑一次,
-// 而原版的選單也是只列手上有的東西。
-func (s *State) canMixOnce(mask byte) bool {
-	for r := 0; r < u5data.ReagentCount; r++ {
-		if mask&u5data.ReagentBit(r) == 0 {
-			continue
-		}
-		if s.Inventory.Reagents[r] < 1 {
-			return false
-		}
+// reagentName 是藥草的顯示名(有譯名就用譯名,沒有就照原樣顯示英文)。
+func (s *State) reagentName(r int) string {
+	if r < 0 || r >= len(u5data.ReagentNames) {
+		return ""
 	}
-	return true
+	en := u5data.ReagentNames[r]
+	if zh := i18n.Name(en); zh != "" {
+		return zh
+	}
+	return en
 }
 
 // hasAnyReagent 回報身上有沒有任何藥草。

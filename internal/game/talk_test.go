@@ -247,7 +247,18 @@ func realState(t *testing.T, dir string) *State {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &State{Scenes: scenes, NPCs: npcs, Talks: talks, MaxMessages: 64}
+	// 咒語表與符文表也載進來 —— 少了它們,凡是碰到施法 / 調藥的測試都會
+	// **靜靜跳過**,而一直跳過的測試等於沒有測試。
+	spells, err := u5data.LoadSpells(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runes, err := u5data.LoadRuneTable(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &State{Scenes: scenes, NPCs: npcs, Talks: talks,
+		Spells: spells, Runes: runes, MaxMessages: 64}
 	s.LoadFrom(sv)
 	return s
 }

@@ -280,7 +280,7 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 	case game.PromptAnswer:
 		hint = "回答對方的問題後按 Enter"
 	case game.PromptSpell:
-		hint = "打上古語咒語名後按 Enter,ESC 作罷"
+		hint = "打符文首字母(最多四個),Enter 或空白鍵送出,ESC 作罷"
 	case game.PromptShrine:
 		hint = "打英文的美德名 / 真言後按 Enter,ESC 作罷"
 	case game.PromptYell:
@@ -299,8 +299,17 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "←→ 翻頁,ESC 收起"
 	case game.PromptPick:
 		hint = "↑↓ 移動,Enter 選定,ESC 作罷"
+		if s.State.PickMulti() {
+			// 調藥的藥草清單是複選 —— Enter 是勾選,**M 才確定**。
+			hint = "↑↓ 移動,空白 / Enter 勾選,M 開始調配,ESC 作罷"
+		}
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
+		}
+	case game.PromptNumber:
+		hint = "按數字鍵,0 或 ESC 放棄"
+		if in := s.State.NumberInput(); in != "" {
+			hint = in + "_ —— Enter 送出,Backspace 退一位"
 		}
 	case game.PromptEnding:
 		hint = "Y 是 / N 否,之後按任意鍵繼續"

@@ -97,6 +97,19 @@ const (
 	MsgAPleasure     = "幸會!"
 	MsgIfYouSaySo    = "汝說是就是吧。"
 
+	// 施法的輸入與地點壓制(原版 `sub_1994C` / `sub_1CA0C`)。
+	//
+	// ⚠ 三句都不能合併:`MsgSpellNone` 是「一個符文都沒打」、
+	// `MsgSpellNoEffect` 是「打了但湊不出咒語」,原版分得很清楚。
+	MsgSpellName     = "咒語:"
+	MsgForWhatSpell  = "為哪個咒語?"
+	MsgReagents      = "藥草:"
+	MsgNothingToMix  = "沒東西可調!"
+	MsgHowMuch       = "要幾份?"
+	MsgSpellNone     = "無!"
+	MsgSpellNoEffect = "毫無效果!"
+	MsgMagicAbsorbed = "被吸收了!"
+
 	// Get 指令(原版 `sub_15A94` / `sub_154BC`)。
 	MsgNothingToGet   = "這裡沒有東西可拿。"
 	MsgOpenItFirst    = "得先打開它!"
@@ -237,7 +250,6 @@ const (
 	MsgPickItem  = "哪一件?"
 	MsgPickSwap  = "換誰?"
 	MsgPickWith  = "與誰交換?"
-	MsgPickSpell = "調哪個咒語?(照配方各一份)"
 	MsgNevermind = "作罷。"
 	// 特殊道具的中文名(選單上顯示;英文原文見 `docs/re/44` 的表)。
 	MsgItemCarpet    = "魔毯"

@@ -388,26 +388,84 @@ const (
 
 // ---------------------------------------------------------------- 通用提問
 
-// AskNumber 問一個數字(原版的「(1-9)」)。
+// AskNumber 問一個一位數(原版的「(1-9)」,`sub_2B7F0(1)`)。
 //
 // 原版收 '0'..'9' 與空白,其餘按鍵一律忽略繼續等;空白與 '0' 都是放棄。
 // 這裡把「放棄」統一成回呼收到 0。
 func (s *State) AskNumber(max int, then func(int)) {
+	s.askNumber(1, max, then)
+}
+
+// AskNumberDigits 問一個最多 digits 位的數字(原版 `sub_2B7F0(digits)`)。
+//
+// 兩位數的地方目前只有調藥的「要幾份?」。一位數按下去就送出,
+// 兩位以上要按 Enter —— 這是原版輸入欄的行為,不是機制差異。
+func (s *State) AskNumberDigits(digits, max int, then func(int)) {
+	s.askNumber(digits, max, then)
+}
+
+func (s *State) askNumber(digits, max int, then func(int)) {
 	s.numReturn = s.Prompt
-	s.numThen, s.numMax = then, max
+	s.numThen, s.numMax, s.numDigits = then, max, digits
+	s.numInput = ""
 	s.Prompt = PromptNumber
 }
 
 // AnswerNumber 是玩家按下數字鍵(0 = 放棄)。超出上限的照原版忽略。
+//
+// 一位數模式按下去就結束;多位數模式是把數字累積起來,由 SubmitNumber 送出。
 func (s *State) AnswerNumber(n int) {
 	if s.Prompt != PromptNumber {
+		return
+	}
+	if s.numDigits > 1 {
+		if n < 0 || n > 9 || len(s.numInput) >= s.numDigits {
+			return
+		}
+		// 開頭的 0 沒有意義,照原版的輸入欄一樣不收。
+		if n == 0 && s.numInput == "" {
+			s.finishNumber(0)
+			return
+		}
+		s.numInput += string(rune('0' + n))
 		return
 	}
 	if n < 0 || n > s.numMax {
 		return // 原版繼續等,不是取消
 	}
+	s.finishNumber(n)
+}
+
+// SubmitNumber 是多位數模式的 Enter。
+func (s *State) SubmitNumber() {
+	if s.Prompt != PromptNumber {
+		return
+	}
+	n := 0
+	for _, c := range s.numInput {
+		n = n*10 + int(c-'0')
+	}
+	// 超過上限的照原版繼續等,不是取消。
+	if n > s.numMax {
+		s.numInput = ""
+		return
+	}
+	s.finishNumber(n)
+}
+
+// BackspaceNumber 是多位數模式的 Backspace。
+func (s *State) BackspaceNumber() {
+	if s.Prompt == PromptNumber && s.numInput != "" {
+		s.numInput = s.numInput[:len(s.numInput)-1]
+	}
+}
+
+// NumberInput 是多位數模式目前打進去的字串(給算繪看)。
+func (s *State) NumberInput() string { return s.numInput }
+
+func (s *State) finishNumber(n int) {
 	then := s.numThen
-	s.numThen = nil
+	s.numThen, s.numInput = nil, ""
 	s.Prompt = s.numReturn
 	if n > 0 {
 		s.Log(fmt.Sprintf("%d", n))

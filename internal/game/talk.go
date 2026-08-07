@@ -126,8 +126,13 @@ func (s *State) beginConversation(dialogue byte) {
 
 // TypeRune 把一個字元加進輸入列(對話中用)。
 func (s *State) TypeRune(r rune) {
+	// ⚠ 施法不是打字串,是收符文首字母 —— 走它自己那條路(`TypeSpellLetter`)。
+	if s.Prompt == PromptSpell {
+		s.TypeSpellLetter(r)
+		return
+	}
 	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer &&
-		s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
+		s.Prompt != PromptShrine &&
 		s.Prompt != PromptYell && s.Prompt != PromptBlackthorn &&
 		s.Prompt != PromptGuard {
 		return
@@ -135,15 +140,14 @@ func (s *State) TypeRune(r rune) {
 	switch {
 	case r >= 'a' && r <= 'z':
 	case r >= 'A' && r <= 'Z':
-		// 咒語名、真言與力量之言保留大小寫原樣(比對本來就不分大小寫),
-		// 關鍵字一律小寫。
-		if s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
+		// 真言與力量之言保留大小寫原樣(比對本來就不分大小寫),關鍵字一律小寫。
+		if s.Prompt != PromptShrine &&
 			s.Prompt != PromptYell && s.Prompt != PromptBlackthorn &&
 			s.Prompt != PromptGuard {
 			r = r - 'A' + 'a'
 		}
-	case r == ' ' && (s.Prompt == PromptSpell || s.Prompt == PromptBlackthorn):
-		// 上古語咒語名有空格(「An Tym」);回答黑棘也可以打一整句。
+	case r == ' ' && s.Prompt == PromptBlackthorn:
+		// 回答黑棘可以打一整句。
 	case r >= '0' && r <= '9' && s.Prompt == PromptShrine:
 		// 聖壇獻金是打數字。
 	default:
@@ -165,7 +169,11 @@ func (s *State) TypeRune(r rune) {
 
 // Backspace 刪掉輸入列最後一個字元。
 func (s *State) Backspace() {
-	if (s.Prompt == PromptTalk || s.Prompt == PromptAnswer || s.Prompt == PromptSpell) && s.Input != "" {
+	if s.Prompt == PromptSpell {
+		s.BackspaceSpell()
+		return
+	}
+	if (s.Prompt == PromptTalk || s.Prompt == PromptAnswer) && s.Input != "" {
 		s.Input = s.Input[:len(s.Input)-1]
 	}
 }

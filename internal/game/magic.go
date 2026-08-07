@@ -37,7 +37,33 @@ const (
 	MagicFailed
 	// MagicSuccess:成功。
 	MagicSuccess
+	// MagicAbsorbed:這個地點把咒語吸走了(見 magicAbsorbedHere)。
+	MagicAbsorbed
 )
+
+// magicAbsorbedHere 回報這個地點會不會把咒語吸掉(原版 `sub_1994C` 的地點分派)。
+//
+//	if (地點 == 0x12 && 還沒拿到王冠) → "Absorbed!"
+//	if (地點 == 0x1D)                 → "Absorbed!"
+//
+// ★ 這兩個地點正好就是**王冠與權杖的所在**(`docs/re/57`):
+// 第二座城堡在你拿到王冠之前壓制魔法,`STONEGATE` 永遠壓制。
+// 兩個號碼分別由信物擺放位置獨立佐證,不是巧合。
+//
+// ⚠ 這一關在「場合對不對」與「有沒有調配」**之前** —— 所以在這兩處施法
+// 不會扣份數也不會扣魔力。順序寫錯的話玩家會白白損失藥草。
+func (s *State) magicAbsorbedHere() bool {
+	if s.InCombat() {
+		return false
+	}
+	switch s.Location {
+	case u5data.CrownNPCLocation:
+		return !s.Regalia.Crown
+	case u5data.SceptreNPCLocation:
+		return true
+	}
+	return false
+}
 
 // castLocation 回傳給咒語場合判斷用的地點值:戰鬥中是 −1。
 func (s *State) castLocation() int {
@@ -64,6 +90,11 @@ func (s *State) Cast(caster, spell int) MagicResult {
 			s.Log(who + "干擾了施法!")
 			return MagicInterfered
 		}
+	}
+	// ★ 有兩個地點會直接把咒語吸走,連場合都不看(原版的地點分派最前面)。
+	if s.magicAbsorbedHere() {
+		s.Log(MsgMagicAbsorbed)
+		return MagicAbsorbed
 	}
 	if !sp.CanCastAt(s.castLocation()) {
 		s.Log("此地不可!")
@@ -92,16 +123,6 @@ func (s *State) Cast(caster, spell int) MagicResult {
 	}
 	s.Log("失敗!")
 	return MagicFailed
-}
-
-// CastByName 讓玩家用上古語名稱施法(名稱一律用英文 canonical 值比對)。
-func (s *State) CastByName(caster int, name string) MagicResult {
-	idx := s.Spells.Find(name)
-	if idx < 0 {
-		s.Log("無此咒語!")
-		return MagicFailed
-	}
-	return s.Cast(caster, idx)
 }
 
 // interferer 找出戰鬥中打斷施法的那個敵人(原版 `sub_200BC`)。
@@ -597,8 +618,11 @@ func (s *State) spellChangeFloor(up bool) bool {
 // Mix 調配 count 份 spell,用 reagents 指定的那幾種藥草。
 //
 // 回傳成功與否;不論成敗,選到的藥草都會被扣掉(這是原版行為)。
+// ⚠ spell 可以是 `u5data.SpellInputNoSpell` —— 玩家打的符文湊不出咒語時原版
+// **照樣讓他調**,藥草照扣、結果一定是廢渣(`sub_18704` 只擋 −1)。
+// 所以這裡不能用 `spell < 0` 提早 return:那會把藥草還給玩家。
 func (s *State) Mix(spell, count int, reagents []int) bool {
-	if s.Spells == nil || spell < 0 || spell >= u5data.SpellCount || count <= 0 {
+	if s.Spells == nil || spell >= u5data.SpellCount || count <= 0 {
 		return false
 	}
 	var picked byte
@@ -632,8 +656,8 @@ func (s *State) Mix(spell, count int, reagents []int) bool {
 			s.Inventory.Reagents[r] -= count
 		}
 	}
-	if picked != s.Spells.Spells[spell].Reagents {
-		s.Log("配方不對,藥草白費了。")
+	if spell < 0 || picked != s.Spells.Spells[spell].Reagents {
+		s.Log(MsgMixFailed)
 		return false
 	}
 	n := s.Inventory.Spells[spell] + count
@@ -731,24 +755,111 @@ func (s *State) LightTorch() bool {
 	return true
 }
 
-// 施法的輸入流程
+// 施法的輸入流程 —— 打符文首字母,不是打咒語全名
 //
-// 原版問「Spell name:」然後等玩家把**上古語**打進去(`sub_1CA0C`)。
-// 咒語名因此是玩家要輸入的字串 —— canonical 值一律維持英文,
-// 中文只出現在說明裡(CLAUDE.md §5.2 的硬規則)。
+// ⚠ **這裡原本做錯了**:原本讓玩家把 `In Lor` 整串打進去,而原版 `sub_1CA0C`
+// 收的是**符文詞的首字母**(最多四個),每收一個就把整個符文詞回顯出來。
+// 打 `I` `L` 畫面上長出 `IN LOR`,送出才查表。詳見 `u5data/runeinput.go`
+// 與 `docs/re/58`。
+//
+// 咒語名與符文詞的 canonical 值一律維持英文(CLAUDE.md §5.2 的硬規則)——
+// 玩家按的是英文字母鍵,中文只出現在說明裡。
 
-// BeginCastPrompt 開始問咒語名。
+// BeginCastPrompt 開始收符文首字母。
 func (s *State) BeginCastPrompt() {
-	if s.Spells == nil {
+	if s.Spells == nil || s.Runes == nil {
 		s.Log("咒語表未載入。")
 		return
 	}
-	s.castReturn = s.Prompt
 	s.castBy = s.currentCaster()
-	s.Prompt = PromptSpell
-	s.Input = ""
-	s.Log("咒語名:")
+	s.beginRunePrompt(MsgSpellName, func(idx int) {
+		switch idx {
+		case u5data.SpellInputCancelled:
+			s.Log(MsgSpellNone)
+		case u5data.SpellInputNoSpell:
+			s.Log(MsgSpellNoEffect)
+		default:
+			res := s.Cast(s.castBy, idx)
+			// 戰鬥中不論成敗都算用掉一個回合。
+			if s.InCombat() && res != MagicNotHere {
+				s.afterPlayerAction()
+			}
+		}
+	})
 }
+
+// beginRunePrompt 開一個符文輸入(施法與調藥共用 —— 原版就是同一支 `sub_1CA0C`)。
+//
+// then 收到的是咒語索引,或 `u5data.SpellInputCancelled` / `SpellInputNoSpell`;
+// **兩種失敗要怎麼處理由呼叫端決定** —— 施法把 −2 當「毫無效果」擋掉,
+// 調藥卻讓 −2 繼續走下去(原版只擋 −1)。
+func (s *State) beginRunePrompt(question string, then func(idx int)) {
+	if s.Runes == nil {
+		return
+	}
+	s.castReturn = s.Prompt
+	s.runeThen = then
+	s.Prompt = PromptSpell
+	s.spellLetters = s.spellLetters[:0]
+	s.Input = ""
+	s.Log(question)
+}
+
+// TypeSpellLetter 收一個符文首字母(原版 `sub_1CA0C` 的讀鍵迴圈)。
+//
+// 回報這一鍵有沒有把輸入送出去 —— **空白鍵在原版就是送出**,與 Enter 同義。
+func (s *State) TypeSpellLetter(r rune) bool {
+	if s.Prompt != PromptSpell || s.Runes == nil {
+		return false
+	}
+	if r == ' ' {
+		s.SubmitSpell()
+		return true
+	}
+	if r >= 'a' && r <= 'z' {
+		r = r - 'a' + 'A'
+	}
+	// ⚠ 收不下的鍵(J / O、非字母、已經四個了)原版是**默默丟掉**,
+	// 不印任何訊息 —— 照抄,不要「好心」提示。
+	if len(s.spellLetters) >= u5data.RuneInputMax || !s.Runes.AcceptsLetter(byte(r)) {
+		return false
+	}
+	s.spellLetters = append(s.spellLetters, byte(r))
+	s.Input = s.spellEcho()
+	return false
+}
+
+// BackspaceSpell 退掉最後一個字母(連同它回顯的那個符文詞)。
+func (s *State) BackspaceSpell() {
+	if s.Prompt != PromptSpell || len(s.spellLetters) == 0 {
+		return
+	}
+	s.spellLetters = s.spellLetters[:len(s.spellLetters)-1]
+	s.Input = s.spellEcho()
+}
+
+// spellEcho 是目前輸入回顯成的符文詞串。
+//
+// 原版每個詞後面補一個空白,而且累計超過 13 欄會先換行(`RuneInputWrapAt`)——
+// 換行是主機端的欄寬行為,本引擎的訊息版面自己會折,所以這裡只組出詞串。
+// 這是**版面差異**,不是機制差異。
+func (s *State) spellEcho() string {
+	out := ""
+	for _, c := range s.spellLetters {
+		w, ok := s.Runes.RuneWord(c)
+		if !ok {
+			continue
+		}
+		if out != "" {
+			out += " "
+		}
+		out += w
+	}
+	return out
+}
+
+// SpellLetters 是目前打進去的符文首字母(給算繪與測試看)。
+func (s *State) SpellLetters() string { return string(s.spellLetters) }
 
 // currentCaster 是現在該由誰施法:戰鬥中是輪到的那個隊員,平時是隊長。
 func (s *State) currentCaster() int {
@@ -760,27 +871,27 @@ func (s *State) currentCaster() int {
 	return 0
 }
 
-// SubmitSpell 把打好的咒語名送出去。
+// SubmitSpell 把打好的符文送出去查表,結果交給 beginRunePrompt 給的處理函式。
 func (s *State) SubmitSpell() {
-	name := trimSpace(s.Input)
+	letters := s.spellLetters
+	then := s.runeThen
+	s.spellLetters = s.spellLetters[:0]
+	s.runeThen = nil
 	s.Input = ""
 	s.Prompt = s.castReturn
-	if name == "" {
-		s.Log("作罷。")
+	if s.Runes == nil || then == nil {
 		return
 	}
-	res := s.CastByName(s.castBy, name)
-	// 戰鬥中不論成敗都算用掉一個回合。
-	if s.InCombat() && res != MagicNotHere {
-		s.afterPlayerAction()
-	}
+	then(s.Runes.Match(letters))
 }
 
-// CancelSpell 取消輸入。
+// CancelSpell 取消輸入(ESC)。
+//
+// ⚠ 原版的 ESC 走的是「當成一個字母都沒打就送出」那條路 —— 所以它跟空輸入
+// **完全同一條路徑**,而不是另一個「作罷」分支。照抄:清掉字母再送出。
 func (s *State) CancelSpell() {
-	s.Input = ""
-	s.Prompt = s.castReturn
-	s.Log("作罷。")
+	s.spellLetters = s.spellLetters[:0]
+	s.SubmitSpell()
 }
 
 // trimSpace 去掉頭尾空白(咒語名前後可能被多打了空格)。

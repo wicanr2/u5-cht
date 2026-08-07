@@ -128,28 +128,27 @@ func TestEmptyListSaysSoInsteadOfOpening(t *testing.T) {
 	}
 }
 
-// TestMixMenuOnlyListsWhatCanBeMixed:調藥選單只列調得出來的。
+// TestMixDoesNotOpenASpellMenu:調藥的第一步是**符文輸入**,不是咒語選單。
 //
-// 列出調不出來的會讓玩家白挑一次 —— 而原版的選單也只列手上有的東西。
-func TestMixMenuOnlyListsWhatCanBeMixed(t *testing.T) {
+// ⚠ 這條原本測的是「選單只列調得出來的咒語」—— 而那張選單是我自己加的,
+// 原版沒有。測試每次都綠,因為它量的是我自己的發明(`docs/re/58`)。
+// 現在改成釘住原版的第一步:`sub_18704` 印「For what spell?」然後叫 `sub_1CA0C`。
+func TestMixDoesNotOpenASpellMenu(t *testing.T) {
 	s := pickScene(t)
-	if s.Spells == nil {
-		t.Skip("沒有咒語表")
+	if s.Spells == nil || s.Runes == nil {
+		t.Skip("沒有咒語表 / 符文表")
 	}
 	for r := range s.Inventory.Reagents {
-		s.Inventory.Reagents[r] = 0
+		s.Inventory.Reagents[r] = 5
 	}
-	// 只給硫磺灰 —— 只有配方**恰好只要它**的咒語能調。
-	s.Inventory.Reagents[u5data.ReagentSulfurousAsh] = 5
 	if !s.BeginMix() {
-		t.Skipf("沒有只要硫磺灰的咒語:%q", s.Messages)
+		t.Fatalf("按 M 沒有開始調藥:%q", s.Messages)
 	}
-	for _, e := range s.Pick.Entries {
-		mask := s.Spells.Spells[e.Value].Reagents
-		if mask&^u5data.ReagentBit(u5data.ReagentSulfurousAsh) != 0 {
-			t.Errorf("%s 需要別的藥草卻列了出來(遮罩 0x%02X)",
-				s.Spells.Spells[e.Value].Name, mask)
-		}
+	if s.Prompt != PromptSpell {
+		t.Errorf("第一步是 %v,預期符文輸入", s.Prompt)
+	}
+	if s.Pick != nil {
+		t.Error("開出了咒語選單 —— 原版沒有這一步")
 	}
 }
 

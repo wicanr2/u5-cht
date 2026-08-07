@@ -186,15 +186,29 @@ func (g *game) Update() error {
 		return nil
 	}
 
-	// 通用選單(R / W / N / U / M):上下移動、Enter 選定、ESC 放棄。
+	// 通用選單(R / N / U / M):上下移動、Enter 選定、ESC 放棄。
+	//
+	// 調藥的藥草清單是**複選**(原版 `sub_18468`):四個方向鍵都能移動
+	//(其中兩個往上、兩個往下)、空白或 Enter 勾選、**M 才確定**。
 	if st.Prompt == gamestate.PromptPick {
+		multi := st.PickMulti()
 		switch {
 		case inpututil.IsKeyJustPressed(ebiten.KeyArrowUp):
 			st.PickMove(-1)
 		case inpututil.IsKeyJustPressed(ebiten.KeyArrowDown):
 			st.PickMove(1)
-		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
-			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+		case multi && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft):
+			st.PickMove(-1)
+		case multi && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight):
+			st.PickMove(1)
+		case multi && (inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
+			inpututil.IsKeyJustPressed(ebiten.KeyEnter) ||
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter)):
+			st.PickToggle()
+		case multi && inpututil.IsKeyJustPressed(ebiten.KeyM):
+			st.PickConfirm()
+		case !multi && (inpututil.IsKeyJustPressed(ebiten.KeyEnter) ||
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter)):
 			st.PickChoose()
 		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 			st.PickCancel()
@@ -267,17 +281,23 @@ func (g *game) Update() error {
 		return nil
 	}
 
-	// 打咒語名:上古語(含空格),Enter 送出、ESC 作罷。
+	// 施法:收符文首字母(最多四個),**Enter 或空白鍵**送出、ESC 作罷。
+	//
+	// ⚠ 空白鍵在原版就是送出鍵,所以要讓它走 `TypeSpellLetter` ——
+	// 它送出之後就不能再處理後面的按鍵了(不然會把 Enter 當成新一輪的輸入)。
 	if st.Prompt == gamestate.PromptSpell {
 		for _, r := range ebiten.AppendInputChars(nil) {
-			st.TypeRune(r)
+			if st.TypeSpellLetter(r) {
+				g.dirty = true
+				return nil
+			}
 		}
 		switch {
 		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
 			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
 			st.SubmitSpell()
 		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
-			st.Backspace()
+			st.BackspaceSpell()
 		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 			st.CancelSpell()
 		}
@@ -429,14 +449,23 @@ func (g *game) Update() error {
 		return nil
 	}
 
-	// 「(1-9)」—— 只收數字鍵;空白與 0 是放棄,其餘按鍵原版會繼續等。
+	// 數字輸入 —— 只收數字鍵;空白與 0 是放棄,其餘按鍵原版會繼續等。
+	//
+	// 兩位數的地方(調藥的「要幾份?」)要按 Enter 送出,Backspace 退一位。
 	if st.AwaitingNumber() {
 		for n := 0; n <= 9; n++ {
 			if inpututil.IsKeyJustPressed(ebiten.Key0 + ebiten.Key(n)) {
 				st.AnswerNumber(n)
 			}
 		}
-		if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.SubmitNumber()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.BackspaceNumber()
+		case inpututil.IsKeyJustPressed(ebiten.KeySpace),
+			inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 			st.AnswerNumber(0)
 		}
 		g.dirty = true
@@ -722,6 +751,7 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		CombatMaps:   bundle.Combat,
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
+		Runes:        bundle.Runes,
 		Story:        bundle.Story,
 		Question:     bundle.Question,
 		Misc:         bundle.Misc,

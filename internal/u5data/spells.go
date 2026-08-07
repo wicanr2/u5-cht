@@ -235,3 +235,9 @@ const SaveSpellsOffset = 0x024A
 
 // SpellStackLimit 是每種咒語能存幾份(原版 `cmp byte_3E000[i], 63h` → 99)。
 const SpellStackLimit = 99
+
+// MixAmountMax 是「要幾份?」收得下的最大值。
+//
+// 原版問份數是 `sub_2B7F0(2)` —— **兩位數**,所以上限就是 99,
+// 與 SpellStackLimit 同值但來源不同(一個是輸入欄寬,一個是儲存上限)。
+const MixAmountMax = 99
