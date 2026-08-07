@@ -201,6 +201,11 @@ func (g *game) Update() error {
 			st.PickMove(-1)
 		case multi && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight):
 			st.PickMove(1)
+		// 翻頁鍵一次移 7 項 —— 原版 `sub_1EFC8` 對 0xD5 / 0xD6 就是這個數字。
+		case inpututil.IsKeyJustPressed(ebiten.KeyPageUp):
+			st.PickPage(-1)
+		case inpututil.IsKeyJustPressed(ebiten.KeyPageDown):
+			st.PickPage(1)
 		case multi && (inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
 			inpututil.IsKeyJustPressed(ebiten.KeyEnter) ||
 			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter)):
@@ -584,71 +589,84 @@ func (g *game) Update() error {
 // ★ D 與 W **不是指令** —— 原版只印 `D-What?` / `W-What?`(`docs/re/49`)。
 // 這裡照樣印,而不是靜靜吃掉:玩家按錯鍵會看到跟原版一樣的回應。
 func (g *game) commandKeys(st *gamestate.State, ctrl bool) {
-	switch {
-	case inpututil.IsKeyJustPressed(ebiten.KeyE):
-		st.Enter()
-	case inpututil.IsKeyJustPressed(ebiten.KeyT):
-		st.Talk()
+	for _, c := range commandTable {
+		if !inpututil.IsKeyJustPressed(c.key) {
+			continue
+		}
+		if c.key == ebiten.KeyQ && ctrl {
+			continue // Ctrl+Q 是離開,不是存檔
+		}
+		// ★ 原版每個指令**先印自己的名字**,再跑處理函式(`sub_2ACF4`)。
+		// 名字末尾的「——」就是「等方向」的提示,少了它按下 G 之後畫面毫無反應。
+		st.EchoCommand(c.echo)
+		if c.run != nil {
+			c.run(st)
+		}
+		return
+	}
+}
+
+// commandEntry 是一個字母指令:按鍵、回顯用的字母、處理函式。
+//
+// `run` 為 nil 代表原版只印一句話就結束(D 與 W 那兩個空鍵)。
+type commandEntry struct {
+	key  ebiten.Key
+	echo rune
+	run  func(*gamestate.State)
+}
+
+// commandTable 是**字母指令表**,地面、場景與地牢共用一份。
+//
+// 這對應原版的 `sub_2ACF4` —— A..Z 加空白鍵共 27 個 case 的單一分派器。
+// 各指令自己判位置(`byte_3E0A3`:0 = 地表 / <0x21 = 場景 / >=0x21 = 地牢),
+// 所以**不該在輸入層按位置分兩份清單**;分了就會漏,而漏掉的指令
+// 在測試裡完全看不出來(規則都實作了,只是按不到)。
+//
+// ⚠ K(Klimb)不在這裡:地牢的 K 要先問上 / 下,兩邊的互動流程不同。
+// 方向鍵也不在這裡(地牢是前進 / 轉向,地面是四方走)。
+//
+// ★ D 與 W **不是指令** —— 原版只印 `D-What?` / `W-What?`(`docs/re/49`),
+// 所以它們的 `run` 是 nil,只靠回顯。
+var commandTable = []commandEntry{
+	{ebiten.KeyE, 'E', func(st *gamestate.State) { st.Enter() }},
+	{ebiten.KeyT, 'T', func(st *gamestate.State) { st.Talk() }},
 	// L 是原版的 Look:先問方向,再看那一格(LOOK2.DAT / SIGNS.DAT)。
-	case inpututil.IsKeyJustPressed(ebiten.KeyL):
-		st.Look()
+	{ebiten.KeyL, 'L', func(st *gamestate.State) { st.Look() }},
 	// P 是原版的 Push:推家具,推不動就改拉。
-	case inpututil.IsKeyJustPressed(ebiten.KeyP):
-		st.Push()
+	{ebiten.KeyP, 'P', func(st *gamestate.State) { st.Push() }},
 	// J 撬鎖、V 看寶石(攤開全景)、Z 角色數值 —— 都照原版鍵位。
-	case inpututil.IsKeyJustPressed(ebiten.KeyJ):
-		st.Jimmy()
-	case inpututil.IsKeyJustPressed(ebiten.KeyV):
-		st.ViewGem()
-	case inpututil.IsKeyJustPressed(ebiten.KeyZ):
-		st.BeginZtats()
+	{ebiten.KeyJ, 'J', func(st *gamestate.State) { st.Jimmy() }},
+	{ebiten.KeyV, 'V', func(st *gamestate.State) { st.ViewGem() }},
+	{ebiten.KeyZ, 'Z', func(st *gamestate.State) { st.BeginZtats() }},
 	// S 搜尋:查陷阱、找密門、翻家具。地牢裡不問方向,搜腳下。
-	case inpututil.IsKeyJustPressed(ebiten.KeyS):
-		st.Search()
+	{ebiten.KeyS, 'S', func(st *gamestate.State) { st.Search() }},
 	// F 開砲(船上打舷側 / 陸上要緊鄰大砲)。
-	case inpututil.IsKeyJustPressed(ebiten.KeyF):
-		st.Fire()
+	{ebiten.KeyF, 'F', func(st *gamestate.State) { st.Fire() }},
 	// R 換裝備(六個欄位一支)、N 換位、U 用道具、M 調藥 —— 都走通用選單。
-	case inpututil.IsKeyJustPressed(ebiten.KeyR):
-		st.BeginReady()
-	case inpututil.IsKeyJustPressed(ebiten.KeyN):
-		st.BeginNewOrder()
-	case inpututil.IsKeyJustPressed(ebiten.KeyU):
-		st.BeginUse()
-	case inpututil.IsKeyJustPressed(ebiten.KeyM):
-		st.BeginMix()
-	case inpututil.IsKeyJustPressed(ebiten.KeyO):
-		st.OpenChest()
-	case inpututil.IsKeyJustPressed(ebiten.KeyG):
-		st.Get()
-	case inpututil.IsKeyJustPressed(ebiten.KeyB):
-		st.Board()
-	case inpututil.IsKeyJustPressed(ebiten.KeyX):
-		st.Exit()
-	// C 施法(問上古語咒語名),I 點火把 —— 兩個都照原版鍵位。
-	case inpututil.IsKeyJustPressed(ebiten.KeyC):
-		st.BeginCastPrompt()
-	case inpututil.IsKeyJustPressed(ebiten.KeyI):
-		st.LightTorch()
+	{ebiten.KeyR, 'R', func(st *gamestate.State) { st.BeginReady() }},
+	{ebiten.KeyN, 'N', func(st *gamestate.State) { st.BeginNewOrder() }},
+	{ebiten.KeyU, 'U', func(st *gamestate.State) { st.BeginUse() }},
+	{ebiten.KeyM, 'M', func(st *gamestate.State) { st.BeginMix() }},
+	{ebiten.KeyO, 'O', func(st *gamestate.State) { st.OpenChest() }},
+	{ebiten.KeyG, 'G', func(st *gamestate.State) { st.Get() }},
+	{ebiten.KeyB, 'B', func(st *gamestate.State) { st.Board() }},
+	{ebiten.KeyX, 'X', func(st *gamestate.State) { st.Exit() }},
+	// C 施法(收符文首字母),I 點火把 —— 兩個都照原版鍵位。
+	{ebiten.KeyC, 'C', func(st *gamestate.State) { st.BeginCastPrompt() }},
+	{ebiten.KeyI, 'I', func(st *gamestate.State) { st.LightTorch() }},
 	// 空白鍵是原版的 Pass —— 而在海上揚著帆時它是**收帆**。
-	case inpututil.IsKeyJustPressed(ebiten.KeySpace):
-		st.Pass()
+	// 那兩句由 `Pass` 自己印,所以回顯給 0(不印)。
+	{ebiten.KeySpace, 0, func(st *gamestate.State) { st.Pass() }},
 	// H 是原版的 Hole up:在船上修船、在城裡要站床上、其餘紮營。
-	case inpututil.IsKeyJustPressed(ebiten.KeyH):
-		st.HoleUp()
+	{ebiten.KeyH, 'H', func(st *gamestate.State) { st.HoleUp() }},
 	// Y 是原版的 Yell:船上收放帆,城裡喊暗影君主的名字,野外說力量之言。
-	case inpututil.IsKeyJustPressed(ebiten.KeyY):
-		st.Yell()
-	// D 與 W 是原版留著的空鍵。
-	case inpututil.IsKeyJustPressed(ebiten.KeyD):
-		st.Log(gamestate.MsgDWhat)
-	case inpututil.IsKeyJustPressed(ebiten.KeyW):
-		st.Log(gamestate.MsgWWhat)
+	{ebiten.KeyY, 'Y', func(st *gamestate.State) { st.Yell() }},
+	// D 與 W 是原版留著的空鍵 —— 只有回顯,沒有處理函式。
+	{ebiten.KeyD, 'D', nil},
+	{ebiten.KeyW, 'W', nil},
 	// Q 存檔(不離開)。原版 Q 是「存檔並離開」,這裡拆開:
 	// 離開走 F10 / Ctrl+Q 並自動存檔,見 esc-cancel-f10-quit-autosave。
-	case inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ctrl:
-		st.Save()
-	}
+	{ebiten.KeyQ, 'Q', func(st *gamestate.State) { st.Save() }},
 }
 
 // key 是「畫面該不該重畫」的判斷依據 —— 回合制遊戲多數幀什麼都沒變。

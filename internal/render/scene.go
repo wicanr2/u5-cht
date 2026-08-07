@@ -298,7 +298,7 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 	case game.PromptZtats:
 		hint = "←→ 翻頁,ESC 收起"
 	case game.PromptPick:
-		hint = "↑↓ 移動,Enter 選定,ESC 作罷"
+		hint = "↑↓ 移動,PgUp/PgDn 跳 7 項,Enter 選定,ESC 作罷"
 		if s.State.PickMulti() {
 			// 調藥的藥草清單是複選 —— Enter 是勾選,**M 才確定**。
 			hint = "↑↓ 移動,空白 / Enter 勾選,M 開始調配,ESC 作罷"

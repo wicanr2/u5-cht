@@ -159,3 +159,49 @@ func pickScene(t *testing.T) *State {
 	s.Messages = nil
 	return s
 }
+
+// 翻頁鍵一次移 7 項,而且會繞回。
+//
+// ⚠ 7 是原版的數字(`sub_1EFC8` 對 0xD5 / 0xD6 把移動次數設成 7),
+// 不是「一整頁」——清單再長也是 7。
+func TestPickPageMovesSevenRows(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	var out []PickEntry
+	for i := 0; i < 20; i++ {
+		out = append(out, PickEntry{Label: "x", Value: i})
+	}
+	s.beginPick("t", out, "empty", func(int) bool { return true })
+	s.PickPage(1)
+	if s.Pick.Cursor != PickPageRows {
+		t.Errorf("往下翻頁到第 %d 項,預期第 %d 項", s.Pick.Cursor, PickPageRows)
+	}
+	s.PickPage(-1)
+	if s.Pick.Cursor != 0 {
+		t.Errorf("往上翻回第 %d 項,預期第 0 項", s.Pick.Cursor)
+	}
+	// 從第 0 項往上翻要繞到尾巴,不是停在 0(與 PickMove 同一套環繞)。
+	s.PickPage(-1)
+	if s.Pick.Cursor != len(out)-PickPageRows {
+		t.Errorf("繞回之後在第 %d 項,預期第 %d 項", s.Pick.Cursor, len(out)-PickPageRows)
+	}
+}
+
+// 原版的清單瀏覽器**沒有字母捷徑** —— 這條把那個更正釘住。
+//
+// 依據:`sub_1EFC8` 整支比對過的鍵碼只有 1..4 / 0xD3..0xD6 / 13 / 0x20 / 0x1B,
+// 0x41..0x5A 一次都沒出現(`docs/re/60`)。所以選單不該去解讀字母鍵 ——
+// 若哪天有人「補上字母捷徑」,那是加了原版沒有的東西。
+func TestPickerHasNoLetterShortcut(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	s.beginPick("t", []PickEntry{{Label: "a", Value: 7}, {Label: "b", Value: 9}}, "empty",
+		func(int) bool { return true })
+	before := s.Pick.Cursor
+	// 字母鍵在選單裡不該有任何效果 —— TypeRune 是打字用的路徑。
+	s.TypeRune('b')
+	if s.Pick == nil {
+		t.Fatal("按了字母鍵選單就關了 —— 那是原版沒有的行為")
+	}
+	if s.Pick.Cursor != before {
+		t.Errorf("字母鍵移動了游標(%d → %d)", before, s.Pick.Cursor)
+	}
+}

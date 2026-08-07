@@ -1289,7 +1289,11 @@ func (s *State) AskDirection(then func(Direction)) {
 	s.dirReturn = s.Prompt
 	s.dirThen = then
 	s.Prompt = PromptDirection
-	s.Log("方向 ——")
+	// 指令名已經以「——」結尾了(原版的 `Get-`)就不另起一行 ——
+	// 那個破折號本身就是「等方向」的提示,方向名會接在它後面。
+	if !s.awaitingAfterDash() {
+		s.Log("方向 ——")
+	}
 }
 
 // AnswerDirection 是玩家按下方向鍵。
@@ -1297,10 +1301,16 @@ func (s *State) AnswerDirection(d Direction) {
 	then := s.dirThen
 	s.dirThen = nil
 	s.Prompt = s.dirReturn
+	// 原版把方向名**接在指令名後面**(`Get-North`),同一行。
+	// 沒有指令名可接時才另起一行。
+	if s.awaitingAfterDash() {
+		s.Append(d.Name())
+	} else {
+		s.Log(d.Name())
+	}
 	if then == nil {
 		return
 	}
-	s.Log(d.Name())
 	then(d)
 }
 

@@ -17,9 +17,15 @@ import (
 // 「Items:」、`sub_18468` 印「Reagents:」),但形狀都一樣:列一排候選、
 // 挑一個、可以放棄。所以這裡收成**一個**選單,由呼叫端給標題與候選。
 //
-// ⚠ 原版用**字母**選(「Item: 」後面按一個字母)。引擎用方向鍵 + Enter ——
-// 與主選單、Ztats 一致。字母對應哪一項在跳表裡看得出來有,但沒逐一核過,
-// 所以先不做(`docs/re/45` §5 同一條原則:沒證據不猜)。
+// ⚠ **更正一條長期的誤記**:此前這裡寫「原版用字母選(「Item: 」後面按一個
+// 字母)」—— 那是錯的。把原版的清單瀏覽器 `sub_1EFC8` 整支掃過,它比對過的
+// 鍵碼只有 **1..4(方向)、0xD3..0xD6(翻頁)、13(Enter)、0x20(空白)、
+// 0x1B(ESC)**,**沒有任何一個字母鍵**(0x41..0x5A 一次都沒出現)。
+// `Item: ` 是「目前停在哪一項」的標籤,不是「請按字母」的提示。
+// ⇒ 引擎的方向鍵 + Enter **本來就是照原版**。見 `docs/re/60`。
+//
+// 唯一漏掉的是**翻頁鍵一次移 7 項**(原版 0xD5 / 0xD6 把移動次數設成 7),
+// 已補上 `PickPage`。
 
 // PickEntry 是選單上的一項。
 type PickEntry struct {
@@ -71,6 +77,19 @@ func (s *State) PickMove(delta int) {
 	}
 	n := len(s.Pick.Entries)
 	s.Pick.Cursor = ((s.Pick.Cursor+delta)%n + n) % n
+}
+
+// PickPageRows 是翻頁鍵一次移幾項(原版 `sub_1EFC8` 對 0xD5 / 0xD6 把
+// 移動次數設成 **7**,不是「一整頁」)。
+const PickPageRows = 7
+
+// PickPage 翻一頁:往 dir 的方向移 PickPageRows 項。
+func (s *State) PickPage(dir int) {
+	if dir < 0 {
+		s.PickMove(-PickPageRows)
+		return
+	}
+	s.PickMove(PickPageRows)
 }
 
 // PickChoose 按下 Enter。
