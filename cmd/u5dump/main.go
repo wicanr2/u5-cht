@@ -10,12 +10,14 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -38,6 +40,8 @@ func main() {
 		err = cmdTilesRaw(os.Args[2:])
 	case "tiles-cga":
 		err = cmdTilesCGA(os.Args[2:])
+	case "snd":
+		err = cmdSnd(os.Args[2:])
 	case "charset":
 		err = cmdCharset(os.Args[2:])
 	case "tlk":
@@ -148,6 +152,69 @@ func cmdTilesCGA(args []string) error {
 	fmt.Printf("✓ %d 個 CGA tile → %s(32 個一列)\n", len(tiles), args[1])
 	fmt.Println("  驗收方式:與 EGA 那張逐格比形狀 —— 圖案相同,只是四色")
 	return nil
+}
+
+// cmdSnd 把 FM Towns 的 25 個 `.SND` 轉成 WAV。
+//
+// 驗收方式:**用耳朵聽**。腳步聲、馬蹄、鐘擺、噴泉、雷電要各自像那個東西;
+// 若 PCM 解讀錯了(二補數而非 sign-magnitude),每次波形過零就會爆一下,
+// 聽起來是滿滿的雜訊 —— 一秒就分辨得出來。
+func cmdSnd(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump snd <FM Towns U5_E 目錄> <輸出目錄>")
+	}
+	set, err := u5data.LoadSoundSet(args[0])
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(args[1], 0o755); err != nil {
+		return err
+	}
+	names := make([]string, 0, len(set))
+	for n := range set {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		s := set[n]
+		out := filepath.Join(args[1], strings.TrimSuffix(n, ".SND")+".wav")
+		if err := os.WriteFile(out, wavFromSound(s), 0o644); err != nil {
+			return err
+		}
+		loop := ""
+		if s.Loops() {
+			loop = fmt.Sprintf("  迴圈 %d..%d", s.LoopStart, s.LoopStart+s.LoopLen)
+		}
+		fmt.Printf("  %-14s %-10s %6d 取樣  %5.2f s  音量 %3d%s\n",
+			n, s.Name, len(s.PCM),
+			float64(len(s.PCM))/float64(u5data.SndAssumedRate), s.Volume, loop)
+	}
+	fmt.Printf("✓ %d 個音效 → %s(取樣率**推測** %d Hz,見 u5data/snd.go)\n",
+		len(names), args[1], u5data.SndAssumedRate)
+	fmt.Println("  驗收方式:用耳朵聽 —— 解讀錯了會是滿滿的雜訊,一秒就聽得出來")
+	return nil
+}
+
+// wavFromSound 包成最小的 8-bit 單聲道 WAV(無號,所以要把 ±127 平移到 128 中心)。
+func wavFromSound(s *u5data.Sound) []byte {
+	n := len(s.PCM)
+	buf := make([]byte, 44+n)
+	copy(buf[0:], "RIFF")
+	binary.LittleEndian.PutUint32(buf[4:], uint32(36+n))
+	copy(buf[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(buf[16:], 16)         // fmt 區塊長度
+	binary.LittleEndian.PutUint16(buf[20:], 1)          // PCM
+	binary.LittleEndian.PutUint16(buf[22:], 1)          // 單聲道
+	binary.LittleEndian.PutUint32(buf[24:], uint32(u5data.SndAssumedRate))
+	binary.LittleEndian.PutUint32(buf[28:], uint32(u5data.SndAssumedRate)) // 每秒位元組
+	binary.LittleEndian.PutUint16(buf[32:], 1)          // 每個取樣的位元組
+	binary.LittleEndian.PutUint16(buf[34:], 8)          // 位元深度
+	copy(buf[36:], "data")
+	binary.LittleEndian.PutUint32(buf[40:], uint32(n))
+	for i, v := range s.PCM {
+		buf[44+i] = byte(int(v) + 128)
+	}
+	return buf
 }
 
 func cmdTilesRaw(args []string) error {

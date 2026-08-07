@@ -207,7 +207,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | **Get(撿東西)** | `sub_15A94` → `sub_154BC`;地牢走 `sub_15930` + 三張表 `byte_55DD4/DDC/DE4` | ✅ **已實作**(`docs/re/33`):物件與地形兩條路、碎片 / 檀香木盒 / 王冠 / 權杖 / 寶珠 / 圖紙 / 魔毯、偷食物扣業報、盤子的方向規矩、地牢寶箱獎品(開箱與取物分兩步)。**`sub_154BC` 十三條分支全部接完**:藥水(品質選顏色)、卷軸(⚠ 品質 0xFF 是攻城圖紙不是卷軸)、裝備(品質就是裝備編號,箭矢與弩矢一次 +5)、月石、⚠ 鑰匙的第二個計數欄「怪鑰匙」;順帶對出存檔位移 0x020B / 0x027A / 0x0282 / 0x029A |
 | 四種顯示模式 | `EGA.DRV / CGA.DRV / HER.DRV / T1K.DRV` | 🔶 **三種可用**(`docs/re/62`):四個驅動程式開頭的 `int 10h` 序列直接給出答案 —— EGA 模式 0Dh、**CGA 模式 4 + 調色盤 1 + 低亮度**(= 十六色盤的 0/3/5/7)、Tandy 模式 9 且**與 EGA 讀同一批 `.16`**。`TILES.4` 解壓後 32,768 = 512 × 2bpp,正好是 `.16` 的一半,已解碼並與 EGA 逐格比過形狀。命令列 `-display CGA`。⬜ **Hercules**:沒有自己的 tileset(`.HCS` 是字型),`HER.DRV` 不走 BIOS、直接寫 0x3B4/0x3B8/0x3BF,單色轉換規則要逆它才知道;目前印一句話退回 EGA。⬜ EGA 與 Tandy 那兩份 17 B 調色盤表未抽出比對 |
 | 音樂 | upgrade 19 首 `.XMI`;FM Towns 15 首 `.EUP` + 2 條 CDDA;PC-98 `UL01–15.BIN`;**播放函式 `sub_3181C(曲目)`,曲目 0–14**;已知 castle=6、LB 城堡=7、village/hut=8、Blackthorn 宮殿=11(`docs/re/03`) | 🔶 場景→BGM 對應部分已知 |
-| 音效 | FM Towns 25 個 `.SND` | ⬜ |
+| 音效 | FM Towns 25 個 `.SND` + `U5_SE.TBL` | 🔶 **格式已解**(`docs/re/63`):32 B 檔頭(+0x0C = 檔案大小 − 32,**25/25 相符**);`U5_SE.TBL` 是純文字表 `檔名 音量 大小`,第三欄與實際大小逐一相符 —— 兩份獨立佐證。**PCM 是 sign-magnitude 有量化證據了**:平滑度指標對十個檔案全勝二補數(43.0 vs 162.2)。`u5dump snd` 可轉 23 個 WAV 用耳朵驗。⚠ `+0x10`/`+0x14` 像迴圈但**沒全對**(BEEP/SUITEKI3 是 1、DOKU/MAHOU1 是 0/0)—— `Loops()` 用的是明說的判準,不是原版規則。⬜ 取樣率未定案(`SndAssumedRate` = 7926 只有一個來源)⬜ 尚未接進遊戲播放 |
 | **打包與 CI** | — | ✅ **已做**:`tools/package.sh`(Linux tar.gz + Windows zip,全程 docker)、`.github/workflows/ci.yml`(gofmt / vet / test / 交叉編譯 / **交付包編碼檢查**)、`release.yml`(打 tag 出三平台,macOS 走原生 runner 產 universal)。交付包不含原版資料與中文字庫。⚠ GUI 實機啟動尚未在本機驗過(無顯示裝置) |
 
 ## 3. 目前完成度(誠實版)
