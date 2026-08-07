@@ -81,7 +81,7 @@ const usage = `u5dump — 原版資料解碼驗收工具
   u5dump map           <地圖檔> <U5_E 目錄> <out.png> [--side N] [--cols N] [--max N]
   u5dump world         <gamedata 目錄> <U5_E 目錄> <out.png> [--water N]
   u5dump text          <檔案> [--n N]          明文訊息檔 → 前 N 筆(預設 5)
-  u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y]
+  u5dump scene         <gamedata> <U5_E> <out.png> [--font 前綴] [--at X Y] [--hour H] [--box]
   u5dump pictures      <圖檔.16|.4> <out.png>      形狀表橫排成一張圖
   u5dump scenemaps     <場景檔.DAT> <U5_E> <out.png>  16 張 32×32 場景地圖
   u5dump town          <gamedata> <U5_E> <地名> <out.png>  依原版地點表進城,畫出每一層
@@ -384,12 +384,19 @@ func cmdScene(args []string) error {
 	script := ""
 	sceneName, sceneFloor := "", 0
 	hour := -1
+	giveBox := false
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
 		case "--hour":
 			if i+1 < len(args) {
 				hour, _ = strconv.Atoi(args[i+1])
 			}
+		// ⚠ **只給截圖用的除錯旗標**,不是遊戲機制。
+		// 拿來把狀態擺到某一幕(例如真結局要有檀香木盒)。
+		// 遊戲本體沒有這個開關 —— CLAUDE.md 的「debug hook 會遮住真 bug」
+		// 指的是拿它當驗收;這裡只用來產截圖,不參與任何測試。
+		case "--box":
+			giveBox = true
 		case "--scene":
 			if i+4 < len(args) {
 				sceneName = args[i+1]
@@ -433,6 +440,9 @@ func cmdScene(args []string) error {
 	}
 	if hour >= 0 {
 		st.Clock.Hour = hour
+	}
+	if giveBox {
+		st.SandalwoodBox = true
 	}
 	// 存檔先套(時間、隊伍、位置),命令列參數再覆蓋。順序反了的話
 	// --at / --scene 會被存檔的位置蓋掉,截圖就永遠停在同一個地方。

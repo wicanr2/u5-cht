@@ -42,3 +42,54 @@ var EndingFinale = []int{
 // 之後 0x021A 就是既有且已驗過的 `SaveItemsOffset` —— 兩端都釘住了,
 // 中間這六格沒有算錯的空間。
 const SaveSandalwoodBoxOffset = 0x0219
+
+// 製作名單 / 頒獎狀(原版 `sub_13258`)
+//
+// 真結局播完之後的那一頁 —— 用羊皮紙腔宣告「某年某月某日,某某聖者救了
+// 不列顛王」,然後結算汝花了多久。
+//
+// ★ 起算日 **139 年 4 月 5 日** 不是猜的,兩個獨立來源對得上:
+//
+//	程式碼  `sub_13258` 直接減:年 −0x8B(139)、月 −4、日 −5
+//	資料    `INIT.GAM` 的年 / 月 / 日欄位就是 139 / 4 / 5
+//
+// 借位用的是不列顛尼亞曆:**每月 28 天、每年 13 個月**(與 `game.Clock` 一致)。
+const (
+	EpochYear  = 139
+	EpochMonth = 4
+	EpochDay   = 5
+)
+
+// Elapsed 是從開局到現在過了多久(原版 `sub_13258` 尾段)。
+//
+// 借位順序照原版:先補日、再補月。
+func Elapsed(year, month, day int) (years, months, days int) {
+	years = year - EpochYear
+	months = month - EpochMonth
+	days = day - EpochDay
+	if days < 0 {
+		days += CalendarDaysPerMonth
+		months--
+	}
+	if months < 0 {
+		months += CalendarMonthsPerYear
+		years--
+	}
+	return
+}
+
+// 不列顛尼亞曆(與 `game.Clock` 同一組值,放這裡是為了 `Elapsed` 不必反向依賴)。
+const (
+	CalendarDaysPerMonth  = 28
+	CalendarMonthsPerYear = 13
+)
+
+// CreditsRunes 是名單中間那兩行符文(原版 `aEQueOfEAvatar` / `aIsForever`)。
+//
+// 原始位元組是 `[E@QUE_@OF@[E@AVATAR` 與 `IS@FOREVER` —— 那是**符文字型**的
+// 編碼,不是亂碼:`@` 是空白、`[` 是 TH 合字、`_` 是 ST 合字。
+// 拆開來就是 `THE QUEST OF THE AVATAR / IS FOREVER`。
+//
+// **[HARD] 這兩行維持原樣不譯** —— 它們在原版是用符文字型畫出來的圖形,
+// 譯成中文就沒有那個效果了。中譯放在下面一行當註解式的補述。
+var CreditsRunes = [2]string{"THE QUEST OF THE AVATAR", "IS FOREVER"}

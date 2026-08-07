@@ -191,3 +191,52 @@ func TestSandalwoodBoxSurvivesSaveRoundTrip(t *testing.T) {
 		t.Error("裝備表被踩到了 —— 0x0219 這個位移大概算錯了")
 	}
 }
+
+// 製作名單接在真結局後面,而且起算日與 INIT.GAM 對得上。
+func TestCreditsFollowTheTrueEnding(t *testing.T) {
+	if u5data.EpochYear != 139 || u5data.EpochMonth != 4 || u5data.EpochDay != 5 {
+		t.Fatalf("起算日是 %d/%d/%d,原版是 139/4/5",
+			u5data.EpochYear, u5data.EpochMonth, u5data.EpochDay)
+	}
+	// 剛好一年又一個月又一天。
+	y, m, d := u5data.Elapsed(140, 5, 6)
+	if y != 1 || m != 1 || d != 1 {
+		t.Errorf("140/5/6 距起算日 %d 年 %d 月 %d 日,預期 1/1/1", y, m, d)
+	}
+	// 借位:日不夠先跟月借 28、月不夠再跟年借 13。
+	y, m, d = u5data.Elapsed(140, 4, 4)
+	if y != 0 || m != 12 || d != 27 {
+		t.Errorf("140/4/4 算出 %d/%d/%d,預期 0 年 12 個月 27 天", y, m, d)
+	}
+	// 同一天通關 → 三個都是 0。
+	if y, m, d = u5data.Elapsed(139, 4, 5); y != 0 || m != 0 || d != 0 {
+		t.Errorf("起算日當天算出 %d/%d/%d,預期全 0", y, m, d)
+	}
+}
+
+// ⚠ 那兩行符文維持英文 —— 原版是用符文字型畫出來的圖形。
+func TestTheRuneLinesStayInEnglish(t *testing.T) {
+	for _, line := range u5data.CreditsRunes {
+		for _, r := range line {
+			if r > 127 {
+				t.Fatalf("符文行 %q 混進了非 ASCII 字元", line)
+			}
+		}
+	}
+	if u5data.CreditsRunes[0] != "THE QUEST OF THE AVATAR" {
+		t.Errorf("第一行是 %q", u5data.CreditsRunes[0])
+	}
+}
+
+// 只印非零的單位。
+func TestElapsedTextSkipsZeroUnits(t *testing.T) {
+	if got := elapsedText(0, 0, 3); got != "3天" {
+		t.Errorf("只有天數時是 %q", got)
+	}
+	if got := elapsedText(2, 0, 1); got != "2年又1天" {
+		t.Errorf("跳過 0 個月時是 %q", got)
+	}
+	if got := elapsedText(0, 0, 0); got != "" {
+		t.Errorf("同一天通關應該是空字串,實得 %q", got)
+	}
+}

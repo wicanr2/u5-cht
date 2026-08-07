@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/wicanr2/u5-cht/internal/i18n"
@@ -98,6 +99,8 @@ func (s *State) AnswerEnding(yes bool) {
 		for _, r := range u5data.EndingFinale {
 			e.Pages = append(e.Pages, s.endText(r))
 		}
+		// 真結局播完接製作名單(原版 `sub_13258`)。
+		e.Pages = append(e.Pages, s.creditsPages()...)
 	} else {
 		e.Pages = append(e.Pages,
 			"「原來如此……」",
@@ -146,4 +149,59 @@ func (s *State) endText(record int) string {
 		en = s.EndMsg.Records[record].Text()
 	}
 	return strings.TrimSpace(i18n.Text("ENDMSG.DAT", record, en))
+}
+
+// 製作名單 / 頒獎狀(原版 `sub_13258`)
+//
+// 真結局播完之後的那一頁。原版是一頁一頁翻的羊皮紙,這裡照同樣的節奏
+// 併進 `Ending` 的翻頁流程。
+
+// creditsPages 組出名單的每一頁。
+func (s *State) creditsPages() []string {
+	c := s.Clock
+	name := i18n.Name(s.AvatarName())
+	if name == "" {
+		name = "聖者"
+	}
+	years, months, days := u5data.Elapsed(c.Year, c.Month, c.Day)
+
+	pages := []string{
+		fmt.Sprintf("茲證明,於%d年第%d月第%d日,",
+			c.Year, c.Month, c.Day),
+		name + "  聖者",
+		"拯救了吾王不列顛之性命,",
+		"從而拯救了吾等子民與這片土地。",
+		// ⚠ 這兩行原版是用符文字型畫出來的,維持英文原樣。
+		u5data.CreditsRunes[0],
+		u5data.CreditsRunes[1],
+		"(聖者的追尋,永無止盡)",
+	}
+	// 原版最後兩行是「Report now, thy Quest compleat in <歷時>」+
+	// 「to Lord British at Origin Systems!」—— 當年的註冊回函梗,照留。
+	//
+	// ⚠ 歷時三個單位全為 0 時原版**印不出東西**(同一天通關)。
+	// 照抄,但那一行就不放了,免得畫面上出現「歷時  」。
+	if e := elapsedText(years, months, days); e != "" {
+		pages = append(pages, "汝之追尋,歷時"+e+"達成 ——")
+	}
+	return append(pages, "謹報予 Origin Systems 的不列顛王!")
+}
+
+// elapsedText 把年 / 月 / 日排成一句。
+//
+// ⚠ 原版**只印非零的單位**,而且相鄰兩個之間才放逗號
+//(`if (年) 印年; if (月 || 日) 印逗號; …`)。三個都是 0 時整句是空的 ——
+// 那代表同一天通關,原版就是印不出東西,照抄。
+func elapsedText(years, months, days int) string {
+	var parts []string
+	if years != 0 {
+		parts = append(parts, fmt.Sprintf("%d年", years))
+	}
+	if months != 0 {
+		parts = append(parts, fmt.Sprintf("%d個月", months))
+	}
+	if days != 0 {
+		parts = append(parts, fmt.Sprintf("%d天", days))
+	}
+	return strings.Join(parts, "又")
 }
