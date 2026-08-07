@@ -702,3 +702,24 @@ func (s *State) Roll(lo, hi int) int {
 	}
 	return lo + s.rng.Intn(hi-lo+1)
 }
+
+// SetTileAt 改寫地圖上的一格(解鎖的門、燒掉的東西之類)。
+//
+// 回傳 false 代表這一層的地圖不支援寫入。⚠ 只改記憶體裡的副本 ——
+// **絕不寫回原版檔案**(CLAUDE.md §3.2 的硬規則:`internal/u5data` 只讀)。
+func (s *State) SetTileAt(x, y int, tile byte) bool {
+	if s.InScene() {
+		if s.scene == nil || x < 0 || x >= u5data.SceneSide ||
+			y < 0 || y >= u5data.SceneSide {
+			return false
+		}
+		s.scene.Tiles[y*u5data.SceneSide+x] = tile
+		return true
+	}
+	w := s.currentWorld()
+	if w == nil {
+		return false
+	}
+	w.Tiles[WrapWorld(y)*u5data.WorldSide+WrapWorld(x)] = tile
+	return true
+}

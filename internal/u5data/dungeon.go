@@ -281,3 +281,60 @@ func (e DungeonEntrance) DisplayName() string {
 	}
 	return e.NameZH + "(" + e.Name + ")"
 }
+
+// 寶箱的獎品表(DOS `0x4134` / `0x413C` / `0x4144`,各 8 B)
+//
+// `sub_15020(等級, …)` 由 i = 7 往 0 掃:
+//
+//	等級 >= ChestThreshold[i] 且 random(1,30) >= ChestThreshold[i]
+//	    → 數量 = (ChestMax[i] == 1) ? 1 : random(1, ChestMax[i])
+//	      在寶箱那一格生一個種類 ChestKind[i] 的物件
+//
+// 也就是**門檻同時當「等級下限」與「擲骰難度」**:門檻 3 的那一項幾乎必中,
+// 門檻 25 的那一項要高等寶箱加上好運。
+//
+// ⚠ 八個種類碼(1/2/3/4/7/8/13/15)用的是**地圖物件的種類編號**,
+// 與 `docs/re/11` 那一套同源;`sub_14F68` 只是把它們生在地上讓玩家撿。
+// 只有種類 **2** 的語意確定:數量是 `random(1, 等級×3)`、上限 90 ——
+// U5 的寶箱裡只有金幣是這樣長的。其餘七種還沒對出來,所以引擎照原版
+// **生成物件**而不去猜它是什麼。
+var (
+	ChestKind      = [8]byte{1, 2, 3, 4, 7, 8, 13, 15}
+	ChestThreshold = [8]byte{25, 3, 17, 17, 9, 15, 7, 7}
+	ChestMax       = [8]byte{10, 90, 8, 8, 2, 2, 2, 2}
+)
+
+// ChestKindGold 是唯一語意確定的那一種(數量 `random(1, 等級×3)`)。
+const ChestKindGold = 2
+
+// ChestTrapped 是寶箱「有陷阱」的位元。
+//
+// 地牢寶箱看格子的 **bit 0**(`sub_18D18` 的 `test byte [eax], 1`);
+// 地表寶箱看物件 +5 的 **bit 7**(`sub_15108` 的 `cmp al, 7Fh; ja`,
+// 而 An Sanct 解除的方式是 `and byte [ebx+5], 7Fh`)。
+const (
+	ChestTrappedDungeon = 0x01
+	ChestTrappedWorld   = 0x80
+)
+
+// DungeonOpenedChest 是寶箱打開之後那一格變成什麼。
+//
+// `sub_18D18`:`tile = (tile & 8) | 0x70` —— 保留「頭上有洞」那一位元,
+// 其餘換成 0x70。所以 **0x70 不是門,是「開過的寶箱」**。
+func DungeonOpenedChest(tile byte) byte {
+	return (tile & DungeonHoleAbove) | 0x70
+}
+
+// 上鎖的門(地表 / 城鎮)
+//
+// An Sanct 與 In Ex Por 在地表看的是世界 tile:**0xB9 與 0xBB 是鎖著的門**,
+// 解鎖就是 `tile − 1`(`sub_18D18` 的 `dec byte ptr [eax]`)。
+const (
+	TileLockedDoor      = 0xB9
+	TileLockedMagicDoor = 0xBB
+)
+
+// TileIsLockedDoor 回報這個世界 tile 是不是鎖著的門。
+func TileIsLockedDoor(tile byte) bool {
+	return tile == TileLockedDoor || tile == TileLockedMagicDoor
+}

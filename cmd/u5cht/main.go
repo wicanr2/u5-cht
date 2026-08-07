@@ -180,6 +180,8 @@ func (g *game) Update() error {
 			st.BeginCastPrompt()
 		case inpututil.IsKeyJustPressed(ebiten.KeyI):
 			st.LightTorch()
+		case inpututil.IsKeyJustPressed(ebiten.KeyO):
+			st.OpenChest()
 		case inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ctrl:
 			st.Save()
 		}

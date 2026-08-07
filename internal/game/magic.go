@@ -167,12 +167,15 @@ const (
 	SpellInWis      = 9  // 定位
 	SpellKalXen     = 10 // 召喚野獸
 	SpellInXenMani  = 11 // 造食物
+	SpellAnSanct    = 6  // 解陷阱 / 開鎖 / 開箱
 	SpellVasLor     = 12 // 大光明
 	SpellVasFlam    = 13 // 火球
+	SpellAnGrav     = 18 // 破力場
 	SpellInSanct    = 19 // 防護
 	SpellUusPor     = 21 // 上樓
 	SpellDesPor     = 22 // 下樓
 	SpellVasMani    = 27 // 大治療
+	SpellInExPor    = 26 // 開鎖
 	SpellRelTym     = 29 // 緩速
 	SpellInVasPorY  = 30 // 能量爆
 	SpellQuasAnWis  = 31 // 混亂
@@ -292,6 +295,13 @@ func (s *State) spellEffect(caster, spell int) bool {
 
 	case SpellKalXen: // 召喚野獸
 		return s.summonCreature(caster, 20) // 巨鼠
+
+	case SpellAnSanct: // 解陷阱 / 開箱 / 開鎖
+		return s.disarmOrUnlock()
+	case SpellInExPor: // 開鎖
+		return s.UnlockAhead(s.spellFacing())
+	case SpellAnGrav: // 破力場
+		return s.destroyField()
 
 	// 四種風。方向用施法者的面向 —— 原版會另外問一次(`sub_1CC50`),
 	// 引擎的方向選單還沒接,先用面向;真正的射線規則是照原版走的。
