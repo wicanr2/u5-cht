@@ -16,6 +16,9 @@
      簡體字、日文漢字異體、罕用字都編不出來,到玩家眼前是空框或 fallback。
      ★ 這一條同時擋掉簡繁混用(`给` / `见` / `问`),而那是肉眼最容易漏看的。
   8. 「」不成對。
+  9. **譯名漂移** —— 原文出現 `names.go` 裡有定譯的專有名詞時,譯文必須用那個譯法。
+     系列共通名要與 u4-cht / u6-cht 對齊,自己另譯就漂了
+     (實際發生過:`trolls` 被譯成「巨魔」,定譯是「山怪」)。
 
 用法:checktalk.py <batch.tsv> <譯好的 .go 檔>
 """
@@ -52,6 +55,31 @@ def parse_go(path: str) -> dict:
     return out
 
 
+# 譯名漂移檢查:只在原文**以大寫開頭、且是完整的字**出現時才要求。
+#
+# ⚠ 兩道限制都是必要的,少一道就全是誤報:
+#
+#   - **大寫**:`names.go` 裡有 `Child → 孩童`、`Smith → 史密斯` 這種
+#     生物類別與人名。小寫的 `child` / `blacksmith` 是普通名詞,
+#     句子裡本來就該隨文調整(「她是個很棒的孩子」沒有錯)。
+#   - **完整的字**:不設邊界的話 `smith` 會命中 `blacksmith`、
+#     `Bat` 會命中 `Battle`。
+GLOSSARY_MIN = 4
+
+
+def load_glossary(path: str = "internal/i18n/names.go") -> dict:
+    """從 names.go 抓出「英文 → 中文」。單一真相來源,不另外維護一份。"""
+    out = {}
+    try:
+        src = open(path, encoding="utf-8").read()
+    except OSError:
+        return out
+    pat = r'"([A-Z][A-Za-z\' .-]{%d,})":\s*"([^"]+)"' % (GLOSSARY_MIN - 1)
+    for en, zh in re.findall(pat, src):
+        out[en] = zh
+    return out
+
+
 def has_cjk(s: str) -> bool:
     return any("㐀" <= c <= "鿿" or "＀" <= c <= "￯" for c in s)
 
@@ -76,16 +104,26 @@ def not_big5(s: str) -> list:
 def main() -> None:
     if len(sys.argv) != 3:
         sys.exit(__doc__)
-    want = {}
+    want, skip = {}, set()
     for line in open(sys.argv[1], encoding="utf-8"):
         parts = line.rstrip("\n").split("\t")
-        if len(parts) >= 2:
-            want[parts[0]] = parts[1]
+        if len(parts) < 2:
+            continue
+        # 來源沒有半個字母的段落(`@` 這種渲染殘留)整段不列入 ——
+        # 既不要求翻,也不准出現在譯文表裡(填空字串會讓那句話消失)。
+        if not any(c.isalpha() for c in parts[1]):
+            skip.add(parts[0])
+            continue
+        want[parts[0]] = parts[1]
     got = parse_go(sys.argv[2])
+    glossary = load_glossary()
 
     bad = []
     for k in sorted(set(got) - set(want)):
-        bad.append("多了不在工作單裡的 key:%s" % k)
+        if k in skip:
+            bad.append("%s:來源不是文字(`@` 之類的渲染殘留),不要放進譯文表" % k)
+        else:
+            bad.append("多了不在工作單裡的 key:%s" % k)
     missing = sorted(set(want) - set(got))
     for k, zh in sorted(got.items()):
         if k not in want:
@@ -112,6 +150,13 @@ def main() -> None:
                        % (k, "".join(sorted(set(nb))), zh))
         if zh.count("「") != zh.count("」"):
             bad.append("%s:「」不成對 → %s" % (k, zh))
+        for term, want_zh in glossary.items():
+            if want_zh in zh:
+                continue
+            if re.search(r"\b%ss?\b" % re.escape(term), en):
+                bad.append("%s:原文有 %r,定譯是 %r,譯文沒用 → %s"
+                           % (k, term, want_zh, zh))
+                break
 
     for b in bad[:40]:
         print("✗", b)

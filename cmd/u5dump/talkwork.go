@@ -98,7 +98,11 @@ func writeRecord(b *strings.Builder, file string, c *u5data.Conversation, ja [][
 
 	total, done := 0, 0
 	row := func(field, en, ja string) {
-		if strings.TrimSpace(en) == "" {
+		// ⚠ 沒有半個字母的段落**不是文字**,是渲染的殘留(多半是 `@`,
+		// 對話腳本的終止標記展開後留下的)。放進工作單只會讓每個 agent
+		// 「把 @ 翻成 @」,或更糟 —— 填一個空字串,那會讓覆蓋層回傳空的,
+		// 畫面上那句話直接消失。第 03 批就這樣交了 12 段空的。
+		if !hasLetter(en) {
 			return
 		}
 		total++
@@ -175,6 +179,16 @@ func fromShiftJIS(raw []byte) string {
 		}, string(buf))
 	}
 	return string(out)
+}
+
+// hasLetter 回報這段字裡有沒有半個英文字母。
+func hasLetter(s string) bool {
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
 }
 
 // cell 把一段文字塞進 markdown 表格的一格。
