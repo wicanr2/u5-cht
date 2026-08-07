@@ -178,7 +178,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 |---|---|---|
 | 開場四章 | `DATA.OVL` 0xA020:`The Summoning / The Journey / The Arrival / The Welcoming`;`STORY.DAT` 20 筆 + `STORY1–6.16` | 🔶 文字已解 |
 | **三位暗影君主** | `sub_17A14`(召喚)/ `sub_29304`(遊走)/ `sub_1A38C`(消滅);`off_55DEC` | ✅ **已實作**(`docs/re/28`):召喚、午夜換城(避開玩家且不重複)、聖火前用碎片消滅(三個條件與兩種沉默) |
-| **三個邪惡碎片** | `sub_1A38C`;存檔 0x0210;`DATA.OVL` 0x47C3:`evil Shard of **Falsehood… / Hatred… / Cowardice…**` | 🔶 使用已實作(含存讀檔);**怎麼取得**(三座地牢深處)未接 |
+| **三個邪惡碎片** | `sub_1A38C`(使用)/ `sub_154BC` 0xB4(取得);存檔 0x0210 | ✅ **取得與使用都已實作**(`docs/re/28` + **33**):Get 撿起來,是哪一塊看物件的品質欄。⬜ 它們**擺在哪裡**(疑在地牢房間的物件資料)還沒找 |
 | Blackthorn | `sub_C414` → `sub_C318`;`BLCKTHRN.OVL` 3,184 B | ✅ **已實作**(`docs/re/28` §2 + **32**):四輪問答、招供玷污聖壇 −5 業報、拒絕到底同伴被斬、骨灰罈標記、丟進宮殿地牢;**逮捕的觸發**(對話號碼 0xFF 的攔路盤查)已接 |
 | **衛兵盤查** | `sub_1B3D0`;密語 `IMPE`(FM Towns `aImpe` = DOS `DATA.OVL` 0x4AAA) | ✅ **已實作**(`docs/re/32`):三種盤查(人頭貢金 / 米諾克半數家財 / 黑棘宮殿徽章+密語)、付不出來一樣抓、徽章與戰鬥模式咒語共用位元組。⬜ `sub_195C` 的 `arg_0 != 0` 第三入口未追 |
 | Lord British 歸來 | `sub_135FC`;`ENDMSG.DAT` 11 筆;`ENDGAME.OVL` | ✅ **已實作**(`docs/re/30`):無條件復活隊伍、問盒子(答 N 追問一次)、**兩個結局**(帶盒子才是真結局) |
@@ -190,7 +190,8 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 |---|---|---|
 | 主選單 | `DATA.OVL` 0x3115:`Journey Onward / Create New Character / Transfer from Ultima IV / Ultima V Introduction / Acknowledgements / Return to the View` | ⬜ |
 | 存讀檔 | `SAVED.GAM` 4,192 B / `INIT.GAM`;`SAVED.OOL`;`sub_27D24`(讀)/ `sub_284CC`(寫) | ✅ **已實作**(`docs/re/07` + `docs/re/26` §6):可由原版存檔開局,寫回設定目錄的檔原版也讀得起來;未解欄位以讀進來的那份當底稿保留 |
-| 指令系統 | `CMDS.OVL` 7,440 B | 🔶 已接:E 進入 / K 攀爬 / T 交談 / B・X 上下載具 / C 施法 / I 火把 / **Y 喊** / O 開箱;Look・Get・Push 等未接 |
+| 指令系統 | `CMDS.OVL` 7,440 B | 🔶 已接:E 進入 / K 攀爬 / T 交談 / B・X 上下載具 / C 施法 / I 火把 / **Y 喊** / O 開箱 / **G 撿**;Look・Push 等未接 |
+| **Get(撿東西)** | `sub_15A94` → `sub_154BC`;地牢走 `sub_15930` + 三張表 `byte_55DD4/DDC/DE4` | ✅ **已實作**(`docs/re/33`):物件與地形兩條路、碎片 / 檀香木盒 / 王冠 / 權杖 / 寶珠 / 圖紙 / 魔毯、偷食物扣業報、盤子的方向規矩、地牢寶箱獎品(開箱與取物分兩步)。⬜ 藥水 / 卷軸 / 裝備三張表未接進背包 |
 | 四種顯示模式 | `EGA.DRV / CGA.DRV / HER.DRV / T1K.DRV` | ⬜ 素材已有(`.16`/`.4`/`.HCS`) |
 | 音樂 | upgrade 19 首 `.XMI`;FM Towns 15 首 `.EUP` + 2 條 CDDA;PC-98 `UL01–15.BIN`;**播放函式 `sub_3181C(曲目)`,曲目 0–14**;已知 castle=6、LB 城堡=7、village/hut=8、Blackthorn 宮殿=11(`docs/re/03`) | 🔶 場景→BGM 對應部分已知 |
 | 音效 | FM Towns 25 個 `.SND` | ⬜ |

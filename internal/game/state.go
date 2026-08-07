@@ -246,8 +246,10 @@ type State struct {
 	// EndMsg 是 ENDMSG.DAT —— 結局的十一段文字。
 	EndMsg *u5data.TextFile
 	// SandalwoodBox 是有沒有那只檀香木盒(原版 byte_3DFCD)——
-	// 真結局的**唯一**額外條件。
+	// 真結局的**唯一**額外條件。由 Get 指令撿到(見 get.go)。
 	SandalwoodBox bool
+	// Regalia 是不列顛王的王冠 / 權杖 / 寶珠與那份圖紙,同樣由 Get 撿到。
+	Regalia u5data.Regalia
 	// Shards[i] 是有沒有第 i 塊寶石碎片(原版 byte_3DFC4)。
 	Shards [u5data.ShadowlordCount]bool
 	// ShrineQuestGiven / ShrineQuestActive 是八德的兩組位元

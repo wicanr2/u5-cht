@@ -360,6 +360,21 @@ func cmdText(args []string) error {
 // 這是本專案的 headless 驗收路徑:與實機顯示共用同一個 render.Scene,
 // 所以截圖就是實機畫面。不需要 X11、不需要 GL —— 之前綁 ebiten 的版本在
 // xvfb + 軟體 GL 下死鎖了五小時,那正是改成 CPU 繪製的原因。
+// scriptDirection 把腳本裡的一個字母轉成方向。
+func scriptDirection(r rune) (game.Direction, bool) {
+	switch r {
+	case 'n':
+		return game.North, true
+	case 's':
+		return game.South, true
+	case 'e':
+		return game.East, true
+	case 'w':
+		return game.West, true
+	}
+	return game.North, false
+}
+
 func cmdScene(args []string) error {
 	if len(args) < 3 {
 		return fmt.Errorf("用法:u5dump scene <gamedata> <U5_E 目錄> <out.png> [--font 前綴] [--at X Y] [--script nsewEKTyN…] [--scene 地點名 樓層 X Y] [--hour H]")
@@ -778,6 +793,18 @@ func playScript(st *game.State, script string) error {
 			// 遊戲本體沒有這個入口(debug hook 會遮住真 bug,CLAUDE.md §6.1)。
 			if slot, ok := st.CurrentObjects().Spawn(0x40, st.X+1, st.Y, st.Floor); ok {
 				st.BeginCombat(slot)
+			}
+		// `gn` / `gs` / `ge` / `gw`:撿東西,後面接一個方向。
+		//(大寫 G 已經是「叫衛兵」)
+		case 'g':
+			st.Get()
+			if i+1 < len(rs) && st.AwaitingDirection() {
+				i++
+				if d, ok := scriptDirection(rs[i]); ok {
+					st.AnswerDirection(d)
+				} else {
+					st.CancelDirection()
+				}
 			}
 		case 'L':
 			st.LightTorch() // 點火把(地牢沒光是全黑的)

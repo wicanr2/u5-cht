@@ -342,6 +342,8 @@ func (g *game) Update() error {
 			st.LightTorch()
 		case inpututil.IsKeyJustPressed(ebiten.KeyO):
 			st.OpenChest()
+		case inpututil.IsKeyJustPressed(ebiten.KeyG):
+			st.Get()
 		case inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ctrl:
 			st.Save()
 		}

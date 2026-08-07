@@ -43,6 +43,19 @@ const (
 	SaveKeysOffset    = 0x0206 // byte_3DFB8
 	SaveGemsOffset    = 0x0207 // byte_3DFB9
 	SaveTorchesOffset = 0x0208 // byte_3DFBA
+	// 0x0209..0x020F 是 `byte_3DFBB`..`byte_3DFC1` 七個單位元組。
+	//
+	// ★ 這一段**兩端都已經釘死**:前面 0x0208 是火把(已驗)、後面 0x0210 是
+	// 寶石碎片(已驗),中間剛好七個位元組對七個變數,沒有排列的餘地。
+	// 名字則來自 `sub_154BC` 的撿取分支(`mov byte_3DFC0, 0FFh` 後面接
+	// "The crown of Lord British"…)。
+	SaveCarpetsOffset = 0x020A // byte_3DFBC(魔毯;先前記為「位移未知」)
+	SaveOrbOffset     = 0x020D // byte_3DFBF 寶珠
+	SaveCrownOffset   = 0x020E // byte_3DFC0 王冠
+	SaveSceptreOffset = 0x020F // byte_3DFC1 權杖
+	// 0x0214..0x0219 是 `byte_3DFC8`..`byte_3DFCD` 六個單位元組,
+	// 同樣兩端釘死(前為 0x0210 起 4 B 的碎片,後為已驗的檀香木盒 0x0219)。
+	SavePlansOffset = 0x0215 // byte_3DFC9 圖紙
 	// SaveItemsOffset 起 48 B,索引就是裝備編號(sub_11AF0 的 byte_3DFD0[裝備編號])。
 	SaveItemsOffset = 0x021A
 	// SaveReagentsOffset 起 8 B,順序同 ReagentNames(sub_11588 的 byte_3E060[藥草編號])。
@@ -197,9 +210,27 @@ type Inventory struct {
 	Reagents [ReagentCount]int
 	// Spells[咒語編號] 是已調配好的份數,上限 SpellStackLimit。
 	Spells [SpellCount]int
-	// Carpets 是持有的魔毯數(原版 byte_3DFBC)。
-	// ⚠ 存檔位移還沒對出來,目前只在遊戲中維護,讀檔不會帶進來。
+	// Carpets 是持有的魔毯數(原版 byte_3DFBC,存檔 0x020A)。
 	Carpets int
+}
+
+// Regalia 是不列顛王的信物與圖紙 —— 各佔一個 0/0xFF 的位元組。
+//
+// 四個都由 Get 指令撿到(`sub_154BC` 的 0xB5 / 0xB6 / 0xB7 / 0x04 分支),
+// 撿到時各印一句 "The crown of Lord British" 之類。
+type Regalia struct {
+	Crown, Sceptre, Orb bool
+	// Plans 是圖紙(`byte_3DFC9`)。
+	Plans bool
+}
+
+// putFlag 寫一個 0 / 0xFF 的旗標(原版一律用 0xFF 當真)。
+func putFlag(out []byte, off int, v bool) {
+	if v {
+		out[off] = 0xFF
+		return
+	}
+	out[off] = 0
 }
 
 // Save 是一份存檔。
@@ -225,6 +256,8 @@ type Save struct {
 
 	// Shards[i] 是有沒有第 i 塊寶石碎片(存檔 0x0210 起 4 B,第 4 B 未用)。
 	Shards [ShardCount]byte
+	// Regalia 是王冠 / 權杖 / 寶珠 / 圖紙。
+	Regalia Regalia
 	// SandalwoodBox 是有沒有那只檀香木盒(byte_3DFCD)—— 真結局的條件。
 	SandalwoodBox byte
 	// ShadowlordAt[i] 是第 i 個暗影君主盤據的地點編號(0 = 不在城裡,0xFF = 已消滅)。
@@ -284,6 +317,11 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.Inventory.Keys = int(raw[SaveKeysOffset])
 	s.Inventory.Gems = int(raw[SaveGemsOffset])
 	s.Inventory.Torches = int(raw[SaveTorchesOffset])
+	s.Inventory.Carpets = int(raw[SaveCarpetsOffset])
+	s.Regalia.Orb = raw[SaveOrbOffset] != 0
+	s.Regalia.Crown = raw[SaveCrownOffset] != 0
+	s.Regalia.Sceptre = raw[SaveSceptreOffset] != 0
+	s.Regalia.Plans = raw[SavePlansOffset] != 0
 	for i := 0; i < ItemCount; i++ {
 		s.Inventory.Items[i] = int(raw[SaveItemsOffset+i])
 	}
@@ -436,6 +474,11 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveKeysOffset] = byte(s.Inventory.Keys)
 	out[SaveGemsOffset] = byte(s.Inventory.Gems)
 	out[SaveTorchesOffset] = byte(s.Inventory.Torches)
+	out[SaveCarpetsOffset] = byte(s.Inventory.Carpets)
+	putFlag(out, SaveOrbOffset, s.Regalia.Orb)
+	putFlag(out, SaveCrownOffset, s.Regalia.Crown)
+	putFlag(out, SaveSceptreOffset, s.Regalia.Sceptre)
+	putFlag(out, SavePlansOffset, s.Regalia.Plans)
 	for i := 0; i < ItemCount; i++ {
 		out[SaveItemsOffset+i] = byte(s.Inventory.Items[i])
 	}
