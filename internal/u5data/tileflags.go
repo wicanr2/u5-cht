@@ -147,3 +147,33 @@ const (
 	TileStairsDown = 0xC8
 	TileStairsUp   = 0xC9
 )
+
+// 投射物的穿透規則(原版 `byte_60018`,位址 0x60018)
+//
+// ⚠ **極性與上面兩張相反。** `sub_2BC34` 是
+// `(byte_60018[tile>>3] & (0x80 >> (tile&7))) != 0` → `setnz al`,
+// 也就是 **bit = 1 代表「箭飛得過去」**;行走與 NPC 那兩張是 bit = 1 代表擋住。
+// 抄錯極性的話箭會只能穿牆、不能穿空地 —— 而畫面上看起來只是「射不到」。
+//
+// 這張只有 **32 B(256 個 tile)**,不像行走那兩張是 64 B。
+// 世界地圖與戰場的格子值域本來就是 0..255,夠用。
+//
+// 交叉檢查:46 個 tile 擋投射物,其中 39 個同時也擋行走(牆、樹、山、屋)。
+// 剩下 7 個 —— 0x12/0x13(騎著的馬)、0x14/0x15(魔毯)、0x19、0x1B、0x3E ——
+// **擋箭卻不擋走路**,那些是載具與坐騎:擋在中間的馬會把箭吃掉,
+// 但你可以走過去上馬。反過來,**水完全不擋箭**(0..3 全部通),
+// 而水是擋行走的。兩張表的差集正好說得通,這比逐格核對可靠。
+var projectilePassBits = [32]byte{
+	0xFF, 0xF3, 0xC3, 0x8F, 0xFF, 0xFF, 0xFF, 0xC0,
+	0xDD, 0xF8, 0x03, 0xDF, 0xFF, 0xFF, 0x00, 0x00,
+	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x3F,
+	0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF, 0xFF,
+}
+
+// TileBlocksProjectile 回報這個 tile 擋不擋飛過去的東西(箭、法術、風)。
+func TileBlocksProjectile(tile int) bool {
+	if tile < 0 || tile >= 256 {
+		return true
+	}
+	return projectilePassBits[tile>>3]&(128>>(tile&7)) == 0
+}

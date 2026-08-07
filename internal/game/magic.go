@@ -177,8 +177,12 @@ const (
 	SpellInVasPorY  = 30 // 能量爆
 	SpellQuasAnWis  = 31 // 混亂
 	SpellInAn       = 32 // 抗魔
+	SpellInZu       = 28 // 睡眠風
 	SpellAnXenEx    = 34 // 魅惑
 	SpellSanctLor   = 36 // 隱形
+	SpellInNoxHur   = 40 // 毒風
+	SpellInVasGravC = 44 // 能量風
+	SpellInFlamHur  = 45 // 火風
 	SpellXenCorp    = 37 // 殺
 	SpellInManiCorp = 42 // 復活
 	SpellAnTym      = 47 // 時間停止
@@ -288,6 +292,17 @@ func (s *State) spellEffect(caster, spell int) bool {
 
 	case SpellKalXen: // 召喚野獸
 		return s.summonCreature(caster, 20) // 巨鼠
+
+	// 四種風。方向用施法者的面向 —— 原版會另外問一次(`sub_1CC50`),
+	// 引擎的方向選單還沒接,先用面向;真正的射線規則是照原版走的。
+	case SpellInZu:
+		return s.castWind(caster, windSleep, s.castDirection(caster))
+	case SpellInNoxHur:
+		return s.castWind(caster, windPoison, s.castDirection(caster))
+	case SpellInFlamHur:
+		return s.castWind(caster, windFire, s.castDirection(caster))
+	case SpellInVasGravC:
+		return s.castWind(caster, windEnergy, s.castDirection(caster))
 	}
 	s.Log("(此咒語的效果尚未實作 —— 藥草與魔力已照原版消耗)")
 	return false
@@ -666,6 +681,28 @@ func (s *State) tickCombatMode() {
 }
 
 
+// castDirection 是施法要用的方向。
+//
+// 原版每次都問一次「Direction-」(`sub_1CC50`);引擎的方向選單還沒接,
+// 先取「離最近的敵人是哪一邊」——**這是介面的近似,不是規則**。
+func (s *State) castDirection(caster int) Direction {
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return North
+	}
+	_, dx, dy := s.aiTarget(self)
+	if iabs(dx) >= iabs(dy) {
+		if dx >= 0 {
+			return East
+		}
+		return West
+	}
+	if dy >= 0 {
+		return South
+	}
+	return North
+}
+
 // hideCaster 是 Sanct Lor(原版 `sub_19674`)。
 //
 // 只做兩件事:給自己掛上隱形位元(0x10)、把地圖物件的 tile 換成 0x1D。
@@ -754,4 +791,79 @@ func (s *State) summonCreature(caster, creature int) bool {
 		return false
 	}
 	return false
+}
+
+// 四種「風」(原版 `sub_1AEB4(施法者, 種類, 範圍參數)`)
+//
+// In Zu(睡眠)、In Nox Hur(毒)、In Flam Hur(火)、In Vas Grav Corp(能量)
+// 走同一支函式,流程是:
+//
+//	1. 問方向(`sub_1CC50`)
+//	2. `sub_1AC20` 算出一串格子
+//	3. 對那串格子上的每個單位各作用一次(用 `unit[+5] |= 0x80` 標記,
+//	   同一發不會打到同一個人兩次)
+//
+// ⚠ **範圍的形狀還沒逆完**。`sub_1AC20` 吃一個每個咒語各自不同的參數
+//(`word_3EF44` / `word_3EF42` / `word_3EF3C` / `off_3EF3E+2`),看起來是
+// 寬度或長度。這裡先用「從施法者往那個方向的一條直線,直到戰場邊緣或
+// 被地形擋住」——**射線本身是照原版的投射物規則走的**(`docs/re/20`),
+// 只有「寬度」是近似。文件與這裡都標明了。
+const (
+	windSleep  = 1 // In Zu
+	windPoison = 2 // In Nox Hur
+	windFire   = 3 // In Flam Hur
+	windEnergy = 4 // In Vas Grav Corp
+)
+
+// castWind 是四種風的共同實作。dir 是玩家挑的方向。
+func (s *State) castWind(caster, kind int, dir Direction) bool {
+	c := s.Combat
+	if c == nil {
+		s.Log("此地無風可興。")
+		return false
+	}
+	self := s.combatSlotOfRoster(caster)
+	if self < 0 {
+		return false
+	}
+	u := &c.Units[self]
+	dx, dy := dir.Delta()
+	hitAny := false
+	x, y := u.X, u.Y
+	for step := 0; step < u5data.CombatSide; step++ {
+		x, y = x+dx, y+dy
+		if x < 0 || x >= u5data.CombatSide || y < 0 || y >= u5data.CombatSide {
+			break
+		}
+		if u5data.TileBlocksProjectile(int(c.Map.At(x, y))) {
+			break
+		}
+		v, ok := c.CombatUnitAt(x, y)
+		if !ok {
+			continue
+		}
+		i := s.unitIndex(v)
+		if i == self {
+			continue
+		}
+		hitAny = true
+		switch kind {
+		case windSleep:
+			if v.Flags&UnitAsleep == 0 {
+				v.Flags |= UnitAsleep
+				s.Log(s.unitName(v) + "睡著了!")
+			}
+		case windPoison:
+			s.poisonHit(self, i)
+		case windFire:
+			// 原版 `sub_2B710(0x1E)` → random(0, 30)。
+			s.applyDamage(self, i, s.Roll(0, 30))
+		case windEnergy:
+			s.applyDamage(self, i, s.Roll(0, 30))
+		}
+	}
+	if !hitAny {
+		s.Log("風掃過,什麼也沒碰到。")
+	}
+	return hitAny
 }

@@ -372,3 +372,90 @@ func TestSanctLorHidesFromTargeting(t *testing.T) {
 		t.Errorf("全隊隱形之後敵人還鎖定得到第 %d 槽", after)
 	}
 }
+
+// TestWindSpellsSweepALine:四種風掃過一條線上的每個敵人,而且各只作用一次。
+func TestWindSpellsSweepALine(t *testing.T) {
+	s := magicState(t)
+	s.SeedRandom(9)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	// 找一列箭飛得過的,把施法者放在最左邊、兩隻敵人排在右邊。
+	row := -1
+	for y := 0; y < u5data.CombatSide && row < 0; y++ {
+		clear := true
+		for x := 0; x < 6; x++ {
+			if u5data.TileBlocksProjectile(int(c.Map.At(x, y))) {
+				clear = false
+			}
+		}
+		if clear {
+			row = y
+		}
+	}
+	if row < 0 {
+		t.Skip("找不到乾淨的一列")
+	}
+	for i := range c.Units {
+		c.Units[i].Flags = 0
+	}
+	c.Units[0] = Combatant{Roster: 0, Creature: -1, Flags: UnitParty, X: 0, Y: row}
+	for n, x := range []int{2, 4} {
+		i := u5data.CombatPartySlots + n
+		c.Units[i] = Combatant{Roster: -1, Creature: 0, Kind: 0x40,
+			Flags: UnitMonster, HP: 99, X: x, Y: row}
+	}
+	before := [2]int{c.Units[6].HP, c.Units[7].HP}
+	if !s.castWind(0, windFire, East) {
+		t.Fatalf("火風沒打中任何人:\n%s", s.log())
+	}
+	for n := 0; n < 2; n++ {
+		u := &c.Units[u5data.CombatPartySlots+n]
+		if u.Active() && u.HP >= before[n] {
+			t.Errorf("線上第 %d 隻沒受傷:%d → %d", n, before[n], u.HP)
+		}
+	}
+}
+
+// TestWindStopsAtBlockingTerrain:風也吃投射物的擋路規則。
+func TestWindStopsAtBlockingTerrain(t *testing.T) {
+	s := magicState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	for idx := range s.CombatMaps.Maps {
+		m := &s.CombatMaps.Maps[idx]
+		for y := 0; y < u5data.CombatSide; y++ {
+			wall := -1
+			for x := 1; x < u5data.CombatSide-2; x++ {
+				if u5data.TileBlocksProjectile(int(m.At(x, y))) {
+					wall = x
+					break
+				}
+			}
+			if wall < 2 {
+				continue
+			}
+			c.Map = m
+			for i := range c.Units {
+				c.Units[i].Flags = 0
+			}
+			c.Units[0] = Combatant{Roster: 0, Creature: -1, Flags: UnitParty, X: 0, Y: y}
+			foe := &c.Units[u5data.CombatPartySlots]
+			*foe = Combatant{Roster: -1, Creature: 0, Kind: 0x40,
+				Flags: UnitMonster, HP: 99, X: wall + 1, Y: y}
+			hp := foe.HP
+			s.castWind(0, windFire, East)
+			if foe.HP != hp {
+				t.Errorf("牆在 x=%d,牆後 x=%d 的敵人卻受了傷(%d → %d)",
+					wall, foe.X, hp, foe.HP)
+			}
+			return
+		}
+	}
+	t.Skip("找不到列上有擋箭地形的戰鬥地圖")
+}

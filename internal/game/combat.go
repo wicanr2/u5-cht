@@ -560,7 +560,10 @@ func (s *State) CombatMove(d Direction) {
 	s.afterPlayerAction()
 }
 
-// CombatAttack 讓目前輪到的隊員攻擊相鄰的敵人。
+// CombatAttack 讓目前輪到的隊員往某個方向攻擊。
+//
+// **遠程武器往那個方向射出去**,由投射物的飛行決定打到誰
+//(原版 `sub_1FA6C` 瞄準 → `sub_20134` → `sub_1FE54`)。近戰只打相鄰那一格。
 func (s *State) CombatAttack(d Direction) {
 	c := s.Combat
 	if c == nil || c.Over || c.Turn < 0 {
@@ -568,6 +571,26 @@ func (s *State) CombatAttack(d Direction) {
 	}
 	u := &c.Units[c.Turn]
 	dx, dy := d.Delta()
+
+	reach := 1
+	weapon := byte(u5data.ItemNone)
+	if ch := s.charOf(u); ch != nil {
+		weapon = ch.Equipment().Weapon
+		if r := s.Stats.ItemRange[weapon]; r > 0 {
+			reach = r
+		}
+	}
+	if reach > 1 {
+		// 遠程:朝那個方向射到射程盡頭,路上第一個擋下來的就是目標。
+		victim, _, _ := s.FlyProjectile(c.Turn, u.X+dx*reach, u.Y+dy*reach)
+		if victim < 0 {
+			s.Log("射空了。")
+		} else {
+			s.resolveAttack(c.Turn, victim)
+		}
+		s.afterPlayerAction()
+		return
+	}
 	target, ok := c.CombatUnitAt(u.X+dx, u.Y+dy)
 	if !ok || s.hostile(target) == s.hostile(u) {
 		s.Log("那個方向沒有敵人。")

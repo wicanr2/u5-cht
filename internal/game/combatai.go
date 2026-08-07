@@ -186,19 +186,19 @@ func (s *State) aiRangedAttack(idx, target int) bool {
 		}
 	}
 	s.Log(s.unitName(u) + "朝" + s.unitName(t) + "發動遠程攻擊。")
+	tx, ty := t.X, t.Y
 	if forceMiss || !s.attackHits(u, t, u5data.ItemNone) {
-		// 失手的投射物會偏到附近隨機一格,打到站在那裡的人(可能是自己人)。
-		// 原版 `sub_1FE54` 用 `sub_1FDE8` 挑落點,細節還沒逆完 ——
-		// 這裡挑目標四周的一格,行為等價。
-		x, y := t.X+s.Roll(-1, 1), t.Y+s.Roll(-1, 1)
-		if v, ok := c.CombatUnitAt(x, y); ok && v != t {
-			s.resolveAttack(idx, s.unitIndex(v))
-			return true
-		}
+		// 失手的投射物**不會消失**,它會偏到目標附近一格繼續飛
+		//(原版 `sub_1FE54` 在沒命中時用 `sub_1FDE8` 挑一個鄰格當終點)。
+		tx, ty = t.X+s.Roll(-1, 1), t.Y+s.Roll(-1, 1)
+	}
+	// 真正打到誰由飛行路徑決定 —— 站在射線上的人會替目標擋下來。
+	victim, _, _ := s.FlyProjectile(idx, tx, ty)
+	if victim < 0 {
 		s.Log("投射物落空了。")
 		return true
 	}
-	s.resolveAttack(idx, target)
+	s.resolveAttack(idx, victim)
 	return true
 }
 
