@@ -205,3 +205,34 @@ func elapsedText(years, months, days int) string {
 	}
 	return strings.Join(parts, "又")
 }
+
+// checkAbsorbed 是 `sub_161E4`:每個單位行動完檢查一次。
+//
+// 條件見 `u5data.AbsorbRow` / `AbsorbTile` —— 活著的單位站在戰場第 2 列、
+// **正北**那一格是城堡外牆或城門,就會被「吸收」,而戰鬥結束時
+// (`sub_42CC` 與 `sub_163B0` 兩處都查 `byte_3E0B0 == 'M'`)播結局。
+//
+// ⚠ **目前引擎的戰場地形全部來自 `BRIT.CBT` / `DUNGEON.CBT` 的固定地圖,
+// 而那兩個檔一格 0x3C..0x3F 都沒有**(全檔掃過:BRIT.CBT 0 次,
+// DUNGEON.CBT 唯一一次落在第 111 張的中繼資料區,不在 11×11 的格子裡)。
+// 城堡地形只存在於**世界地圖**,所以這條規則要真的能觸發,
+// 得先做「在野外開打時用周遭地形當場組戰場」那條路(原版 `sub_295AC`)。
+// 那一段還沒逆完 —— 規則先照原版放進來,並在 docs/re/34 記下缺口。
+func (s *State) checkAbsorbed() bool {
+	c := s.Combat
+	if c == nil || c.Over || c.Turn < 0 || c.Turn >= len(c.Units) {
+		return false
+	}
+	u := &c.Units[c.Turn]
+	if !u.Active() || u.Y != u5data.AbsorbRow {
+		return false
+	}
+	if !u5data.AbsorbTile(c.Map.At(u.X, u5data.AbsorbRow-1)) {
+		return false
+	}
+	s.Log(s.unitName(u) + MsgIsAbsorbed)
+	c.Over, c.Won = true, true
+	s.EndCombat(true)
+	s.BeginEnding()
+	return true
+}

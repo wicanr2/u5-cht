@@ -93,3 +93,35 @@ const (
 // **[HARD] 這兩行維持原樣不譯** —— 它們在原版是用符文字型畫出來的圖形,
 // 譯成中文就沒有那個效果了。中譯放在下面一行當註解式的補述。
 var CreditsRunes = [2]string{"THE QUEST OF THE AVATAR", "IS FOREVER"}
+
+// 結局的觸發條件(原版 `sub_161E4`)
+//
+// 全遊戲只有兩處呼叫結局那一幕(`sub_135FC`),兩處都守著 `byte_3E0B0 == 'M'`,
+// 而寫入 'M' 的只有 `sub_161E4` 這一支:
+//
+//	單位 = dword_3EF50[byte_3E0AE]        // 這一回合行動的那個
+//	if (旗標 == 0)        return          // 空槽
+//	if (旗標 & 0x20)      return          // 已死
+//	if (戰場 Y != 2)      return
+//	if ((byte_3F854[戰場 X] & 0xFC) != 0x3C) return
+//	byte_3E0B0 = 'M';  印 "<某某> is absorbed!"
+//
+// ★ **`byte_3F854` 是戰場暫存的第 1 列,不是腳下那一格。**
+// `byte_3F844` 是 11×11、**列距 16** 的戰場 / 石室暫存(見 miscmap.go),
+// 而 `0x3F854 = 0x3F844 + 16` —— 也就是 `[y=1][x]`。單位在第 2 列,
+// 檢查的是**它正北那一格**。
+//
+// ★ **0x3C..0x3F 是城堡的外牆與城門。** 切出來看是白色城垛與黃色拱門;
+// 在世界地圖上剛好只出現七格,全部圍著兩座城堡的入口:
+//
+//	(87,106) (85,107) (86,107) (87,107)   ← 不列顛王的城堡(地點 17)
+//	(197,244) (195,245) (197,245)          ← 黑棘的宮殿(地點 18)
+const (
+	// AbsorbRow 是單位必須站的戰場列。
+	AbsorbRow = 2
+	// AbsorbTileGroup 是「會吸收人」的地形群(`& 0xFC == 0x3C`)。
+	AbsorbTileGroup = 0x3C
+)
+
+// AbsorbTile 回報這個地形會不會把站在它南邊的人吸進去。
+func AbsorbTile(t byte) bool { return t&0xFC == AbsorbTileGroup }

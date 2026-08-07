@@ -240,3 +240,78 @@ func TestElapsedTextSkipsZeroUnits(t *testing.T) {
 		t.Errorf("同一天通關應該是空字串,實得 %q", got)
 	}
 }
+
+// 結局的觸發條件(原版 `sub_161E4`)。
+//
+// 站在戰場第 2 列、正北是城堡外牆 → 被吸進去 → 結局那一幕。
+func TestStandingBelowACastleGateEndsTheGame(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	s := endState(t)
+	if s == nil {
+		return
+	}
+	if !s.beginRoomCombat(&s.CombatMaps.Maps[0], 0) {
+		t.Fatal("開不了戰鬥")
+	}
+	c := s.Combat
+	// 把城門放在 (5,1),讓第一個行動的單位站到 (5,2)。
+	c.Map.Tiles[1][5] = 0x3E
+	u := &c.Units[c.Turn]
+	u.X, u.Y = 5, u5data.AbsorbRow
+	if !s.checkAbsorbed() {
+		t.Fatal("站在城門正南應該被吸進去")
+	}
+	if s.Ending == nil {
+		t.Fatal("被吸進去之後應該進結局那一幕")
+	}
+	if !strings.Contains(allLogs(s), "吸") {
+		t.Errorf("訊息裡沒說被吸進去:%q", allLogs(s))
+	}
+}
+
+// ⚠ 差一列就不算 —— 查的是**正北**那一格,不是腳下。
+//
+// 這一條在釘 `byte_3F854` 的身分:它是戰場暫存(列距 16)的第 1 列,
+// 不是「單位站的那一格」。當初讀成腳下的地形,整條鏈就接不起來。
+func TestTheAbsorbCheckLooksNorthNotUnderfoot(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	s := endState(t)
+	if s == nil {
+		return
+	}
+	s.beginRoomCombat(&s.CombatMaps.Maps[0], 0)
+	c := s.Combat
+	// 城門放在單位**腳下**那一格 → 不該觸發。
+	c.Map.Tiles[u5data.AbsorbRow][5] = 0x3E
+	u := &c.Units[c.Turn]
+	u.X, u.Y = 5, u5data.AbsorbRow
+	if s.checkAbsorbed() {
+		t.Error("腳下是城門不該觸發 —— 查的是正北那一格")
+	}
+	// 列數不是 2 也不算。
+	c.Map.Tiles[3][5] = 0x3E
+	u.Y = 4
+	if s.checkAbsorbed() {
+		t.Error("第 4 列不該觸發 —— 原版寫死了第 2 列")
+	}
+}
+
+// 四個城堡地形碼都算,鄰居不算(`& 0xFC == 0x3C`)。
+func TestAbsorbTileGroup(t *testing.T) {
+	for _, t2 := range []byte{0x3C, 0x3D, 0x3E, 0x3F} {
+		if !u5data.AbsorbTile(t2) {
+			t.Errorf("%02X 應該算城堡", t2)
+		}
+	}
+	for _, t2 := range []byte{0x3B, 0x40, 0x00, 0x44} {
+		if u5data.AbsorbTile(t2) {
+			t.Errorf("%02X 不該算城堡", t2)
+		}
+	}
+}

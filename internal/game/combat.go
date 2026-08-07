@@ -642,6 +642,10 @@ func (s *State) afterPlayerAction() {
 	if s.checkCombatOver() {
 		return
 	}
+	// 原版 `sub_A360` 在每個單位行動完之後就查一次(`call sub_161E4`)。
+	if s.checkAbsorbed() {
+		return
+	}
 	s.advanceCombat()
 }
 

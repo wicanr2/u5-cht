@@ -112,6 +112,8 @@ const (
 	MsgGotPotion      = "一瓶%s色藥水!"
 	MsgGotScroll      = "一捲卷軸 —— %s!"
 	MsgGotItem        = "得到%s。"
+	// "… is absorbed!"(原版 sub_161E4)—— 城堡把站在門前的人吸了進去。
+	MsgIsAbsorbed = "被吸了進去!"
 	MsgGotTorches     = "得到 %d 支火把。"
 	MsgGotFood        = "得到 %d 份糧食。"
 	MsgGotCarpet      = "一張魔毯!"
