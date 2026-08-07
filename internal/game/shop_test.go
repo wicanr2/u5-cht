@@ -333,17 +333,287 @@ func TestHealerCharityLocation(t *testing.T) {
 	}
 }
 
-// TestUnimplementedShopsSaySo:酒館 / 造船廠 / 旅店還沒逆完,要誠實說明,
-// 不能靜默什麼都不做,也不能假裝談成了(CLAUDE.md §3.0)。
-func TestUnimplementedShopsSaySo(t *testing.T) {
-	for _, ty := range []u5data.ShopType{u5data.ShopTavern, u5data.ShopShipwright, u5data.ShopInn} {
-		s := shopState(t, 3)
-		shop, ok := s.Shops.At(3, ty)
+// TestEveryShopTypeOpens:八種店現在都進得去。
+//
+// 這條取代了先前那個「還沒逆完的店要誠實說明」的守門測試 ——
+// 守門的對象都做完了,留著只會變成永遠為真的空測試。
+func TestEveryShopTypeOpens(t *testing.T) {
+	for ty := u5data.ShopType(0); ty < u5data.ShopTypeCount; ty++ {
+		var opened bool
+		for loc := 1; loc <= 32 && !opened; loc++ {
+			s := shopState(t, loc)
+			shop, ok := s.Shops.At(loc, ty)
+			if !ok {
+				continue
+			}
+			opened = s.openShop(shop)
+		}
+		if !opened {
+			t.Errorf("%s 一家都開不起來", ty.TypeName())
+		}
+	}
+}
+
+// TestTavernHotkeysVaryByShop:酒館的熱鍵字母每家不同,由菜單樣式決定。
+//
+// 這是很容易漏掉的一條:寫死成 a/b/c 的話,原版按 M 點餐的酒館就點不到東西。
+func TestTavernHotkeysVaryByShop(t *testing.T) {
+	seen := map[[4]byte]int{}
+	for loc := 1; loc <= 32; loc++ {
+		s := shopState(t, loc)
+		shop, ok := s.Shops.At(loc, u5data.ShopTavern)
 		if !ok {
 			continue
 		}
-		if s.openShop(shop) {
-			t.Errorf("%s 的流程還沒逆完,卻開得起來", ty.TypeName())
+		s.openShop(shop)
+		seen[s.tavernHotkeys()]++
+	}
+	if len(seen) < 2 {
+		t.Errorf("九家酒館只有 %d 種熱鍵配置,原版有 4 套菜單樣式", len(seen))
+	}
+}
+
+// TestTavernMealCountsLivingOnly:一餐的價是「每人單價 × 活著的人數」,
+// 死人不算(原版 sub_20E6C 跳過狀態 'D')。買完存糧增加。
+func TestTavernMealCountsLivingOnly(t *testing.T) {
+	s := shopState(t, 2)
+	shop, ok := s.Shops.At(2, u5data.ShopTavern)
+	if !ok {
+		t.Fatal("地點 2 沒有酒館")
+	}
+	if !s.openShop(shop) {
+		t.Fatal("酒館開不起來")
+	}
+	s.Roster[1].Status = u5data.StatusDead
+	alive := s.PartySize - 1
+	unit := s.Shops.Prices.TavernFood[shop.TypeIndex]
+	want := u5data.Haggle(unit*alive, s.clerkIntel())
+
+	food, gold := s.Inventory.Food, s.Inventory.Gold
+	s.ShopChoose(rune(s.tavernHotkeys()[TavernMeal]))
+	if s.Shop.Price != want {
+		t.Errorf("一餐報價 %d,預期 %d(%d 個活人 × %d)", s.Shop.Price, want, alive, unit)
+	}
+	s.ShopChoose('y')
+	if gold-s.Inventory.Gold != want {
+		t.Errorf("扣了 %d 金,預期 %d", gold-s.Inventory.Gold, want)
+	}
+	if s.Inventory.Food-food != alive {
+		t.Errorf("存糧多了 %d 份,預期 %d", s.Inventory.Food-food, alive)
+	}
+}
+
+// TestTavernWineIsNotHaggled:酒**不議價**。
+//
+// 原版 sub_21108 直接拿 dword_56E44[i] 跟金幣比,沒有套智力折扣 ——
+// 全遊戲的交易只有這一項是這樣。
+func TestTavernWineIsNotHaggled(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopTavern)
+	s.openShop(shop)
+	keys := s.tavernHotkeys()
+	if keys[TavernDrink] == ' ' {
+		t.Skip("這家酒館沒有酒單")
+	}
+	s.Inventory.Gold = 9999
+	s.ShopChoose(rune(keys[TavernDrink]))
+	s.ShopChoose('a') // Rose,18 金
+	if s.Shop.Price != u5data.WineFirstPrice {
+		t.Errorf("Rose 報價 %d,預期 %d(不議價)", s.Shop.Price, u5data.WineFirstPrice)
+	}
+	gold := s.Inventory.Gold
+	s.ShopChoose('y')
+	if gold-s.Inventory.Gold != u5data.WineFirstPrice {
+		t.Errorf("扣了 %d 金", gold-s.Inventory.Gold)
+	}
+}
+
+// TestTavernRationsQuantity:乾糧是「單價 × 數量」,數量由玩家按數字鍵給。
+func TestTavernRationsQuantity(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopTavern)
+	s.openShop(shop)
+	keys := s.tavernHotkeys()
+	if keys[TavernRations] == ' ' {
+		t.Skip("這家酒館不賣乾糧")
+	}
+	s.Inventory.Gold = 9999
+	food := s.Inventory.Food
+	unit := s.Shops.Prices.TavernRation[shop.TypeIndex]
+	s.ShopChoose(rune(keys[TavernRations]))
+	s.ShopChoose('5')
+	if want := u5data.Haggle(unit*5, s.clerkIntel()); s.Shop.Price != want {
+		t.Errorf("5 份乾糧報價 %d,預期 %d", s.Shop.Price, want)
+	}
+	s.ShopChoose('y')
+	if s.Inventory.Food-food != 5 {
+		t.Errorf("存糧多了 %d 份,預期 5", s.Inventory.Food-food)
+	}
+}
+
+// TestInnRestRecovers:住一晚 —— 扣錢、時間跳到早上六點、HP 回滿、法力補到智力。
+//
+// 法力上限就是智力(原版 sub_21D48 的 `[ebx+0Fh] = [ebx+0Eh]`),
+// 吟遊詩人只有一半。戰士沒有法力,所以不動。
+func TestInnRestRecovers(t *testing.T) {
+	s := shopState(t, 2)
+	shop, ok := s.Shops.At(2, u5data.ShopInn)
+	if !ok {
+		t.Fatal("地點 2 沒有旅店")
+	}
+	if !s.openShop(shop) {
+		t.Fatal("旅店開不起來")
+	}
+	// 先打傷全隊、掏空法力。
+	for _, c := range s.Party() {
+		c.HP = 1
+		c.MP = 0
+	}
+	s.Clock.Hour, s.Clock.Minute = 20, 0
+	gold := s.Inventory.Gold
+	want := u5data.Haggle(s.Shops.Prices.Inn[shop.TypeIndex]*s.PartySize, s.clerkIntel())
+
+	s.ShopChoose('r')
+	if s.Shop.Price != want {
+		t.Errorf("住宿報價 %d,預期 %d(每人每天 × %d 人再議價)",
+			s.Shop.Price, want, s.PartySize)
+	}
+	s.ShopChoose('y')
+	if gold-s.Inventory.Gold != want {
+		t.Errorf("扣了 %d 金,預期 %d", gold-s.Inventory.Gold, want)
+	}
+	if s.Clock.Hour != WakeHour {
+		t.Errorf("醒來是 %d 點,預期 %d 點", s.Clock.Hour, WakeHour)
+	}
+	for _, c := range s.Party() {
+		if c.HP != c.MaxHP {
+			t.Errorf("%s 醒來 HP %d/%d,沒回滿", c.Name, c.HP, c.MaxHP)
 		}
+		switch c.Class {
+		case 'A', 'M':
+			if c.MP != c.Intel {
+				t.Errorf("%s(%c)法力 %d,預期等於智力 %d", c.Name, c.Class, c.MP, c.Intel)
+			}
+		case 'B':
+			if c.MP != c.Intel/2 {
+				t.Errorf("%s(吟遊詩人)法力 %d,預期智力的一半 %d", c.Name, c.MP, c.Intel/2)
+			}
+		}
+		if c.Status != u5data.StatusGood {
+			t.Errorf("%s 醒來狀態是 %c", c.Name, c.Status)
+		}
+	}
+}
+
+// TestSleepKillsThePoisoned:中毒的人睡覺會死。
+//
+// 這是原版的真規則(sub_21D48 的 `cmp [ebx+0Bh], 'P'` → 改成 'D'、HP 歸 0),
+// 不是 bug。少了這條,毒在遊戲裡就只是個無關痛癢的狀態。
+func TestSleepKillsThePoisoned(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopInn)
+	s.openShop(shop)
+	s.Roster[1].Status = u5data.StatusPoisoned
+	s.ShopChoose('r')
+	s.ShopChoose('y')
+	if s.Roster[1].Status != u5data.StatusDead {
+		t.Errorf("中毒的人睡了一晚還活著(狀態 %c)", s.Roster[1].Status)
+	}
+	if s.Roster[1].HP != 0 {
+		t.Errorf("死了卻還有 %d HP", s.Roster[1].HP)
+	}
+	if !strings.Contains(s.log(), "毒發身亡") {
+		t.Errorf("沒有死訊:\n%s", s.log())
+	}
+	// 沒中毒的人照常恢復。
+	if s.Roster[0].Status != u5data.StatusGood {
+		t.Errorf("旁邊的人也出事了(狀態 %c)", s.Roster[0].Status)
+	}
+}
+
+// TestInnLeaveAndPickUp:寄放同伴 → 隊伍少一人、名冊記下地點;領回 → 補回隊伍。
+//
+// `CharInnFlag` 存的**不是布林而是地點編號**(sub_22018 寫的是 byte_3E0A3),
+// 所以在別的城市的旅店領不到人 —— 這一條也一起驗。
+func TestInnLeaveAndPickUp(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopInn)
+	s.openShop(shop)
+	before := s.PartySize
+	name := s.Party()[1].Name
+
+	s.ShopChoose('l')
+	s.ShopChoose('b') // 第二位隊員
+	s.ShopChoose('y')
+	if s.PartySize != before-1 {
+		t.Fatalf("寄放後隊伍 %d 人,預期 %d\n%s", s.PartySize, before-1, s.log())
+	}
+	if got := s.guestNames(); len(got) != 1 || got[0] != name {
+		t.Fatalf("住宿名冊是 %v,預期只有 %s", got, name)
+	}
+	// 換一家旅店(地點 3)就找不到這個人。
+	s.Location = 3
+	if got := s.guestNames(); len(got) != 0 {
+		t.Errorf("在別的城市也列出了 %v", got)
+	}
+	s.Location = 2
+
+	s.ShopChoose('p')
+	s.ShopChoose('a')
+	s.ShopChoose('y')
+	if s.PartySize != before {
+		t.Errorf("領回後隊伍 %d 人,預期 %d\n%s", s.PartySize, before, s.log())
+	}
+	if len(s.guestNames()) != 0 {
+		t.Errorf("領回後名冊上還有人")
+	}
+}
+
+// TestInnRoomsLimit:寄放的人不能超過房間數(原版 sub_21CE4)。
+func TestInnRoomsLimit(t *testing.T) {
+	s := shopState(t, 2)
+	shop, _ := s.Shops.At(2, u5data.ShopInn)
+	rooms := s.Shops.Prices.InnRooms[shop.TypeIndex]
+	// 先把名冊上非隊伍的人全部塞進這家旅店,塞到客滿。
+	n := 0
+	for i := s.PartySize; i < len(s.Roster) && n < rooms; i++ {
+		if s.Roster[i].Present() {
+			s.Roster[i].Raw[u5data.CharInnFlag] = byte(2)
+			n++
+		}
+	}
+	if n < rooms {
+		t.Skipf("名冊上只有 %d 個閒人,填不滿 %d 間房", n, rooms)
+	}
+	s.openShop(shop)
+	s.ShopChoose('l')
+	s.ShopChoose('a')
+	if !strings.Contains(s.log(), "沒有空房") {
+		t.Errorf("客滿了還收人:\n%s", s.log())
+	}
+}
+
+// TestShipwrightPrices:造船廠報帆船與小艇的價,兩者都套議價公式。
+func TestShipwrightPrices(t *testing.T) {
+	s := shopState(t, 3)
+	shop, ok := s.Shops.At(3, u5data.ShopShipwright)
+	if !ok {
+		t.Fatal("地點 3 沒有造船廠")
+	}
+	if !s.openShop(shop) {
+		t.Fatal("造船廠開不起來")
+	}
+	p := s.Shops.Prices
+	i := shop.TypeIndex
+	intel := s.clerkIntel()
+	for k, want := range []int{
+		u5data.Haggle(p.Frigate[i], intel),
+		u5data.Haggle(p.Skiff[i], intel),
+	} {
+		s.ShopChoose(rune('a' + k))
+		if s.Shop.Price != want {
+			t.Errorf("第 %d 項報價 %d,預期 %d", k, s.Shop.Price, want)
+		}
+		s.ShopChoose('n')
 	}
 }

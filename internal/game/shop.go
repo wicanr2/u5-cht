@@ -17,8 +17,9 @@ import (
 //  3. 問 Y/N;答 Yes 才比對金幣。
 //  4. 錢不夠 → 一句冷嘲,交易失敗;錢夠 → 扣錢、加貨(上限 99)。
 //
-// 這裡實作已經逐條對過反編譯的五種:武具店、藥草鋪、公會、治療所、馬廄。
-// 酒館 / 造船廠 / 旅店的流程還沒逆完,進店仍會誠實說明(CLAUDE.md §3.0)。
+// 八種店的流程都逐條對過反編譯:旅店與造船廠在 inn.go、酒館在 tavern.go。
+// 還沒做的只剩兩處,兩處都不是「不知道規則」而是缺前置系統:
+// 買馬買船要地圖物件層才生得出坐騎,酒館的打聽消息要八德與地牢的知識表。
 
 // ShopMode 是商店互動目前停在哪一步。
 type ShopMode int
@@ -38,6 +39,18 @@ const (
 	ShopModeHealMenu
 	// ShopModeHealTarget 是治療所問「治誰」。
 	ShopModeHealTarget
+	// ShopModeInnMenu 是旅店問「領人(P)、寄放(L)、還是住宿(R)」。
+	ShopModeInnMenu
+	// ShopModeInnLeave 是旅店問「誰要留下」。
+	ShopModeInnLeave
+	// ShopModeInnPick 是旅店問「誰要退房」。
+	ShopModeInnPick
+	// ShopModeTavernMenu 是酒館的四欄菜單(熱鍵字母每家不同)。
+	ShopModeTavernMenu
+	// ShopModeTavernWine 是酒館的酒單。
+	ShopModeTavernWine
+	// ShopModeTavernQty 是酒館問「乾糧要幾份」。
+	ShopModeTavernQty
 )
 
 // ShopSession 是一次進店的完整狀態。
@@ -50,15 +63,44 @@ type ShopSession struct {
 	Choice ShopItem
 	// Price 是已經套過議價公式、玩家實際要付的錢。
 	Price int
-	// Selling 為真時 Choice 是要賣出的東西,Price 是店家出的價。
-	Selling bool
 	// Service 是治療所選的服務。
 	Service HealService
 	// Target 是治療所要治的名冊索引。
 	Target int
+	// Action 是這次要結的帳做什麼用(旅店住宿 / 寄放 / 退房)。
+	Action ShopAction
+	// guests 是旅店 REGISTER 上列出的名冊索引,順序就是按鍵順序。
+	guests []int
+	// drinks 是這趟在酒館喝了幾杯(原版 dword_56E1C)。
+	drinks int
 	// clerk 是應對玩家的角色索引(名冊位置);議價用他的智力。
 	clerk int
 }
+
+// ShopAction 是「付了錢之後要發生什麼」。
+//
+// 買東西以外的交易(住宿、寄放同伴、退房、買船)沒有「貨」可以進背包,
+// 各自要做的事不同,用這個分。
+type ShopAction int
+
+const (
+	// ActionBuy 是一般的買貨。
+	ActionBuy ShopAction = iota
+	// ActionSell 是賣貨給店家。
+	ActionSell
+	// ActionHeal 是治療所的服務。
+	ActionHeal
+	// ActionInnRest 是在旅店過夜。
+	ActionInnRest
+	// ActionInnLeave 是把同伴寄放在旅店。
+	ActionInnLeave
+	// ActionInnPick 是把寄放的同伴領回來(結清住宿費)。
+	ActionInnPick
+	// ActionShip 是在造船廠買船。
+	ActionShip
+	// ActionTavern 是在酒館點餐 / 點酒 / 買乾糧。
+	ActionTavern
+)
 
 // ShopGoods 分辨這一項是什麼東西 —— 決定買下去要加到哪個欄位。
 type ShopGoods int
@@ -72,6 +114,12 @@ const (
 	GoodsGuild
 	// GoodsHorse 是馬。
 	GoodsHorse
+	// GoodsShip 是船(ID 0 帆船、1 小艇)。
+	GoodsShip
+	// GoodsFood 是存糧(酒館的一餐或乾糧)。
+	GoodsFood
+	// GoodsDrink 是酒館的酒。
+	GoodsDrink
 )
 
 // ShopItem 是貨架上的一項。
@@ -162,8 +210,13 @@ func (s *State) openShop(shop *u5data.Shop) bool {
 		})
 	case u5data.ShopHealer:
 		sess.Mode = ShopModeHealMenu
+	case u5data.ShopInn:
+		return s.openInn(shop)
+	case u5data.ShopShipwright:
+		return s.openShipwright(shop)
+	case u5data.ShopTavern:
+		return s.openTavern(shop)
 	default:
-		// 酒館 / 造船廠 / 旅店:流程還沒逆完。
 		return false
 	}
 	if sess.Mode == ShopModeMenu && len(sess.Menu) == 0 {
@@ -275,6 +328,10 @@ func (s *State) ShopChoose(r rune) {
 		r = r - 'A' + 'a'
 	}
 	switch sess.Mode {
+	case ShopModeInnMenu, ShopModeInnLeave, ShopModeInnPick:
+		s.innChoose(r)
+	case ShopModeTavernMenu, ShopModeTavernWine, ShopModeTavernQty:
+		s.tavernChoose(r)
 	case ShopModeBuySell:
 		switch r {
 		case 'b':
@@ -343,9 +400,17 @@ func (s *State) backToMenu() {
 	}
 	s.Log("「還需要別的嗎?」")
 	switch {
+	case sess.Shop.Type == u5data.ShopInn:
+		sess.Mode = ShopModeInnMenu
+		s.showInnMenu()
+		return
+	case sess.Shop.Type == u5data.ShopTavern:
+		sess.Mode = ShopModeTavernMenu
+		s.showTavernMenu()
+		return
 	case sess.Shop.Type == u5data.ShopHealer:
 		sess.Mode = ShopModeHealMenu
-	case sess.Selling:
+	case sess.Action == ActionSell:
 		s.fillSellMenu()
 	case sess.Shop.Type == u5data.ShopArmoury:
 		s.fillBuyMenu()
@@ -384,7 +449,7 @@ func (s *State) clerkIntel() int {
 // sellQuote 店家對一件裝備開價(原版 sub_12060)。
 func (s *State) sellQuote(it ShopItem) {
 	sess := s.Shop
-	sess.Selling = true
+	sess.Action = ActionSell
 	sess.Choice = it
 	if it.ID == u5data.ItemArrows || it.ID == u5data.ItemQuarrels {
 		s.Log("「二手彈藥恕不收購。」")
@@ -428,7 +493,7 @@ func (s *State) sell(it ShopItem, price int) {
 // quote 報價。
 func (s *State) quote(it ShopItem) {
 	sess := s.Shop
-	sess.Selling = false
+	sess.Action = ActionBuy
 	sess.Choice = it
 	sess.Price = u5data.Haggle(it.Base, s.clerkIntel())
 	if p := s.pitch(it.Pitch, sess.Price, it.Qty); p != "" {
@@ -479,12 +544,13 @@ func healNeeded(svc HealService, c *u5data.Character) bool {
 func (s *State) settle() {
 	sess := s.Shop
 	s.Log("是。")
-	if sess.Selling {
+	if sess.Action == ActionSell {
 		s.sell(sess.Choice, sess.Price)
 		s.backToMenu()
 		return
 	}
 	if s.Inventory.Gold < sess.Price {
+		// 旅店付不起是被轟出去,不是回到選單(原版三段各有一句台詞)。
 		// 治療所在特定地點(原版 `cmp byte_3E0A3, 7`)對 100 金以下的服務
 		// 不趕人 —— 付不起也照做。復活 200 金不在此列。
 		charity := sess.Shop.Type == u5data.ShopHealer &&
@@ -497,9 +563,14 @@ func (s *State) settle() {
 	} else {
 		s.Inventory.Gold -= sess.Price
 	}
-	if sess.Shop.Type == u5data.ShopHealer {
+	switch {
+	case sess.Shop.Type == u5data.ShopHealer:
 		s.applyHeal()
-	} else {
+	case sess.Shop.Type == u5data.ShopInn:
+		s.settleInn()
+	case sess.Shop.Type == u5data.ShopTavern:
+		s.settleTavern()
+	default:
 		s.deliver(sess.Choice)
 		s.Log("成交!")
 	}
@@ -582,6 +653,9 @@ func (s *State) deliver(it ShopItem) {
 		// 原版買了馬會在店門口的地圖格放一隻馬 tile;地圖物件層還沒做,
 		// 先誠實說明而不是假裝馬憑空出現。
 		s.Log("(馬已備妥 —— 地圖上的坐騎物件尚未實作)")
+	case GoodsShip:
+		// 同上:船要生成在碼頭的水格,一樣等地圖物件層。
+		s.Log("(" + it.Name + "已備妥 —— 碼頭上的載具物件尚未實作)")
 	}
 }
 

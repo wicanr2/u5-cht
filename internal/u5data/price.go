@@ -37,10 +37,17 @@ const (
 	priceStable       = 0x3C40 // 4 × u16
 	priceItemPitch    = 0x3C58 // 48 × u16
 	priceSellPitch    = 0x3CCE // 8 × u16
+	priceTavernFood   = 0x4C46 // 9 × u16(每人一餐多少錢)
+	priceTavernRation = 0x4C64 // 9 × u16(一份乾糧多少錢)
 	priceWine         = 0x4C58 // 6 × u16
+	priceTavernStyle  = 0x4D5C // 9 × byte(這家酒館用哪一套菜單)
 	priceFrigate      = 0x4D76 // 4 × u16
 	priceSkiff        = 0x4D7E // 4 × u16
 	priceInn          = 0x4D8E // 6 × byte
+	priceInnRooms     = 0x4DD4 // 6 × byte
+	priceInnRestPitch = 0x4E7E // 6 × u16
+	priceInnBedX      = 0x4E8A // 6 × byte
+	priceInnBedY      = 0x4E90 // 6 × byte
 )
 
 // 各店種的家數,同時是對應價目表的列數。
@@ -75,7 +82,24 @@ const (
 	GoldLimit = 9999
 	// SellPitchCount 是武具店開價收購時的說詞變體數。
 	SellPitchCount = 8
+	// TavernStyleCount 是酒館菜單的樣式數(熱鍵表只有前 4 格有字母)。
+	TavernStyleCount = 4
 )
+
+// TavernHotkeys[樣式] 是那一套菜單四個選項的熱鍵字母。
+//
+// 原版是四張各 8 B 的平行表(`byte_56DEC` / `56DF4` / `56DFC` / `56E04`),
+// 用 `byte_57034[酒館]` 選出的樣式當索引。四欄依序是
+// 餐點 → 飲料 → 情報 → 第四項;空白代表這家沒有這個選項。
+//
+// ⚠ 這四張表在 DOS `DATA.OVL` 裡找不到對應(樣式表 `0x4D5C` 找得到,熱鍵表找不到),
+// 所以與 ItemAltNames 一樣是從 FM Towns 抄過來的。
+var TavernHotkeys = [TavernStyleCount][4]byte{
+	{'M', 'A', 'R', 'C'},
+	{'C', 'W', ' ', 'T'},
+	{'B', 'R', ' ', 'H'},
+	{'F', 'S', 'P', 'A'},
+}
 
 // 治療所的三種服務與固定價(sub_12838 裡直接寫進 word_3EF38 的立即數)。
 //
@@ -108,6 +132,11 @@ var (
 	WineNames = [WineCount]string{"Rose", "Claret", "Sauterne", "Muscatel", "Moselle", "Chablis"}
 )
 
+// WineFirstPrice 是酒單第一款(Rose)的價,寫死在原版的選單字串裡
+// (`"a) Rose.......18\n"`)。價目表讀出來的第一筆必須等於它,
+// 否則就是 priceWine 這個位移指錯了地方。
+const WineFirstPrice = 18
+
 // PriceTable 是全遊戲的商店價目與貨色。
 type PriceTable struct {
 	// Item 是 48 件裝備的底價;0 代表不賣。
@@ -138,6 +167,18 @@ type PriceTable struct {
 	Skiff   [ShipwrightCount]int
 	// Inn 是六家旅店每人每天的價錢。
 	Inn [InnCount]int
+	// InnRooms 是每家旅店的房間數;寄放的人超過就客滿(原版 sub_21CE4)。
+	InnRooms [InnCount]int
+	// InnRestPitch 是「住一晚多少錢」那句話在 SHOPPE.DAT 的位移。
+	InnRestPitch [InnCount]int
+	// InnBedX / InnBedY 是床鋪在場景裡的座標;付錢之後玩家被移到這一格睡覺。
+	InnBedX, InnBedY [InnCount]int
+	// TavernFood 是九家酒館每人一餐的價錢。
+	TavernFood [TavernCount]int
+	// TavernRation 是九家酒館一份乾糧的價錢(帶著走的存糧,不是當場吃的一餐)。
+	TavernRation [TavernCount]int
+	// TavernStyle 是這家酒館用哪一套菜單(0..3);四個選項的熱鍵字母由它決定。
+	TavernStyle [TavernCount]int
 	// Wine 是酒館酒單六款的價錢。
 	Wine [WineCount]int
 
@@ -156,9 +197,9 @@ func LoadPrices(dir string) (*PriceTable, error) {
 
 // ParsePrices 從 DATA.OVL 的內容取出價目表。
 func ParsePrices(ovl []byte) (*PriceTable, error) {
-	need := priceInn + InnCount
+	need := priceInnBedY + InnCount
 	if len(ovl) < need {
-		return nil, fmt.Errorf("DATA.OVL 只有 %d B,放不下 0x%X 的價目區", len(ovl), priceInn)
+		return nil, fmt.Errorf("DATA.OVL 只有 %d B,放不下 0x%X 的價目區", len(ovl), need)
 	}
 	u16 := func(off, i int) int { return int(binary.LittleEndian.Uint16(ovl[off+i*2:])) }
 
@@ -199,6 +240,15 @@ func ParsePrices(ovl []byte) (*PriceTable, error) {
 	}
 	for i := 0; i < InnCount; i++ {
 		t.Inn[i] = int(ovl[priceInn+i])
+		t.InnRooms[i] = int(ovl[priceInnRooms+i])
+		t.InnRestPitch[i] = u16(priceInnRestPitch, i)
+		t.InnBedX[i] = int(ovl[priceInnBedX+i])
+		t.InnBedY[i] = int(ovl[priceInnBedY+i])
+	}
+	for i := 0; i < TavernCount; i++ {
+		t.TavernFood[i] = u16(priceTavernFood, i)
+		t.TavernRation[i] = u16(priceTavernRation, i)
+		t.TavernStyle[i] = int(ovl[priceTavernStyle+i])
 	}
 	for i := 0; i < WineCount; i++ {
 		t.Wine[i] = u16(priceWine, i)
@@ -265,6 +315,21 @@ func (t *PriceTable) validate() error {
 	for i, p := range t.Inn {
 		if p < 1 || p > 9 {
 			return fmt.Errorf("第 %d 家旅店每天 %d 金,不像價錢", i, p)
+		}
+	}
+	// 床鋪座標一定落在 32×32 的場景裡,房間數是個位數。
+	for i := range t.InnBedX {
+		if t.InnBedX[i] < 1 || t.InnBedX[i] >= SceneSide || t.InnBedY[i] < 1 || t.InnBedY[i] >= SceneSide {
+			return fmt.Errorf("第 %d 家旅店的床在 (%d,%d),不在場景裡", i, t.InnBedX[i], t.InnBedY[i])
+		}
+		if t.InnRooms[i] < 1 || t.InnRooms[i] > 9 {
+			return fmt.Errorf("第 %d 家旅店有 %d 間房", i, t.InnRooms[i])
+		}
+	}
+	// 菜單樣式只有 0..3 有熱鍵(四張熱鍵表的後半都是 0)。
+	for i, s := range t.TavernStyle {
+		if s < 0 || s >= TavernStyleCount {
+			return fmt.Errorf("第 %d 家酒館的菜單樣式是 %d,超出 0..%d", i, s, TavernStyleCount-1)
 		}
 	}
 	return nil

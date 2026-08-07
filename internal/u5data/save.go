@@ -38,6 +38,7 @@ const (
 	// 而全域變數之間有對齊留下的空隙(`byte_3DFB8` 讀完 10 B 到 0x3DFC2,
 	// 下一個欄位卻在 0x3DFC4)。整份存檔累積 4 B 的漂移,所以不能拿
 	// 「線性位址 − 某個常數」去推位移,一定要跟著讀取序列走。
+	SaveFoodOffset    = 0x0202 // word_3DFB4,u16(存糧;開局 63 份)
 	SaveGoldOffset    = 0x0204 // word_3DFB6,u16
 	SaveKeysOffset    = 0x0206 // byte_3DFB8
 	SaveGemsOffset    = 0x0207 // byte_3DFB9
@@ -137,12 +138,10 @@ func (c *Character) ClassName() string {
 	return string(rune(c.Class))
 }
 
-// Save 是一份存檔。
-//
-// 只解出已經驗證過的欄位;其餘保留在 Raw 裡。與其對沒把握的位移硬取名字,
-// 不如讓呼叫端看得到「這一段還沒解」。
 // Inventory 是隊伍共用的背包(不隸屬個別角色)。
 type Inventory struct {
+	// Food 是隊伍的存糧(原版 word_3DFB4)。在酒館買一餐或買幾份乾糧都會增加。
+	Food    int
 	Gold    int
 	Keys    int
 	Gems    int
@@ -153,6 +152,10 @@ type Inventory struct {
 	Reagents [ReagentCount]int
 }
 
+// Save 是一份存檔。
+//
+// 只解出已經驗證過的欄位;其餘保留在 Raw 裡。與其對沒把握的位移硬取名字,
+// 不如讓呼叫端看得到「這一段還沒解」。
 type Save struct {
 	Roster    [RosterSize]Character
 	Inventory Inventory
@@ -204,6 +207,7 @@ func ParseSave(raw []byte) (*Save, error) {
 		c.Exp = binary.LittleEndian.Uint16(rec[CharExp:])
 		c.Level = rec[CharLevel]
 	}
+	s.Inventory.Food = int(binary.LittleEndian.Uint16(raw[SaveFoodOffset:]))
 	s.Inventory.Gold = int(binary.LittleEndian.Uint16(raw[SaveGoldOffset:]))
 	s.Inventory.Keys = int(raw[SaveKeysOffset])
 	s.Inventory.Gems = int(raw[SaveGemsOffset])
