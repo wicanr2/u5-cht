@@ -85,6 +85,8 @@ const (
 	PromptLeave
 	// PromptTalk 是對話中:鍵盤輸入的是關鍵字,不是指令鍵。
 	PromptTalk
+	// PromptAnswer 是 NPC 反問之後:輸入的是對那個問題的回答。
+	PromptAnswer
 )
 
 // State 是一局遊戲的位置狀態。
@@ -116,14 +118,25 @@ type State struct {
 	Conv *u5data.Conversation
 	// Input 是對話中已經打進去的關鍵字。
 	Input string
+	// pending 是正在等玩家回答的提問區塊。
+	pending *u5data.Question
 	// Karma 是業報(0..99)。對話裡的 opcode 0x89/0x8A 會動到它。
 	Karma int
-	// Roster 是全部 16 名可用角色,Party 是目前隊伍(名冊的前 PartySize 名)。
-	Roster []u5data.Character
-	Party  []*u5data.Character
+	// Roster 是全部 16 名可用角色;隊伍就是名冊的前 PartySize 名
+	// (原版 sub_1BB5C 讓人入隊的方式是把名冊裡的那一筆與隊伍位置**對調**,
+	//  所以「隊伍」不是另一個清單,而是名冊的前綴)。
+	Roster    []u5data.Character
+	PartySize int
 
 	Messages    []string
 	MaxMessages int
+
+	// talkingTo 是正在交談的 NPC 槽號;-1 代表沒有。入隊之後要靠它把人移出場景。
+	talkingTo int
+
+	// removed 記錄已經離場的 NPC(入隊之後原版會把他從場景移除)。
+	// key 是 地點編號<<8 | 槽號 —— 換地點回來時他不該又站在原地。
+	removed map[int]bool
 
 	scene *u5data.SceneMap                  // 目前這一層的場景地圖快取
 	npcs  *[u5data.NPCsPerLocation]u5data.NPC // 目前地點的 NPC 槽
@@ -152,7 +165,7 @@ func (s *State) VisibleNPCs() []VisibleNPC {
 			continue // 0 號是隊伍自己
 		}
 		n := &s.npcs[i]
-		if !n.Present() {
+		if !n.Present() || s.removed[s.Location<<8|i] {
 			continue
 		}
 		x, y, floor := n.At(s.Clock.Hour)
@@ -441,10 +454,8 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.X, s.Y = sv.X, sv.Y
 	s.Floor = sv.Floor
 	s.Roster = append(s.Roster[:0], sv.Roster[:]...)
-	s.Party = nil
-	for i := 0; i < sv.PartySize && i < len(s.Roster); i++ {
-		s.Party = append(s.Party, &s.Roster[i])
-	}
+	s.PartySize = sv.PartySize
+	s.removed = nil
 	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
 	s.Location = 0
 	s.scene, s.npcs = nil, nil
@@ -454,6 +465,19 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 			s.Log("讀檔:回不到原本的場景(" + err.Error() + "),改由大地圖開始。")
 		}
 	}
+}
+
+// Party 回傳目前隊伍 —— 名冊的前 PartySize 名。
+func (s *State) Party() []*u5data.Character {
+	n := s.PartySize
+	if n > len(s.Roster) {
+		n = len(s.Roster)
+	}
+	out := make([]*u5data.Character, 0, n)
+	for i := 0; i < n; i++ {
+		out = append(out, &s.Roster[i])
+	}
+	return out
 }
 
 // AvatarName 回傳聖者的名字(名冊第 0 名)。對話裡的 opcode 0x81 用它。

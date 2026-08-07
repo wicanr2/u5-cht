@@ -53,7 +53,7 @@ func TestTalkFlowWithRealData(t *testing.T) {
 	name := s.Conv.Name
 
 	// 問 job —— 這是引擎內建的關鍵字,不在記錄的關鍵字表裡。
-	typeWord(s, KeywordJob)
+	typeWord(s, "job")
 	if !anyContains(s.Messages, firstWords(s.Conv.Job)) {
 		t.Errorf("問 job 沒有得到職業回答(%q):%v", s.Conv.Job, s.Messages)
 	}
@@ -74,7 +74,7 @@ func TestTalkFlowWithRealData(t *testing.T) {
 	}
 
 	// bye → 結束
-	typeWord(s, KeywordBye)
+	typeWord(s, "bye")
 	if s.Prompt != PromptNone || s.Conv != nil {
 		t.Errorf("打 bye 之後對話沒結束(對象 %s)", name)
 	}
@@ -131,4 +131,108 @@ func firstWords(s string) string {
 		f = f[:3]
 	}
 	return strings.Join(f, " ")
+}
+
+// TestGwennoJoinsParty 用原版資料跑一次完整的入隊:
+// 走到 Gwenno 旁邊 → T → 問 join → 她道謝 → 進隊伍 → 從場上消失。
+//
+// 這條路徑同時驗了四件事:關鍵字表在 0x90 結束(否則 join 會接到別的回應)、
+// 提問區塊解析、終端區塊不向玩家要輸入、名冊對調式的入隊。
+func TestGwennoJoinsParty(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA,跳過需要原版資料的測試")
+	}
+	s := realState(t, dir)
+	// Gwenno 是不列顛城 8 號槽,中午在 (3,29) 地面層。
+	if err := s.SetScene(britain, 0, 3, 28); err != nil {
+		t.Fatal(err)
+	}
+	s.Clock.Hour = 12
+	before := s.PartySize
+	seen := len(s.VisibleNPCs())
+
+	s.Talk()
+	if s.Conv == nil || s.Conv.Name != "Gwenno" {
+		t.Fatalf("沒跟 Gwenno 說到話:%v", s.Messages)
+	}
+	typeWord(s, "join")
+
+	if s.PartySize != before+1 {
+		t.Fatalf("隊伍人數 %d,預期 %d:%v", s.PartySize, before+1, s.Messages)
+	}
+	if got := s.Roster[before].Name; got != "Gwenno" {
+		t.Errorf("隊伍新成員是 %q,預期 Gwenno —— 入隊是把名冊該筆與隊伍位置對調", got)
+	}
+	if now := len(s.VisibleNPCs()); now != seen-1 {
+		t.Errorf("場上還剩 %d 人,預期 %d —— 入隊後她應該從場景消失", now, seen-1)
+	}
+}
+
+// TestGwennoYesNoBranch:NPC 反問之後,答 y 與答 n 走不同分支。
+func TestGwennoYesNoBranch(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA,跳過需要原版資料的測試")
+	}
+	for _, c := range []struct{ answer, want string }{
+		{"y", "Then perhaps"},
+		{"n", "I thought not"},
+	} {
+		s := realState(t, dir)
+		if err := s.SetScene(britain, 0, 3, 28); err != nil {
+			t.Fatal(err)
+		}
+		s.Clock.Hour = 12
+		s.Talk()
+		typeWord(s, "yew") // 這句的回應會拋出提問碼 0x91
+		if s.Prompt != PromptAnswer {
+			t.Fatalf("問 yew 之後沒有進入回答模式:%v", s.Messages)
+		}
+		typeWord(s, c.answer)
+		if !anyContains(s.Messages, c.want) {
+			t.Errorf("答 %q 沒有得到含 %q 的回應:%v", c.answer, c.want, s.Messages)
+		}
+	}
+}
+
+// TestProfanityGetsRebuke:對 NPC 罵髒話有固定回應(原版 29 個字都導到同一句)。
+func TestProfanityGetsRebuke(t *testing.T) {
+	dir := os.Getenv("U5_GAMEDATA")
+	if dir == "" {
+		t.Skip("未設 U5_GAMEDATA,跳過需要原版資料的測試")
+	}
+	s := realState(t, dir)
+	if err := s.SetScene(britain, 0, 3, 28); err != nil {
+		t.Fatal(err)
+	}
+	s.Clock.Hour = 12
+	s.Talk()
+	typeWord(s, "damn")
+	if last := s.Messages[len(s.Messages)-1]; last != "「"+MsgFoulLanguage+"」" {
+		t.Errorf("罵髒話得到 %q,預期 %q", last, MsgFoulLanguage)
+	}
+}
+
+func realState(t *testing.T, dir string) *State {
+	t.Helper()
+	scenes, err := u5data.LoadSceneSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	npcs, err := u5data.LoadNPCSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	talks, err := u5data.LoadTalkSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sv, err := u5data.LoadSave(dir + "/SAVED.GAM")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &State{Scenes: scenes, NPCs: npcs, Talks: talks, MaxMessages: 64}
+	s.LoadFrom(sv)
+	return s
 }

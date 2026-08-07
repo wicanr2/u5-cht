@@ -11,11 +11,78 @@
 ## 記錄的排法
 
 ```
-段 0..4    名字 / 外貌 / 招呼 / 職業 / 道別
-段 5 之後  成對的(關鍵字, 回應)
+段 0..4     名字 / 外貌 / 招呼 / 職業 / 道別
+段 2i+5     第 i 個關鍵字        段 2i+6  它的回應
+0x90 之後   提問區塊(見下)
 ```
 
-關鍵字最多 4 個字元 —— Ultima 系列一貫只比前 4 個字母。
+算式不是猜的:`sub_1BD50(i)` 把指標重設到開頭後跳 `2i+5` 段,命中之後
+`sub_1BF08` 用 `sub_1BAFC(i*2 + 6)` 印回應。
+
+**關鍵字表在遇到位元組 0x90 時結束。** 跳段用的 `sub_1BA80(0, 0x90)` 是
+「前進到 NUL(成功)或 0x90(失敗)」。少了這個終止條件,0x90 之後的提問區塊
+會被當成關鍵字對 —— 而且錯得很難察覺,因為每個字都「有」答案,只是答錯。
+實測影響很大:四個 `.TLK` 的關鍵字從 1,767 掉到 **1,307**,26% 是假的。
+
+## 關鍵字比對不是「比前 4 個字母」
+
+原版把記錄裡的關鍵字當**子字串**去玩家輸入裡找,而且命中位置必須落在詞首
+(位置 0,或前一個字元是空白)——`sub_1BD8C` → `sub_27C98`,再檢查 `byte_55F37[i]`。
+
+```
+關鍵字 "bow"  ← 輸入 "bow" ✓   "bows" ✓   "my bow" ✓   "elbow" ✗
+```
+
+這與截斷比對不同:`bows` 截成 4 字仍是 `bows`,配不上 `bow`。記錄裡短關鍵字很多,
+搞錯會讓一堆問話變成「聽不懂」。
+
+## 內建關鍵字表(34 個)
+
+`off_55E88` 是一張引擎自己的關鍵字表,**掃描順序在記錄的關鍵字之前**:
+
+| 索引 | 字 | 行為(`sub_1BE28`) |
+|---|---|---|
+| 0 | NAME | 印 `"My name is "` + 段 0 |
+| 1, 2 | JOB, WORK | 印段 3 |
+| 3, 4 | BYE, THANK | 印段 4 並結束對話 |
+| 5–33 | 29 個髒話 | 一律回 `"With language like that, how did you become an Avatar?"` |
+
+髒話那一段是原版就有的內容,照實收錄 —— 少了它,對 NPC 罵髒話會變成沒反應,
+與原版行為不同。
+
+## 提問區塊
+
+關鍵字表之後是一連串提問區塊:
+
+```
+0x90 <碼> <問題文字> ¶ <「否」的回答> ¶ <「是」的觸發字> ¶ <「是」的回答> ¶
+```
+
+碼是 0x91–0x9F。某個關鍵字的回應裡出現同一個碼時,引擎跳到對應區塊發問
+(`sub_1C0AC` → `sub_1BCB8` 從記錄開頭找碼相同的區塊)。玩家回答後:
+輸入含「是」的觸發字 → 印第 4 段(`sub_1BCF4`),否則印第 2 段(`sub_1BD0C`)。
+
+**終端區塊**只有問題文字、沒有分支:印的過程中碰到會讓 `sub_1C3F8` 回傳 1 的指令
+(0x82 結束回應、0x84 入隊)就停,不向玩家要輸入。
+
+Gwenno 的資料是完整的兩段式範例:
+
+```
+"…Deep Forest."[8D][8D][91]          ← yew 的回應拋出 0x91
+join ¶ [94] ¶                         ← join 的回應拋出 0x94
+[90][91] Say, art thou from around here? ¶ I thought not. ¶ y ¶ Then perhaps just not too smart! ¶
+[90][93] Aren't ye going to ask me to join with thee? ¶ I am Iolo's better half!"[82] ¶ y ¶ [94] ¶
+[90][94] Iolo and I both thank thee!"[8D][8D][84]      ← 終端:道謝並入隊
+[90][9F] @                            ← 結束標記
+```
+
+## 加入隊伍(`sub_1BB5C`)
+
+1. 隊伍滿 6 人 → 「Thou hast no room for me in thy party」,不入隊。
+2. 把腳本指標**重設到記錄開頭**(`sub_1BAA4(0)`),讀 3 個位元組 —— 那是 NPC 名字的前三個字母。
+3. 從名冊**尾端往回**掃(15 → 1),找名字前三個字母相符的那一筆(遮 bit7、大小寫無關)。
+4. 把它與名冊第 `PartySize` 格**對調**,人數 +1。所以「隊伍」不是另一個清單,而是名冊的前綴。
+5. 把該 NPC 從場景移除。
 
 **回應只有一個 `0x87` 代表「同下一則」**,而且可以連續好幾層。占星師 Zachariah 的
 `tele`(telescope)與 `star` 就共用同一段回答:
@@ -27,9 +94,6 @@ evil ¶ [87] ¶ come ¶ There are three comets in the firmament… ¶
 ```
 
 原版 0x87 的作法是把文字指標存起來、往下讀一則再還原(`dword_55F14` 的存取還原)。
-
-`name` / `job` / `bye` **不在關鍵字表裡** —— 由引擎直接對應到段 0 / 3 / 4。
-只實作關鍵字表的話,玩家問名字會得到「他聽不懂」。
 
 ## 指令集
 
@@ -66,8 +130,11 @@ evil ¶ [87] ¶ come ¶ There are three comets in the firmament… ¶
 
 ## 驗收
 
-- 四個 `.TLK` 共 **135 段對話、1767 個關鍵字**全數解析,0 段無名,
+- 四個 `.TLK` 共 **135 段對話、1,307 個關鍵字**全數解析,0 段無名,
   每個 NPC 自己列出的關鍵字都答得出來(別名鏈若成環會在這裡吊死,不會靜默通過)。
-- 畫面驗收:走到不列顛城廚房,對廚師 Justin 問 `job` → `reci` → `secr`,
-  依序得到 "Why, I am the cook, of course!" / "That, my friend, is a family secret!" /
-  "I won't tell!"。
+- 畫面驗收:對廚師 Justin 問 `job` → `reci` → `secr`,依序得到
+  "Why, I am the cook, of course!" / "That, my friend, is a family secret!" / "I won't tell!"。
+- **入隊驗收**:走到 Gwenno 旁邊問 `join` → 「Iolo and I both thank thee!」→
+  她進入隊伍、從場上消失(居民 11 → 10)。
+- **是非題驗收**:問 `yew` → 她反問「Say, art thou from around here?」→
+  答 `y` 得「Then perhaps just not too smart!」、答 `n` 得「I thought not.」。

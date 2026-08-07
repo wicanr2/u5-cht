@@ -155,7 +155,7 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 
 	// 隊伍:名字 + HP。原版右欄就是這個位置。
 	y += LineHeight
-	for _, c := range st.Party {
+	for _, c := range st.Party() {
 		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("%-9s %-4s %3d/%-3d",
 			c.Name, c.ClassName(), c.HP, c.MaxHP))
 		y += LineHeight
@@ -178,6 +178,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "Y 是 / N 否"
 	case game.PromptTalk:
 		hint = "輸入關鍵字後按 Enter,打 bye 或 ESC 結束"
+	case game.PromptAnswer:
+		hint = "回答對方的問題後按 Enter"
 	}
 	s.Text.Draw(dst, MapOriginX, HintY, hint)
 }
@@ -185,10 +187,18 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 // drawInputLine 在對話中畫出玩家正在打的字,後面帶一個游標。
 // 沒有這一行,玩家打字時畫面完全沒反應 —— 會以為鍵盤壞了。
 func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
-	if s.State == nil || s.State.Prompt != game.PromptTalk {
+	if s.State == nil {
 		return y
 	}
-	s.Text.Draw(dst, PanelX, y, "汝問:"+s.State.Input+"_")
+	label := "汝問:"
+	switch s.State.Prompt {
+	case game.PromptTalk:
+	case game.PromptAnswer:
+		label = "汝答:"
+	default:
+		return y
+	}
+	s.Text.Draw(dst, PanelX, y, label+s.State.Input+"_")
 	return y + LineHeight
 }
 
@@ -206,7 +216,7 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 		lines = append(lines, Wrap(m, PanelWidth)...)
 	}
 	avail := (CanvasHeight - 8 - PanelTextY) / LineHeight
-	if s.State.Prompt == game.PromptTalk {
+	if s.State.Prompt == game.PromptTalk || s.State.Prompt == game.PromptAnswer {
 		avail-- // 留一行給輸入列
 	}
 	if avail < 1 {

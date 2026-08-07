@@ -11,17 +11,11 @@ import (
 // 原版按 T 選方向 → 找到人 → 印外貌與招呼 → 玩家逐字輸入關鍵字 → NPC 回應,
 // 打 bye 或按 ESC 結束。關鍵字只比前 4 個字母(u5data.KeywordLen)。
 //
-// name / job / bye 這三個字**不在記錄的關鍵字表裡** —— 它們由引擎直接對應到
-// 記錄的固定欄位。只實作關鍵字表的話,玩家問名字會得到「他聽不懂」。
+// 引擎另有一張 34 個字的內建關鍵字表(NAME/JOB/WORK/BYE/THANK + 29 個髒話),
+// 它們**不在**記錄的關鍵字表裡,而是直接對應到記錄的固定欄位或固定回應。
 
-// 內建關鍵字。這些字玩家一定打得出來(英文),所以 canonical 值維持英文
-// (CLAUDE.md §5.2:會拿去跟玩家輸入比對的字串不翻譯)。
-const (
-	KeywordName = "name"
-	KeywordJob  = "job"
-	KeywordWork = "work"
-	KeywordBye  = "bye"
-)
+// 內建關鍵字的清單在 u5data.BuiltinKeywords —— 一律維持英文,
+// 因為那是要拿去跟玩家輸入比對的(CLAUDE.md §5.2)。
 
 // Talk 是原版的「交談」指令(sub_1B658 → sub_1B52C,按鍵 T)。
 //
@@ -56,6 +50,7 @@ func (s *State) Talk() {
 	case n.Dialogue >= u5data.DialogueSpecialFE:
 		s.Log(MsgNoResponse)
 	default:
+		s.talkingTo = found.Index
 		s.beginConversation(n.Dialogue)
 	}
 }
@@ -71,6 +66,8 @@ func (s *State) beginConversation(dialogue byte) {
 		return
 	}
 	c := u5data.ParseConversation(rec, s.Talks.Dict)
+	// 對話裡的 opcode 0x81 要插入聖者的名字 —— 從名冊拿真名,不要留佔位符。
+	c.AvatarName = s.AvatarName()
 	s.Conv = c
 	s.Prompt = PromptTalk
 	s.Input = ""
@@ -86,7 +83,7 @@ func (s *State) beginConversation(dialogue byte) {
 
 // TypeRune 把一個字元加進輸入列(對話中用)。
 func (s *State) TypeRune(r rune) {
-	if s.Prompt != PromptTalk {
+	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer {
 		return
 	}
 	switch {
@@ -104,19 +101,44 @@ func (s *State) TypeRune(r rune) {
 
 // Backspace 刪掉輸入列最後一個字元。
 func (s *State) Backspace() {
-	if s.Prompt == PromptTalk && s.Input != "" {
+	if (s.Prompt == PromptTalk || s.Prompt == PromptAnswer) && s.Input != "" {
 		s.Input = s.Input[:len(s.Input)-1]
 	}
 }
 
-// Submit 送出目前的輸入。空字串等同結束對話。
+// Submit 送出目前的輸入。
 func (s *State) Submit() {
-	if s.Prompt != PromptTalk || s.Conv == nil {
+	if s.Conv == nil {
 		return
 	}
 	word := strings.TrimSpace(s.Input)
 	s.Input = ""
+
+	// 正在回答 NPC 的提問。
+	if s.Prompt == PromptAnswer {
+		q := s.pending
+		s.pending = nil
+		s.Prompt = PromptTalk
+		s.Log(MsgYouRespond + word)
+		if q == nil {
+			return
+		}
+		text, fx := s.Conv.Render(q.AnswerQuestion(word))
+		if text != "" {
+			s.Log("「" + oneLine(text) + "」")
+		}
+		s.applyEffects(fx)
+		return
+	}
+
+	if s.Prompt != PromptTalk {
+		return
+	}
 	if word == "" {
+		// 原版:空輸入等同 BYE,印道別後結束。
+		if s.Conv.Bye != "" {
+			s.Log("「" + oneLine(s.Conv.Bye) + "」")
+		}
 		s.EndConversation()
 		return
 	}
@@ -124,21 +146,34 @@ func (s *State) Submit() {
 	s.answer(word)
 }
 
+// answer 處理玩家的一句輸入,流程照原版 `sub_1BF08`:
+//
+//  1. 空輸入 → 印道別、結束對話
+//  2. 先掃 34 個**內建**關鍵字(NAME/JOB/WORK/BYE/THANK + 29 個髒話)
+//  3. 再掃這筆記錄自己的關鍵字
+//  4. 都沒中 → 「I cannot help thee with that.」
+//
+// 順序不能顛倒:內建的先。有些 NPC 的記錄裡也有 `name` 之類的字,
+// 原版是內建的先命中。
 func (s *State) answer(word string) {
 	c := s.Conv
-	lower := strings.ToLower(word)
-	switch {
-	case strings.HasPrefix(lower, KeywordBye):
+	switch b := u5data.MatchBuiltin(word); {
+	case b == u5data.BuiltinName:
+		// 原版:"My name is " + 段 0
+		s.Log("「" + MsgMyNameIs + nonEmpty(c.Name, "?") + "」")
+		return
+	case b == u5data.BuiltinJob || b == u5data.BuiltinWork:
+		s.Log("「" + oneLine(nonEmpty(c.Job, MsgNoResponse)) + "」")
+		return
+	case b == u5data.BuiltinBye || b == u5data.BuiltinThank:
 		if c.Bye != "" {
 			s.Log("「" + oneLine(c.Bye) + "」")
 		}
 		s.EndConversation()
 		return
-	case strings.HasPrefix(lower, KeywordName):
-		s.Log("「" + oneLine(nonEmpty(c.Name, MsgNoResponse)) + "」")
-		return
-	case strings.HasPrefix(lower, KeywordJob), strings.HasPrefix(lower, KeywordWork):
-		s.Log("「" + oneLine(nonEmpty(c.Job, MsgNoResponse)) + "」")
+	case b >= u5data.BuiltinProfanity:
+		// 原版對所有髒話回同一句。少了這段,對 NPC 罵髒話會變成沒反應。
+		s.Log("「" + MsgFoulLanguage + "」")
 		return
 	}
 
@@ -168,24 +203,122 @@ func (s *State) applyEffects(fx u5data.Effects) {
 		}
 	}
 	if fx.JoinParty {
-		s.Log(MsgJoinNotImplemented)
+		s.joinParty()
 	}
 	if fx.CallGuards {
 		s.Log(MsgGuardsNotImplemented)
 	}
 	if fx.AsksPlayer {
-		s.Log(MsgAskNotImplemented)
+		s.ask(fx.AskCode)
 	}
 	if fx.EndTalk {
 		s.EndConversation()
 	}
 }
 
+// ask 讓 NPC 反問玩家(原版 opcode 0x91–0x9F → sub_1C0AC)。
+//
+// 找到碼相同的提問區塊,印出問題。**終端區塊**印完就結束、不要輸入 ——
+// 原版是靠「印的過程中碰到會回傳 1 的指令(0x82/0x84)就停」判斷的,
+// Gwenno 的 0x94 區塊(道謝 + 入隊)正是這種。
+func (s *State) ask(code byte) {
+	if s.Conv == nil {
+		return
+	}
+	q, ok := s.Conv.Question(code)
+	if !ok {
+		// 記錄裡沒有這個碼的區塊 —— 資料或解析的問題,讓它看得見。
+		s.Log(MsgNoQuestionBlock)
+		return
+	}
+	text, fx := s.Conv.Render(q.Text)
+	if text != "" {
+		s.Log("「" + oneLine(text) + "」")
+	}
+	if q.Terminal {
+		// 終端區塊的副作用(入隊、結束)在這裡生效。
+		s.applyEffects(fx)
+		return
+	}
+	s.pending = q
+	s.Prompt = PromptAnswer
+}
+
+// joinParty 讓正在交談的 NPC 加入隊伍(原版 opcode 0x84 → sub_1BB5C)。
+//
+// 原版的作法很特別,值得照抄而不是自己設計:
+//
+//  1. 隊伍滿 6 人 → 回「Thou hast no room for me in thy party」,不入隊。
+//  2. 把腳本指標**重設到記錄開頭**(sub_1BAA4(0)),讀 3 個位元組 ——
+//     那就是這位 NPC 名字的前三個字母。
+//  3. 從名冊**尾端往回**掃(index 15 → 1),找名字前三個字母相符的那一筆
+//     (比對遮掉 bit7 且大小寫無關,sub_1B140)。
+//  4. 把找到的那筆與名冊第 PartySize 格**對調**,隊伍人數 +1。
+//     所以「隊伍」不是另一個清單,而是名冊的前綴。
+//  5. 把該 NPC 從場景移除。
+//
+// 為什麼是前三個字母而不是整個名字:名冊裡的名字與對話記錄裡的名字不一定完全一樣
+// (對話記錄的名字後面常跟著控制位元組)。三個字母對這 16 人足以唯一識別。
+func (s *State) joinParty() {
+	if s.Conv == nil {
+		return
+	}
+	if s.PartySize >= u5data.MaxPartySize {
+		s.Log(MsgPartyFull)
+		return
+	}
+	prefix := namePrefix(s.Conv.Name)
+	if prefix == "" {
+		s.Log(MsgNoMatch)
+		return
+	}
+	for i := len(s.Roster) - 1; i >= 1; i-- {
+		if namePrefix(s.Roster[i].Name) != prefix {
+			continue
+		}
+		if i < s.PartySize {
+			return // 已經在隊伍裡了
+		}
+		n := s.PartySize
+		s.Roster[i], s.Roster[n] = s.Roster[n], s.Roster[i]
+		s.PartySize++
+		s.removeCurrentNPC()
+		s.Log(s.Roster[n].Name + MsgJoined)
+		return
+	}
+	// 原版在這裡印 "System Error - No Match!" —— 照樣要讓它看得見,
+	// 因為那代表對話記錄與名冊對不上,是資料或解析的問題,不該靜默吞掉。
+	s.Log(MsgNoMatch)
+}
+
+// namePrefix 取名字的前三個字母,小寫。原版比對就是這樣做的(遮 bit7、大小寫無關)。
+func namePrefix(name string) string {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if len(n) > u5data.JoinNameLen {
+		n = n[:u5data.JoinNameLen]
+	}
+	return n
+}
+
+// removeCurrentNPC 把正在交談的那個 NPC 從場景移除(入隊之後他不該還站在原地)。
+func (s *State) removeCurrentNPC() {
+	if s.talkingTo <= 0 {
+		return // 0 號槽是隊伍自己,不會是交談對象
+	}
+	if s.removed == nil {
+		s.removed = map[int]bool{}
+	}
+	s.removed[s.Location<<8|s.talkingTo] = true
+	s.talkingTo = 0
+}
+
 // EndConversation 結束對話。
 func (s *State) EndConversation() {
 	s.Conv = nil
 	s.Input = ""
-	if s.Prompt == PromptTalk {
+	s.pending = nil
+	s.talkingTo = 0
+	if s.Prompt == PromptTalk || s.Prompt == PromptAnswer {
 		s.Prompt = PromptNone
 	}
 }

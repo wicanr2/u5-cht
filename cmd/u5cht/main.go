@@ -45,7 +45,7 @@ func (g *game) Update() error {
 	snapshot := g.key()
 
 	// 對話中鍵盤打的是關鍵字,不是指令鍵。ESC 退出對話(不是離開遊戲)。
-	if st.Prompt == gamestate.PromptTalk {
+	if st.Prompt == gamestate.PromptTalk || st.Prompt == gamestate.PromptAnswer {
 		for _, r := range ebiten.AppendInputChars(nil) {
 			st.TypeRune(r)
 			g.dirty = true
