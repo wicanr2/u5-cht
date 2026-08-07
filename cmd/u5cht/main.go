@@ -69,6 +69,25 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 戰鬥中:方向鍵移動,ESC 撤離。
+	if st.Prompt == gamestate.PromptCombat {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			st.CombatFlee()
+		}
+		for key, dir := range map[ebiten.Key]gamestate.Direction{
+			ebiten.KeyArrowUp:    gamestate.North,
+			ebiten.KeyArrowDown:  gamestate.South,
+			ebiten.KeyArrowLeft:  gamestate.West,
+			ebiten.KeyArrowRight: gamestate.East,
+		} {
+			if inpututil.IsKeyJustPressed(key) {
+				st.CombatMove(dir)
+			}
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 在店裡:每一步都是等一個字母鍵(選單的 a/b/c… 或 Y/N),ESC 走人。
 	if st.Prompt == gamestate.PromptShop {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
@@ -199,6 +218,8 @@ func main() {
 		Shops:        bundle.Shops,
 		Items:        bundle.Items,
 		Objects:      bundle.Objects,
+		CombatMaps:   bundle.Combat,
+		Creatures:    bundle.Creatures,
 		UnderObjects: bundle.UnderObjs,
 		MaxMessages:  maxMessages,
 	}

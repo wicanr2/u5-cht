@@ -78,6 +78,11 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 	// 場景移動函式 sub_86C 讀鄰格用的 byte_3F789[32*dy+dx] 是一個固定位址,
 	// 也就是視窗緩衝裡玩家那一格,四鄰用 ±1 / ±32 直接定址(docs/re/03 §7)。
 	half := ViewTiles / 2
+	// 戰鬥中:11×11 的戰場正好等於視窗大小,直接鋪滿。
+	if s.State.InCombat() {
+		s.drawCombat(dst)
+		return
+	}
 	for dy := -half; dy <= half; dy++ {
 		for dx := -half; dx <= half; dx++ {
 			s.drawTile(dst, int(s.State.TileAt(s.State.X+dx, s.State.Y+dy)),
@@ -256,4 +261,28 @@ func WrapCoord(v int) int {
 		v += u5data.WorldSide
 	}
 	return v
+}
+
+// drawCombat 畫戰場。11×11 與視窗同大,所以座標直接對應。
+func (s *Scene) drawCombat(dst *image.NRGBA) {
+	c := s.State.Combat
+	for y := 0; y < ViewTiles; y++ {
+		for x := 0; x < ViewTiles; x++ {
+			s.drawTile(dst, int(c.Map.At(x, y)),
+				MapOriginX+x*TilePixels, MapOriginY+y*TilePixels)
+		}
+	}
+	for i := range c.Units {
+		u := &c.Units[i]
+		if u.Dead {
+			continue
+		}
+		s.drawTile(dst, u.Tile, MapOriginX+u.X*TilePixels, MapOriginY+u.Y*TilePixels)
+	}
+	// 目前輪到誰,用外框標出來。
+	if c.Turn >= 0 && c.Turn < len(c.Units) {
+		u := &c.Units[c.Turn]
+		DrawFrame(dst, MapOriginX+u.X*TilePixels, MapOriginY+u.Y*TilePixels,
+			TilePixels, TilePixels, ColorMarker)
+	}
 }

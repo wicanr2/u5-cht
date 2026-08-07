@@ -134,3 +134,100 @@ func (m *CombatMap) At(x, y int) byte {
 	}
 	return m.Tiles[y][x]
 }
+
+// 挑戰鬥地圖
+//
+// 原版 `sub_2E58C` 在載入前先決定用哪一張。判斷依序看三件事:
+// 隊伍在不在船上、敵人是不是船、以及**敵人腳下那一格的地形**。
+
+// 幾個特別的種類碼。
+const (
+	// EnemyShip 是敵船(海盜船)。
+	EnemyShip = 0x2C
+	// EnemySceptre 是權杖(`sub_2E58C` 對它另有一段「The Sceptre is reclaimed!」)。
+	EnemySceptre = 0xFC
+	// enemyWaterFamily 是「水生怪物」那一族(種類 & 0xF0 == 0x80)—— 一律打水戰。
+	enemyWaterFamily = 0x80
+)
+
+// 戰鬥地圖編號。名字取自 `u5dump cbt` 畫出來的樣子。
+const (
+	CombatMapSceptre  = 10 // 權杖
+	CombatMapShipSea  = 11 // 在船上、水戰
+	CombatMapShipVs   = 12 // 對上敵船(自己不在船上)
+	CombatMapShipLnd  = 13 // 在船上、陸戰
+	CombatMapShipShip = 14 // 在船上、對上敵船
+	CombatMapOpenSea  = 15 // 純水面
+)
+
+// IsWaterBattle 回報敵人腳下那一格算不算水戰(原版 `sub_2E58C` 的 var_8)。
+//
+//	tile < 4                                → 水
+//	tile & 0xFE == 0x6A                     → 不是(那兩格是例外)
+//	tile & 0xF0 == 0x60                     → 水
+//	其餘                                     → 不是
+func IsWaterBattle(terrain int) bool {
+	if terrain < 4 {
+		return true
+	}
+	if terrain&0xFE == 0x6A {
+		return false
+	}
+	return terrain&0xF0 == 0x60
+}
+
+// terrainCombatMap 是「敵人腳下的地形 → 戰鬥地圖」的對照,出自 `sub_2E58C`
+// 的 73-case 跳表(`jpt_2E711`)。表裡沒有的地形走 fallback,見 SelectCombatMap。
+var terrainCombatMap = map[int]int{
+	1: 15, 2: 15, 3: 15, // 水
+	4: 1,
+	5: 2,
+	6: 3, 8: 3,
+	7: 4, 30: 4, 31: 4,
+	9: 5, 10: 5,
+	11: 6, 12: 6, 13: 6, 14: 6, 15: 6,
+	29: 7, 72: 7, 73: 7,
+	0x6A: 7, 0x6B: 7,
+	68: 8,
+}
+
+// SelectCombatMap 依原版 `sub_2E58C` 挑出要用哪一張戰鬥地圖。
+//
+//	enemyKind  敵人的種類碼(物件槽的 +0,已經 & 0xFC)
+//	terrain    敵人腳下那一格的地形 tile
+//	transport  隊伍當前的載具(`byte_3E08C`)
+//	inWorld    玩家是不是在大地圖上(地點編號 0)
+func SelectCombatMap(enemyKind, terrain int, transport byte, inWorld bool) int {
+	if enemyKind == EnemySceptre {
+		return CombatMapSceptre
+	}
+	water := IsWaterBattle(terrain)
+	if enemyKind&0xF0 == enemyWaterFamily {
+		water = true
+	}
+	// 隊伍在船上(載具 & 0xF8 == 0x20 涵蓋揚帆 0x20..0x23 與大船 0x24..0x27)。
+	if transport&0xF8 == 0x20 {
+		switch {
+		case enemyKind == EnemyShip:
+			return CombatMapShipShip
+		case water:
+			return CombatMapShipSea
+		default:
+			return CombatMapShipLnd
+		}
+	}
+	if enemyKind == EnemyShip {
+		return CombatMapShipVs
+	}
+	if water {
+		return CombatMapOpenSea
+	}
+	if m, ok := terrainCombatMap[terrain]; ok {
+		return m
+	}
+	// 表裡沒有的地形:在大地圖上用 2(草原),在場景裡用 8。
+	if inWorld {
+		return 2
+	}
+	return 8
+}

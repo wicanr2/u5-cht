@@ -89,6 +89,8 @@ const (
 	PromptAnswer
 	// PromptShop 是在店裡:按鍵是選單字母或 Y/N,不是指令鍵。
 	PromptShop
+	// PromptCombat 是戰鬥中:方向鍵移動、A 攻擊、Esc 撤離。
+	PromptCombat
 )
 
 // State 是一局遊戲的位置狀態。
@@ -103,6 +105,13 @@ type State struct {
 	// Objects 是大地圖上「會動的東西」:隊伍自己、坐騎、船、地上的物品、遊蕩的怪物
 	// (原版 dword_3E46C,來自 BRIT.OOL / UNDER.OOL)。地表與地下各一份。
 	Objects, UnderObjects *u5data.ObjectSet
+
+	// CombatMaps 是地表的戰鬥地圖(BRIT.CBT);可為 nil。
+	CombatMaps *u5data.CombatMapSet
+	// Creatures 是生物名表,戰鬥時報敵人名字用;可為 nil。
+	Creatures *u5data.CreatureTable
+	// Combat 是進行中的戰鬥(Prompt == PromptCombat 時有效)。
+	Combat *Combat
 
 	// BaseSave 是讀進來的那份存檔,存檔時當底稿用 —— 引擎還沒解出來的欄位
 	// (魔法、任務旗標、地牢狀態…)靠它原樣保留。見 savegame.go。
@@ -390,6 +399,12 @@ func (s *State) Move(d Direction) {
 func (s *State) moveInWorld(d Direction) {
 	dx, dy := d.Delta()
 	nx, ny := WrapWorld(s.X+dx), WrapWorld(s.Y+dy)
+	// 撞上怪物就開打(原版 sub_2E58C 的入口)。
+	if o, slot, ok := s.ObjectAt(nx, ny); ok && o.IsCreature() {
+		if s.BeginCombat(slot) {
+			return
+		}
+	}
 	if u5data.TileBlocksWalking(int(s.TileAt(nx, ny))) {
 		s.Log(MsgBlocked)
 		return
