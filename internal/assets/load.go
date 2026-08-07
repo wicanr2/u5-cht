@@ -31,6 +31,8 @@ type Bundle struct {
 	World   *u5data.WorldMap   // 地表(BRIT.DAT,chunk 組裝)
 	Under   *u5data.WorldMap   // 地下世界(UNDER.DAT,256×256 直接存,不分 chunk)
 	Scenes  *u5data.SceneSet   // 城鎮 / 民居 / 城堡 / 要塞
+	NPCs    *u5data.NPCSet     // 各地點的居民與排程
+	Talks   *u5data.TalkSet    // 對話文字 + 展開詞典
 	Charset *u5data.Charset
 	CJK     *cjk.Font
 }
@@ -77,6 +79,18 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("場景地圖:%v", err))
 	} else {
 		b.Scenes = sc
+	}
+
+	if n, err := u5data.LoadNPCSet(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("NPC:%v", err))
+	} else {
+		b.NPCs = n
+	}
+
+	if t, err := u5data.LoadTalkSet(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("對話:%v", err))
+	} else {
+		b.Talks = t
 	}
 
 	if opts.FontPrefix != "" {

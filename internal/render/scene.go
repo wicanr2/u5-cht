@@ -72,6 +72,18 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 				MapOriginY+(dy+half)*TilePixels)
 		}
 	}
+	// NPC 疊在地形上。原版把 NPC 寫進同一個 11×11 視窗緩衝再一起畫,
+	// 效果等同於「先地形後 NPC」。
+	for _, n := range s.State.VisibleNPCs() {
+		dx, dy := n.X-s.State.X, n.Y-s.State.Y
+		if dx < -half || dx > half || dy < -half || dy > half {
+			continue
+		}
+		s.drawTile(dst, n.Tile,
+			MapOriginX+(dx+half)*TilePixels,
+			MapOriginY+(dy+half)*TilePixels)
+	}
+
 	// 玩家位置標記。
 	// TODO(P3):換成原版的 Avatar tile —— 索引要從反編譯碼確認,不猜。
 	DrawFrame(dst,
@@ -109,6 +121,8 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 	y := MapOriginY
 	y = s.Text.DrawLines(dst, PanelX, y, []string{"創世紀 V", "命運勇士"})
 	y += LineHeight
+	s.Text.Draw(dst, PanelX, y, st.Clock.String())
+	y += LineHeight
 	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("座標 %3d,%3d", st.X, st.Y))
 	y += LineHeight
 	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("地形 %3d", st.TileAt(st.X, st.Y)))
@@ -117,6 +131,10 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 		s.Text.Draw(dst, PanelX, y, "★ "+st.LocationName())
 		y += LineHeight
 		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("第 %d 層", st.Floor+1))
+		y += LineHeight
+		if n := len(st.VisibleNPCs()); n > 0 {
+			s.Text.Draw(dst, PanelX, y, fmt.Sprintf("居民 %d 人", n))
+		}
 		y += LineHeight
 	} else {
 		// 地點名取自原版執行檔的地點表(u5data.Locations),不是自己打的清單。
@@ -130,7 +148,7 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 		}
 	}
 	y += LineHeight
-	keys := []string{"方向鍵移動", "E 進入", "K 攀爬", "F10 離開"}
+	keys := []string{"方向鍵移動", "E 進入", "K 攀爬", "T 交談", "F10 離開"}
 	if st.Prompt != game.PromptNone {
 		keys = []string{"Y 是 / N 否"}
 	}

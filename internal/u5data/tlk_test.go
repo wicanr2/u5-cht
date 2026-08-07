@@ -23,7 +23,11 @@ func buildTalk(t *testing.T, records [][]byte, highBit bool) []byte {
 		enc := append([]byte(nil), rec...)
 		if highBit {
 			for j := range enc {
-				enc[j] |= 0x80
+				// 段落分隔的 0x00 保持原樣 —— 真實檔案裡分隔就是裸 NUL,
+				// 只有文字位元組才帶 bit7(見 Dictionary 的說明)。
+				if enc[j] != 0 {
+					enc[j] |= 0x80
+				}
 			}
 		}
 		body = append(body, enc...)
@@ -48,9 +52,10 @@ func TestParseTalkHighBit(t *testing.T) {
 	if tf.Records[0].NPCIndex != 1 || tf.Records[1].NPCIndex != 2 {
 		t.Errorf("NPC 編號讀錯:%d, %d", tf.Records[0].NPCIndex, tf.Records[1].NPCIndex)
 	}
-	got := tf.Records[0].Strings()
+	// 沒有詞典時 token 會留成 <XX>;這筆測試資料全是字面文字,所以不受影響。
+	got := tf.Records[0].Strings(nil)
 	if len(got) != 2 || got[0] != "Zachariah" || got[1] != "a stately man" {
-		t.Errorf("bit7 沒有正確清除或欄位切錯:%q", got)
+		t.Errorf("字面文字沒有正確展開或欄位切錯:%q", got)
 	}
 }
 
@@ -90,7 +95,7 @@ func TestLoadTalkDOS(t *testing.T) {
 	if len(tf.Records) != 48 {
 		t.Errorf("TOWNE.TLK 記錄數 %d,實測應為 48", len(tf.Records))
 	}
-	first := tf.Records[0].Strings()
+	first := tf.Records[0].Strings(nil)
 	if len(first) == 0 || !strings.HasPrefix(first[0], "Zachariah") {
 		t.Errorf("第一筆應以 Zachariah 起頭,實得 %q", first)
 	}

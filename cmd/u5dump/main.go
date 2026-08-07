@@ -49,6 +49,8 @@ func main() {
 		err = cmdScene(os.Args[2:])
 	case "scenemaps":
 		err = cmdSceneMaps(os.Args[2:])
+	case "npc":
+		err = cmdNPC(os.Args[2:])
 	case "town":
 		err = cmdTown(os.Args[2:])
 	default:
@@ -151,12 +153,18 @@ func cmdCharset(args []string) error {
 
 func cmdTLK(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("用法:u5dump tlk <檔案> [--sjis] [--n N]")
+		return fmt.Errorf("用法:u5dump tlk <檔案> [--sjis] [--n N] [--dict gamedata]")
 	}
 	enc := u5data.TalkEncodingHighBit
 	n := 3
+	dictDir := filepath.Dir(args[0]) // 詞典在同一個資料目錄的 DATA.OVL
 	for i := 1; i < len(args); i++ {
 		switch args[i] {
+		case "--dict":
+			if i+1 < len(args) {
+				dictDir = args[i+1]
+				i++
+			}
 		case "--sjis":
 			enc = u5data.TalkEncodingShiftJIS
 		case "--n":
@@ -170,13 +178,19 @@ func cmdTLK(args []string) error {
 	if err != nil {
 		return err
 	}
+	var dict *u5data.Dictionary
+	if enc == u5data.TalkEncodingHighBit {
+		if dict, err = u5data.LoadDictionary(dictDir); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠ 讀不到詞典(%v)—— token 會留成 <XX>\n", err)
+		}
+	}
 	fmt.Printf("%s:%d 筆,編碼 %s\n", args[0], len(tf.Records), tf.Encoding)
 	for i, r := range tf.Records {
 		if i >= n {
 			break
 		}
 		fmt.Printf("\n-- 第 %d 筆(NPC %d,offset 0x%X,%d B)--\n", i, r.NPCIndex, r.Offset, len(r.Data))
-		for j, s := range r.Strings() {
+		for j, s := range r.Strings(dict) {
 			if j >= 8 {
 				fmt.Println("   …")
 				break
@@ -292,17 +306,25 @@ func cmdWorld(args []string) error {
 // cmdText 印明文訊息檔的前幾筆(驗收解碼是否正確)。
 func cmdText(args []string) error {
 	if len(args) < 1 {
-		return fmt.Errorf("用法:u5dump text <檔案> [--n N]")
+		return fmt.Errorf("用法:u5dump text <檔案> [--n N] [--dict gamedata]")
 	}
 	n := 5
+	dictDir := filepath.Dir(args[0])
 	for i := 1; i+1 < len(args); i++ {
-		if args[i] == "--n" {
+		switch args[i] {
+		case "--n":
 			n, _ = strconv.Atoi(args[i+1])
+		case "--dict":
+			dictDir = args[i+1]
 		}
 	}
 	tf, err := u5data.LoadText(args[0])
 	if err != nil {
 		return err
+	}
+	dict, derr := u5data.LoadDictionary(dictDir)
+	if derr != nil {
+		fmt.Fprintf(os.Stderr, "⚠ 讀不到詞典(%v)—— token 會留成 <XX>\n", derr)
 	}
 	fmt.Printf("%s:%d 筆記錄,斷字提示 %d 個\n", args[0], len(tf.Records), tf.HyphenHintCount())
 	for i, r := range tf.Records {
@@ -313,7 +335,7 @@ func cmdText(args []string) error {
 		if r.Page {
 			mark = "{"
 		}
-		text := r.Text()
+		text := r.Expand(dict)
 		if len(text) > 200 {
 			text = text[:200] + "…"
 		}
@@ -329,14 +351,19 @@ func cmdText(args []string) error {
 // xvfb + 軟體 GL 下死鎖了五小時,那正是改成 CPU 繪製的原因。
 func cmdScene(args []string) error {
 	if len(args) < 3 {
-		return fmt.Errorf("用法:u5dump scene <gamedata> <U5_E 目錄> <out.png> [--font 前綴] [--at X Y] [--script nsewEKyN…] [--scene 地點名 樓層 X Y]")
+		return fmt.Errorf("用法:u5dump scene <gamedata> <U5_E 目錄> <out.png> [--font 前綴] [--at X Y] [--script nsewEKTyN…] [--scene 地點名 樓層 X Y] [--hour H]")
 	}
 	fontPrefix := "assets/fonts/eten-15"
 	atX, atY := -1, -1
 	script := ""
 	sceneName, sceneFloor := "", 0
+	hour := -1
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
+		case "--hour":
+			if i+1 < len(args) {
+				hour, _ = strconv.Atoi(args[i+1])
+			}
 		case "--scene":
 			if i+4 < len(args) {
 				sceneName = args[i+1]
@@ -369,7 +396,10 @@ func cmdScene(args []string) error {
 
 	st := &game.State{
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
-		MaxMessages: 2,
+		NPCs: bundle.NPCs, Talks: bundle.Talks, Clock: game.NewClock(), MaxMessages: 3,
+	}
+	if hour >= 0 {
+		st.Clock.Hour = hour
 	}
 	if atX >= 0 && atY >= 0 {
 		st.X, st.Y = atX, atY
@@ -420,6 +450,68 @@ func cmdScene(args []string) error {
 	return nil
 }
 
+// cmdNPC 列出一個地點在某個時刻的居民 —— 位置、tile、對話號碼、一日作息。
+func cmdNPC(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump npc <gamedata> <地點名> [--hour H]")
+	}
+	hour := -1
+	for i := 2; i < len(args); i++ {
+		if args[i] == "--hour" && i+1 < len(args) {
+			hour, _ = strconv.Atoi(args[i+1])
+		}
+	}
+	set, err := u5data.LoadNPCSet(args[0])
+	if err != nil {
+		return err
+	}
+	loc, ok := findLocation(args[1])
+	if !ok {
+		return fmt.Errorf("地點表裡沒有 %q", args[1])
+	}
+	npcs, err := set.At(loc.Number())
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s(%s)—— 32 個槽\n", loc.Name, loc.DisplayName())
+	for i := range npcs {
+		n := &npcs[i]
+		if !n.Present() {
+			continue
+		}
+		kind := fmt.Sprintf("對話 %d", n.Dialogue)
+		switch {
+		case i == u5data.PartySlot:
+			kind = "隊伍"
+		case n.Dialogue == u5data.DialogueNone:
+			kind = "不搭話"
+		case n.IsShopkeeper():
+			kind = fmt.Sprintf("商人 %02X", n.Dialogue)
+		case n.Dialogue >= u5data.DialogueFrightened:
+			kind = fmt.Sprintf("特殊 %02X", n.Dialogue)
+		}
+		fmt.Printf("  #%2d tile %3d  %-10s", i, n.TileIndex(), kind)
+		if hour >= 0 {
+			x, y, f := n.At(hour)
+			fmt.Printf("  %02d:00 在 (%2d,%2d) 第 %d 層", hour, x, y, f+1)
+		} else {
+			// 一日作息:只印換位置的時刻
+			prev := -1
+			for h := 0; h < 24; h++ {
+				sl := n.Schedule.Slot(h)
+				if sl == prev {
+					continue
+				}
+				prev = sl
+				fmt.Printf("  %02d:00→(%2d,%2d)F%d", h,
+					n.Schedule.X[sl], n.Schedule.Y[sl], n.Schedule.Floor[sl]+1)
+			}
+		}
+		fmt.Println()
+	}
+	return nil
+}
+
 // findLocation 依英文名找地點(不分大小寫)。
 func findLocation(name string) (*u5data.Location, bool) {
 	for i := range u5data.Locations {
@@ -432,7 +524,7 @@ func findLocation(name string) (*u5data.Location, bool) {
 
 // playScript 把一串按鍵餵給狀態機,讓「走進城裡再走出來」這種劇本能 headless 重現。
 //
-//	n s e w 移動   E 進入   K 攀爬   y / N 回答提問
+//	n s e w 移動   E 進入   K 攀爬   T 交談   y / N 回答提問
 func playScript(st *game.State, script string) error {
 	for _, r := range script {
 		switch r {
@@ -448,13 +540,15 @@ func playScript(st *game.State, script string) error {
 			st.Enter()
 		case 'K':
 			st.Klimb()
+		case 'T':
+			st.Talk()
 		case 'y':
 			st.Answer(true)
 		case 'N':
 			st.Answer(false)
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、y/N 回答)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、y/N 回答)", r)
 		}
 	}
 	return nil

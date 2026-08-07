@@ -60,6 +60,9 @@ func (g *game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyK) {
 			st.Klimb()
 		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+			st.Talk()
+		}
 		for key, dir := range map[ebiten.Key]gamestate.Direction{
 			ebiten.KeyArrowUp:    gamestate.North,
 			ebiten.KeyArrowDown:  gamestate.South,
@@ -79,9 +82,9 @@ func (g *game) Update() error {
 }
 
 // key 是「畫面該不該重畫」的判斷依據 —— 回合制遊戲多數幀什麼都沒變。
-func (g *game) key() [4]int {
+func (g *game) key() [5]int {
 	st := g.state
-	return [4]int{st.X, st.Y, st.Location, st.Floor}
+	return [5]int{st.X, st.Y, st.Location, st.Floor, st.Clock.Hour*60 + st.Clock.Minute}
 }
 
 func (g *game) Draw(screen *ebiten.Image) {
@@ -139,6 +142,9 @@ func main() {
 		World:       bundle.World,
 		Under:       bundle.Under,
 		Scenes:      bundle.Scenes,
+		NPCs:        bundle.NPCs,
+		Talks:       bundle.Talks,
+		Clock:       gamestate.NewClock(),
 		MaxMessages: maxMessages,
 	}
 	st.X, st.Y = assets.FindLandStart(bundle.World, 1)

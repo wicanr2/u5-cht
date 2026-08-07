@@ -27,6 +27,14 @@ const (
 	MsgDown = "拾級而下!"
 	// "What?\n" —— 原版在按 K 卻不站在梯子上時的回應。
 	MsgNothingToClimb = "此處無梯可攀。"
+	// "\nNobody's here!\n"
+	MsgNobodyHere = "此處無人。"
+	// "No response!\n" / "The guard offers\nno response!\n"
+	MsgNoResponse = "無人回應。"
+	// "Don't hurt me!\nPlease go away!"
+	MsgFrightened = "「別傷害我!請走開!」"
+	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
+	MsgMerchantClosed = "「營業時再來吧。」"
 	// "\nWhat town?\n" —— 原版在按下「進入」卻不站在地點上時的回應。
 	// 直譯「什麼城鎮?」在中文裡像在反問玩家,改成敘述句。
 	MsgNothingToEnter = "此處無可進入之地。"

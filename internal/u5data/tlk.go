@@ -1,6 +1,8 @@
 package u5data
 
 import (
+	"strings"
+	"path/filepath"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -37,8 +39,8 @@ type TalkRecord struct {
 	NPCIndex int
 	// Offset 是這筆資料在檔案中的起始位移(除錯與交叉比對用)。
 	Offset int
-	// Data 是已解碼的位元組(bit7 編碼的版本已清除高位元)。
-	// 內部是多個 NUL 結尾字串,欄位語意待 P3 確認。
+	// Data 是**原始**位元組,尚未展開。內部是多個 NUL 結尾的段落。
+	// high-bit 版本要用 Dictionary.Expand 展開(bit7 有設 = 字面,沒設 = 詞典 token)。
 	Data []byte
 }
 
@@ -120,33 +122,172 @@ func ParseTalk(raw []byte, enc TalkEncoding) (*TalkFile, error) {
 		if e.offset > len(raw) || end > len(raw) || end < e.offset {
 			return nil, fmt.Errorf("第 %d 筆(NPC %d)的範圍 [%d, %d) 超出檔案(%d B)", i, e.index, e.offset, end, len(raw))
 		}
+		// Data 保留**原始**位元組。high-bit 版本絕對不能在這裡就把 bit7 清掉 ——
+		// 那會把「字面文字」和「詞典 token」壓成同一種東西,再也分不開
+		// (見 Dictionary 的說明:0x01 是 "the",不是控制字元)。
 		data := make([]byte, end-e.offset)
 		copy(data, raw[e.offset:end])
-		if enc == TalkEncodingHighBit {
-			for j := range data {
-				data[j] &= 0x7F
-			}
-		}
 		tf.Records = append(tf.Records, TalkRecord{NPCIndex: e.index, Offset: e.offset, Data: data})
 	}
 	return tf, nil
 }
 
-// Strings 把一筆記錄切成 NUL 分隔的字串。
-// 欄位語意未定(見 TalkFile 的 TODO),所以只回切好的片段,不命名欄位。
-func (r TalkRecord) Strings() []string {
-	var out []string
+// 對話記錄的前五段。
+//
+// 展開 48 筆 TOWNE.TLK 之後,**多數**記錄的前五段是這個順序,之後才是
+// 「關鍵字 → 回應」的成對資料。
+//
+// ⚠ 不是每一筆都乾淨:有些記錄的第 0 段名字後面還跟著控制位元組,
+// 有些第 2 段是空的而問候語併進了第 1 段。這代表記錄開頭可能還有一個
+// 尚未解出的小檔頭(`sub_1C840` 讀進 0x400 B 後交給 sub_1C660,
+// 而另一處把資料當成 6 B 一組在掃)。在解出來之前,取欄位要能容忍雜訊。
+const (
+	TalkFieldName        = 0 // NPC 名字
+	TalkFieldDescription = 1 // 「看」到的樣子
+	TalkFieldGreeting    = 2 // 打招呼
+	TalkFieldJob         = 3 // 問 job / work
+	TalkFieldBye         = 4 // 道別
+	TalkFixedFields      = 5
+)
+
+// Segments 把一筆記錄切成 NUL 分隔的段落(原始位元組,未展開)。
+func (r TalkRecord) Segments() [][]byte {
+	var out [][]byte
 	start := 0
 	for i, b := range r.Data {
 		if b == 0 {
 			if i > start {
-				out = append(out, string(r.Data[start:i]))
+				out = append(out, r.Data[start:i])
+			} else {
+				out = append(out, nil)
 			}
 			start = i + 1
 		}
 	}
 	if start < len(r.Data) {
-		out = append(out, string(r.Data[start:]))
+		out = append(out, r.Data[start:])
 	}
 	return out
+}
+
+// Strings 把一筆記錄展開成可讀文字。d 可為 nil(那時 token 會留成 <XX>)。
+func (r TalkRecord) Strings(d *Dictionary) []string {
+	segs := r.Segments()
+	out := make([]string, 0, len(segs))
+	for _, s := range segs {
+		out = append(out, d.Expand(s))
+	}
+	return out
+}
+
+// Field 取一個固定欄位;沒有就回空字串。
+func (r TalkRecord) Field(d *Dictionary, i int) string {
+	segs := r.Segments()
+	if i < 0 || i >= len(segs) {
+		return ""
+	}
+	return d.Expand(segs[i])
+}
+
+// TalkFiles 是對話檔名,順序與 SceneFiles / NPCFiles 相同
+// (原版 off_55E78,由 `(地點編號-1)/8` 選出 —— 見 sub_1C840)。
+var TalkFiles = [4]string{"TOWNE.TLK", "DWELLING.TLK", "CASTLE.TLK", "KEEP.TLK"}
+
+// TalkSet 是四個對話檔加上展開用的詞典。
+type TalkSet struct {
+	Files [len(TalkFiles)]*TalkFile
+	Dict  *Dictionary
+}
+
+// LoadTalkSet 讀入四個 .TLK 與 DATA.OVL 的詞典。
+func LoadTalkSet(dir string) (*TalkSet, error) {
+	s := &TalkSet{}
+	var err error
+	if s.Dict, err = LoadDictionary(dir); err != nil {
+		return nil, err
+	}
+	for i, name := range TalkFiles {
+		if s.Files[i], err = LoadTalk(filepath.Join(dir, name), TalkEncodingHighBit); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+// Record 依地點編號與對話號碼取出對話記錄。
+//
+// 原版 sub_1C840 就是這樣做的:先用 `(地點編號-1)/8` 選檔,再**線性搜尋**
+// 索引表找 id 相符的那一筆 —— id 不是陣列下標,所以不能直接用它當索引。
+func (s *TalkSet) Record(location, dialogue int) (*TalkRecord, bool) {
+	loc, err := LocationByNumber(location)
+	if err != nil {
+		return nil, false
+	}
+	tf := s.Files[loc.SceneFile]
+	if tf == nil {
+		return nil, false
+	}
+	for i := range tf.Records {
+		if tf.Records[i].NPCIndex == dialogue {
+			return &tf.Records[i], true
+		}
+	}
+	return nil, false
+}
+
+// cleanText 去掉對話腳本的控制位元組,只留可讀文字。
+//
+// 記錄裡除了文字還混著對話引擎的指令(原始位元組 0x81–0x9F,展開後就是
+// 0x01–0x1F 的控制字元)—— `sub_1C3F8` 有一張跳表在處理它們(cases 133/134/
+// 140/141/143/144/145-159)。整套腳本語意還沒解,但把控制碼濾掉之後
+// 文字本身是完好的,足以拿來翻譯與顯示。
+func cleanText(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r == '\n':
+			b.WriteRune('\n')
+		case r < 0x20 || r == 0x7F:
+			// 控制碼:丟掉
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+// Name 取 NPC 的名字。
+//
+// 名字是第 0 段開頭那一串文字,後面常跟著控制位元組(有些記錄還多一個引號),
+// 所以要在第一個控制碼處切斷。
+func (r TalkRecord) Name(d *Dictionary) string {
+	raw := d.Expand(r.Field2(TalkFieldName))
+	for i, c := range raw {
+		if c < 0x20 || c == '"' || c == 0x7F {
+			return strings.TrimSpace(raw[:i])
+		}
+	}
+	return strings.TrimSpace(raw)
+}
+
+// Field2 回傳某一段的原始位元組。
+func (r TalkRecord) Field2(i int) []byte {
+	segs := r.Segments()
+	if i < 0 || i >= len(segs) {
+		return nil
+	}
+	return segs[i]
+}
+
+// Line 取某一段的可讀文字(已去控制碼)。
+func (r TalkRecord) Line(d *Dictionary, i int) string {
+	return cleanText(d.Expand(r.Field2(i)))
+}
+
+// Greeting 取打招呼的話;有些記錄的第 2 段只有控制碼,那就退回第 3 段(自我介紹)。
+func (r TalkRecord) Greeting(d *Dictionary) string {
+	if s := r.Line(d, TalkFieldGreeting); s != "" {
+		return s
+	}
+	return r.Line(d, TalkFieldJob)
 }

@@ -238,3 +238,16 @@ func LoadFlatMap(path string) (*WorldMap, error) {
 	copy(w.Tiles[:], raw)
 	return w, nil
 }
+
+// readExact 讀一個必須是固定大小的檔。大小不對就直接失敗 ——
+// 原版資料檔的大小本身就是格式的一部分,對不上通常代表拿到別版的檔。
+func readExact(path string, size int) ([]byte, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) != size {
+		return nil, fmt.Errorf("%s 是 %d B,預期 %d B", filepath.Base(path), len(raw), size)
+	}
+	return raw, nil
+}

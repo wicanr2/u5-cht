@@ -90,6 +90,11 @@ type State struct {
 	World  *u5data.WorldMap // 地表(BRIT.DAT)
 	Under  *u5data.WorldMap // 地下世界(UNDER.DAT);可為 nil
 	Scenes *u5data.SceneSet // 城鎮 / 城堡 / 民居 / 要塞;可為 nil
+	NPCs   *u5data.NPCSet   // 各地點的居民與排程;可為 nil
+	Talks  *u5data.TalkSet  // 對話文字;可為 nil
+
+	// Clock 是遊戲內時間。NPC 站在哪裡完全由它決定(排程以小時為單位)。
+	Clock Clock
 
 	// Location 是原版的 byte_3E0A3:0 代表在大地圖,1..32 是地點編號。
 	Location int
@@ -109,8 +114,69 @@ type State struct {
 	Messages    []string
 	MaxMessages int
 
-	scene *u5data.SceneMap // 目前這一層的場景地圖快取
+	scene *u5data.SceneMap                  // 目前這一層的場景地圖快取
+	npcs  *[u5data.NPCsPerLocation]u5data.NPC // 目前地點的 NPC 槽
 }
+
+// VisibleNPC 是「此刻該畫在這一格的 NPC」。
+type VisibleNPC struct {
+	Index int // 槽號(0 是隊伍自己,不會出現在這裡)
+	X, Y  int
+	Tile  int // 已經換算過的 tile 索引(u5data.NPCTileBase + 生物編號)
+	NPC   *u5data.NPC
+}
+
+// VisibleNPCs 回傳此時此層看得到的 NPC。
+//
+// 位置完全由排程 + 時鐘決定(原版就是這樣:sub_9C7C 拿當前小時去挑 slot)。
+// NPC 走路的動畫與尋路是另一回事 —— 原版每回合會讓 NPC 往目標移動一步,
+// 這裡先直接放到排程位置。
+func (s *State) VisibleNPCs() []VisibleNPC {
+	if !s.InScene() || s.npcs == nil {
+		return nil
+	}
+	var out []VisibleNPC
+	for i := range s.npcs {
+		if i == u5data.PartySlot {
+			continue // 0 號是隊伍自己
+		}
+		n := &s.npcs[i]
+		if !n.Present() {
+			continue
+		}
+		x, y, floor := n.At(s.Clock.Hour)
+		if floor != s.Floor || x < 0 || x >= u5data.SceneSide || y < 0 || y >= u5data.SceneSide {
+			continue
+		}
+		out = append(out, VisibleNPC{Index: i, X: x, Y: y, Tile: n.TileIndex(), NPC: n})
+	}
+	return out
+}
+
+// NPCAt 回報某一格上有沒有 NPC。
+func (s *State) NPCAt(x, y int) (*VisibleNPC, bool) {
+	for _, v := range s.VisibleNPCs() {
+		if v.X == x && v.Y == y {
+			vv := v
+			return &vv, true
+		}
+	}
+	return nil, false
+}
+
+// loadNPCs 換地點或換樓層之後重取 NPC 槽。
+func (s *State) loadNPCs() {
+	s.npcs = nil
+	if s.NPCs == nil || !s.InScene() {
+		return
+	}
+	if n, err := s.NPCs.At(s.Location); err == nil {
+		s.npcs = n
+	}
+}
+
+// tick 推進遊戲時間。原版一般行動每回合 1 分鐘(sub_1DC8 → sub_29304(1))。
+func (s *State) tick() { s.Clock.Advance(MinutesPerTurn) }
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。
 func (s *State) InScene() bool { return s.Location != 0 }
@@ -194,6 +260,7 @@ func (s *State) moveInWorld(d Direction) {
 		return
 	}
 	s.X, s.Y = nx, ny
+	s.tick()
 	if loc, ok := u5data.LocationAt(nx, ny); ok {
 		s.Log("往" + d.Name() + "方前行 —— 此處是" + loc.DisplayName() + "。")
 	} else {
@@ -234,6 +301,7 @@ func (s *State) moveInScene(d Direction) {
 	}
 
 	s.X, s.Y = nx, ny
+	s.tick()
 
 	// 踩到樓梯就換層。原版 sub_758:同向走進去 inc 樓層,反向 dec。
 	if facing, ok := u5data.StairsFacing(s.TileAt(s.X, s.Y)); ok {
@@ -258,6 +326,7 @@ func (s *State) changeFloor(delta int) {
 	}
 	s.Floor = next
 	s.scene = m
+	s.loadNPCs()
 	if delta > 0 {
 		s.Log(MsgUp)
 	} else {
@@ -283,6 +352,71 @@ func (s *State) Klimb() {
 	s.changeFloor(delta)
 }
 
+// Talk 是原版的「交談」指令(sub_1B658 → sub_1B52C,按鍵 T)。
+//
+// 原版先問方向,這裡簡化成「看四鄰有沒有人」—— 只有一個人時直接對他說話。
+// 對話號碼的分派完全照 sub_1B52C(見 u5data 的 Dialogue 常數)。
+func (s *State) Talk() {
+	if !s.InScene() {
+		s.Log(MsgNobodyHere)
+		return
+	}
+	var found *VisibleNPC
+	for _, d := range []Direction{North, East, South, West} {
+		dx, dy := d.Delta()
+		if v, ok := s.NPCAt(s.X+dx, s.Y+dy); ok {
+			found = v
+			break
+		}
+	}
+	if found == nil {
+		s.Log(MsgNobodyHere)
+		return
+	}
+	n := found.NPC
+	switch {
+	case n.Dialogue == u5data.DialogueNone:
+		// 衛兵與雜役沒有對話資料。原版對衛兵另有一句,這裡先統一。
+		s.Log(MsgNoResponse)
+	case n.IsShopkeeper():
+		// 商店交易要 SHOPPE.DAT 的內容,還沒接上。原版在非營業時間也是給一句話帶過。
+		s.Log(MsgMerchantClosed)
+	case n.Dialogue == u5data.DialogueFrightened:
+		s.Log(MsgFrightened)
+	case n.Dialogue >= u5data.DialogueSpecialFE:
+		s.Log(MsgNoResponse)
+	default:
+		s.talkTo(n.Dialogue)
+	}
+}
+
+// talkTo 查出 .TLK 記錄並說出招呼語。
+func (s *State) talkTo(dialogue byte) {
+	if s.Talks == nil {
+		s.Log(MsgNoResponse)
+		return
+	}
+	rec, ok := s.Talks.Record(s.Location, int(dialogue))
+	if !ok {
+		s.Log(MsgNoResponse)
+		return
+	}
+	// ⚠ 這裡說的還是英文原文 —— 對話文字的中譯要等腳本結構解出來、
+	// 並且譯名對過《軟體世界》手冊之後才做,現在硬翻會變成要重來的二手轉譯。
+	name := rec.Name(s.Talks.Dict)
+	greeting := rec.Greeting(s.Talks.Dict)
+	if name == "" && greeting == "" {
+		s.Log(MsgNoResponse)
+		return
+	}
+	if name != "" {
+		s.Log(name + ":")
+	}
+	if greeting != "" {
+		s.Log("「" + greeting + "」")
+	}
+}
+
 // Enter 是原版的「進入」指令(sub_10928)。
 //
 // 原版做的是:掃地點表找出座標與玩家世界座標相符的那一筆;找不到就回「此處無可進入之地」。
@@ -306,6 +440,7 @@ func (s *State) Enter() {
 	s.Floor = 0
 	s.X, s.Y = SceneEntryX, SceneEntryY
 	s.scene = m
+	s.loadNPCs()
 	s.Log("進入" + loc.DisplayName() + "。")
 }
 
@@ -336,6 +471,7 @@ func (s *State) leaveScene() {
 	s.X, s.Y = loc.X, loc.Y
 	s.Location = 0
 	s.scene = nil
+	s.npcs = nil
 	if underworld {
 		s.Floor = -1
 		s.Log(MsgExitTo + MsgUnderworld)
@@ -352,5 +488,6 @@ func (s *State) SetScene(num, floor, x, y int) error {
 		return err
 	}
 	s.Location, s.Floor, s.X, s.Y, s.scene = num, floor, x, y, m
+	s.loadNPCs()
 	return nil
 }

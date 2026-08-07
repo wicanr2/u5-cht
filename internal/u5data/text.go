@@ -49,9 +49,24 @@ type TextRecord struct {
 	Page bool
 }
 
-// Text 回傳可讀的英文:去掉換頁標記與斷字提示。
-// **詞典 token 不展開**,而是保留成 `<XX>` —— 見 TextDictionary 的說明。
+// Text 回傳可讀的英文,**不展開 token**(保留成 `<XX>`)。
+// 有 DATA.OVL 時請改用 Expand —— 那才是完整的文字。
 func (r TextRecord) Text() string {
+	return r.Expand(nil)
+}
+
+// Expand 用詞典展開這筆記錄。
+//
+// `.DAT` 的極性與 `.TLK` 相反(bit7 有設的才是 token,槽位要減 0x7F),
+// 細節見 Dictionary.ExpandDAT。d 為 nil 時 token 保留成 `<XX>`。
+func (r TextRecord) Expand(d *Dictionary) string {
+	if d != nil {
+		return d.ExpandDAT(r.Raw)
+	}
+	return r.legacyText()
+}
+
+func (r TextRecord) legacyText() string {
 	var b strings.Builder
 	for i, c := range r.Raw {
 		switch {
@@ -156,7 +171,9 @@ func (t *TextFile) TokenCount() int {
 // 共 **118 個詞**(index 0–117);緊接其後就是檔名表(PROPORT.PCS、TILES.16 …),
 // 所以詞典到 117 為止。
 //
-// ⚠ **token → index 的精確映射還沒定**,所以本套件不展開 token:
+// ✅ **已解出**(2026-08-07):token → 槽位 = `b - 0x7F`,槽表與 `.TLK` 共用。
+// 以下是當初卡住時的推理紀錄,保留下來說明為什麼「差 10」——
+// 那 10 就是槽表裡的 10 個空槽(見 Dictionary)。當初的困惑是:
 //   - `\x86` 需要 index 6,而 0x104C 起算的第 6 個詞正是 "for" ✓
 //   - 但 `\xD7` / `\xDE` 需要 index 87 / 94,實際在 index 77 / 84 —— **固定差 10**
 //   - token 空間 0x80–0xFF 有 128 個,詞典只有 118 個 ⇒ 有 10 個 token 不是詞
