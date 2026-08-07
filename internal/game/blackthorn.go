@@ -57,6 +57,7 @@ func (s *State) BeginInterrogation() bool {
 		s.releaseToCell()
 		return false
 	}
+	s.enterChamber(u5data.MiscMapIndexCell)
 	s.Log(MsgSubdued)
 	s.Log(MsgDraggedAway)
 	s.Log("黑棘說道:「啊," + s.AvatarName() + "!能與汝相見,實為榮幸。」")
@@ -203,6 +204,7 @@ func (s *State) executeCompanion(blade bool) {
 
 // endInterrogation 收掉審問,把隊伍丟進宮殿地牢。
 func (s *State) endInterrogation() {
+	s.leaveChamber()
 	s.Blackthorn = nil
 	if s.Prompt == PromptBlackthorn {
 		s.Prompt = PromptNone

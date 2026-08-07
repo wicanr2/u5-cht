@@ -87,6 +87,7 @@ func (s *State) Meditate() bool {
 		return false
 	}
 	v := s.ShrineHere()
+	s.enterChamber(u5data.MiscMapIndexShrine)
 	s.Shrine = &Shrine{Virtue: v, OK: true, Stage: ShrineAskVirtue}
 	s.Prompt = PromptShrine
 	s.logMisc(u5data.MsgShrineApproach)
@@ -247,6 +248,7 @@ func (s *State) shrineOffer(text string) bool {
 // ⚠ **離開時要走掉十六分鐘**(原版 `sub_1DA10` 尾端的 `sub_29304(0x10)`)——
 // 進出聖壇與寶典共用同一支,所以兩邊一樣。少了它,拜壇是不花時間的。
 func (s *State) EndMeditate() {
+	s.leaveChamber()
 	s.Shrine = nil
 	if s.Prompt == PromptShrine {
 		s.Prompt = PromptNone

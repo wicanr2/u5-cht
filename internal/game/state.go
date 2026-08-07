@@ -236,6 +236,10 @@ type State struct {
 	Blackthorn *Blackthorn
 	// Ending 是進行中的結局(Prompt == PromptEnding 時有效)。
 	Ending *Ending
+	// MiscMaps 是四張 11×11 的石室(MISCMAPS.DAT);可為 nil。
+	MiscMaps *u5data.MiscMapSet
+	// Chamber 是進行中的石室;nil 代表不在石室裡。
+	Chamber *Chamber
 	// EndMsg 是 ENDMSG.DAT —— 結局的十一段文字。
 	EndMsg *u5data.TextFile
 	// SandalwoodBox 是有沒有那只檀香木盒(原版 byte_3DFCD)——
@@ -404,7 +408,8 @@ type VisibleNPC struct {
 // 位置取自**執行期狀態**(原版 word_3E770),不是每次拿時鐘現算排程 ——
 // NPC 是一步一步走向排程位置的,中途會停在路上。
 func (s *State) VisibleNPCs() []VisibleNPC {
-	if !s.InScene() || s.npcs == nil {
+	// 石室裡沒有居民 —— 原版進去之前把三十二個物件槽全清空了。
+	if s.Chamber != nil || !s.InScene() || s.npcs == nil {
 		return nil
 	}
 	if len(s.rtNPCs) != u5data.NPCsPerLocation {
@@ -474,6 +479,9 @@ func (s *State) InScene() bool { return s.Location != 0 }
 
 // Location 名稱 —— 在大地圖時回傳空字串。
 func (s *State) LocationName() string {
+	if s.Chamber != nil {
+		return chamberName(s.Chamber.Which)
+	}
 	loc, err := u5data.LocationByNumber(s.Location)
 	if err != nil {
 		return ""
@@ -506,6 +514,10 @@ func (s *State) currentWorld() *u5data.WorldMap {
 // 原版的 11×11 視窗緩衝就是先 memset 成 0xFF 再填入地圖內容,所以城鎮外緣
 // 看到的是黑格,不是別的地形。
 func (s *State) TileAt(x, y int) byte {
+	// 石室(聖壇 / 寶典 / 審問 / 王座廳)蓋掉外面的世界。
+	if s.Chamber != nil {
+		return s.chamberTileAt(x, y)
+	}
 	if s.InScene() {
 		if s.scene == nil || x < 0 || x >= u5data.SceneSide || y < 0 || y >= u5data.SceneSide {
 			return u5data.TileBlank

@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **544** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **545** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -84,7 +84,7 @@
 | `sub_C13C` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
 | `sub_C2D0` | if (!ebx) { ebx = 1; sub_C2D0(); }    // ★ 第一次拒絕只嗆一句 | `28-shadowlords-and-blackthorn.md` |
 | `sub_C318` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
-| `sub_C414` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
+| `sub_C414` | 位址:`sub_29304`(午夜遊走)、`sub_C414` → `sub_C318` → `sub_BFFC` / `sub_C098` / `sub_C13C` | `03-picture-files.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_C778` | 寫  0xC790   sub_C778    mov dword_65334, 1 | `03-scene-entry-and-tile-semantics.md` |
 | `sub_CE78` | `0x50`  /  噴泉  /  `sub_CE78` 印「a gurgling fountain!」  / | `18-dungeons.md` |
 | `sub_DB10` | call sub_DB10                     ; → 指向那一格地形的指標 | `26-yell-words-of-power-shadowlords.md` |
@@ -116,7 +116,7 @@
 | `sub_13258` | 製作名單(`sub_13258`,含 "to Lord British at Origin Systems!")。 | `30-ending.md` |
 | `sub_134CC` | 王座廳的 11×11 畫面(`MISCMAPS.DAT` 位移 0x210)與走位動畫(`sub_134CC`)—— | `30-ending.md` |
 | `sub_13554` | for (;;) { sub_13554(1); sub_13554(3); sub_13554(4); sub_13554(5); }  // ★ 無窮迴圈 | `30-ending.md` |
-| `sub_135FC` | 位址:`sub_135FC`(整幕)、`sub_134CC`(走位動畫)、`sub_13258`(製作名單) | `30-ending.md` |
+| `sub_135FC` | 位址:`sub_135FC`(整幕)、`sub_134CC`(走位動畫)、`sub_13258`(製作名單) | `03-picture-files.md`, `30-ending.md` |
 | `sub_14F68` | 種類 2 的語意確定:`sub_14F68` 對它算 `random(1, 等級 × 3)`、上限 90 | `21-chests-fields-locks.md` |
 | `sub_15020` | 獎品(`sub_15020`,DOS `0x4134` / `0x413C` / `0x4144`) | `21-chests-fields-locks.md` |
 | `sub_1509C` | ├ sub_1509C  隨機物品(48 B 的表) | `21-chests-fields-locks.md` |
@@ -202,7 +202,7 @@
 | `sub_1D340` | 掃到就印「Thou dost see an urn marked: <名字>」並用 `sub_1D340` 擺出罈子。 | `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
 | `sub_1D394` | 位址:`sub_1DA10`(進場)、`sub_1D850`(寶典)、`sub_1D394`(冥想,見 `docs/re/25`) | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md` |
 | `sub_1D850` | 0x0328**  /  2  /  `byte_3E0DE`  /  已在寶典上讀到的美德(**寶典 `sub_1D850` 設的,不是聖壇**)  / | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md` |
-| `sub_1DA10` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md`, `25-shrines.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
+| `sub_1DA10` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-picture-files.md`, `03-scene-entry-and-tile-semantics.md`, `25-shrines.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md` |
 | `sub_1E9A0` | sub_1E9A0       Z-stats 畫面(咒語 / 藥草 / 裝備 / 物品四張清單) | `17-magic.md` |
 | `sub_1F48C` | 六個操控類咒語每一個都是 `!sub_1F48C(…) && !sub_189BC(…)` 這一對。 | `17-magic.md` |
 | `sub_1F5A4` | `sub_1F5A4`:魅惑(0x0040)與另外兩個位元(0x0400 / 0x0800)的遠程特殊行為。 | `16-combat-turns-and-ai.md` |
@@ -395,7 +395,8 @@
 | `byte_3F789` | `byte_3F789` 看起來像一個單獨的 byte,但它被 `[32*dy + dx]` 這樣索引(dy,dx ∈ −1..1), | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md` |
 | `byte_3F78A` | byte_3F78A   東   (var_4= 1, esi= 0) | `26-yell-words-of-power-shadowlords.md` |
 | `byte_3F7A9` | byte_3F7A9   南   (var_4= 0, esi= 1) | `26-yell-words-of-power-shadowlords.md` |
-| `byte_3F8F4` | push offset byte_3F8F4 | `14-combat-maps.md` |
+| `byte_3F844` | `byte_3F8F4[i*32 + j] = byte_3F844[i*16 + j]`(來源列距 16、目的列距 32), | `03-picture-files.md` |
+| `byte_3F8F4` | `byte_3F8F4[i*32 + j] = byte_3F844[i*16 + j]`(來源列距 16、目的列距 32), | `03-picture-files.md`, `14-combat-maps.md` |
 | `byte_3F99F` | `sub_FE48` 在**隨機遭遇**那條路徑上寫 `byte_3F99F[槽] = 生物*4 + 0x40`, | `18-dungeons.md` |
 | `byte_3FA19` | case 1: byte_3FA19 = 0xEB; break; // 刑具往前一格 | `28-shadowlords-and-blackthorn.md` |
 | `byte_400F4` | if 模式 < 0 且 byte_400F4[y*32+x] == 0xC8/0xC9(樓梯) → grid = 5 | `03-scene-entry-and-tile-semantics.md`, `12-npc-movement.md` |

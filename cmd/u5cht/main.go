@@ -458,6 +458,7 @@ func main() {
 		Story:        bundle.Story,
 		Misc:         bundle.Misc,
 		EndMsg:       bundle.EndMsg,
+		MiscMaps:     bundle.MiscMaps,
 		Dungeons:     bundle.Dungeons,
 		Moons:        bundle.Moons,
 		WindDelay:    bundle.WindDelay,

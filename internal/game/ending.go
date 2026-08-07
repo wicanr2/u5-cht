@@ -40,6 +40,7 @@ func (s *State) BeginEnding() bool {
 		// 沒有 ENDMSG.DAT 就不假裝有結局(誠實跳過比放一段空白好)。
 		return false
 	}
+	s.enterChamber(u5data.MiscMapIndexThrone)
 	s.revivePartyForEnding()
 	s.Ending = &Ending{}
 	s.Prompt = PromptEnding
@@ -130,6 +131,7 @@ func (s *State) EndEnding() {
 	} else {
 		s.Log("(原版在此停住不動 —— 沒有那只盒子,故事就到這裡)")
 	}
+	s.leaveChamber()
 	s.Ending = nil
 	if s.Prompt == PromptEnding {
 		s.Prompt = PromptNone

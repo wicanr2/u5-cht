@@ -58,6 +58,8 @@ type Bundle struct {
 	Misc     *u5data.TextFile
 	// EndMsg 是 ENDMSG.DAT —— 結局那一幕的十一段文字。
 	EndMsg   *u5data.TextFile
+	// MiscMaps 是 MISCMAPS.DAT —— 四張 11×11 的石室。
+	MiscMaps *u5data.MiscMapSet
 	IntroArt []u5data.PictureSet
 	CJK      *cjk.Font
 }
@@ -123,6 +125,11 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("ENDMSG.DAT:%v", err))
 	} else {
 		b.EndMsg = tf
+	}
+	if mm, err := u5data.LoadMiscMaps(filepath.Join(opts.GameData, "MISCMAPS.DAT")); err != nil {
+		warn = append(warn, fmt.Sprintf("MISCMAPS.DAT:%v", err))
+	} else {
+		b.MiscMaps = mm
 	}
 	for _, name := range u5data.IntroStoryFiles {
 		set, err := u5data.LoadPictures(filepath.Join(opts.GameData, name))

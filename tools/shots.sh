@@ -25,4 +25,8 @@ run "$OUT/07-peer.png"    --at 81 108 --script 'P'
 run "$OUT/08-word.png"    --at 239 73 --script 'Y"FALLAX"'
 run "$OUT/09-shadowlord.png" --scene "EMPATH ABBEY" 0 15 15 --script 'Y"ASTAROTH"'
 run "$OUT/10-blackthorn.png" --at 100 100 --script 'A"no""no""no""no"'
+run "$OUT/11-codex.png"   --at 100 100 --script 'R.'
+run "$OUT/12-throne.png"  --at 100 100 --script 'Zy'
+run "$OUT/13-cell.png"    --at 100 100 --script 'A'
+run "$OUT/14-shrine-room.png" --at 128 92 --script 'E'
 echo "→ $OUT"

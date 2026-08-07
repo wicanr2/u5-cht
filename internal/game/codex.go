@@ -89,6 +89,7 @@ func (s *State) ReadCodex() bool {
 
 // beginCodex 進入閱讀模式並唸出第一頁。
 func (s *State) beginCodex(pages []string) bool {
+	s.enterChamber(u5data.MiscMapIndexCodex)
 	s.Codex = &Codex{Pages: pages}
 	s.Prompt = PromptCodex
 	s.Log(s.Codex.Text())
@@ -114,6 +115,7 @@ func (s *State) AdvanceCodex() bool {
 // ⚠ **離開時要走掉十六分鐘**(原版 `sub_1DA10` 尾端的 `sub_29304(0x10)`)——
 // 進出聖壇與寶典都一樣。少了它,玩家可以在寶典前面反覆進出而時間不動。
 func (s *State) EndCodex() {
+	s.leaveChamber()
 	s.Codex = nil
 	if s.Prompt == PromptCodex {
 		s.Prompt = PromptNone
