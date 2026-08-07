@@ -1,5 +1,7 @@
 package u5data
 
+import "strings"
+
 // 力量之言(`sub_17CFC`,2026-08-07)
 //
 // 八個字,一個字對一座地牢、也對一座聖壇 —— **索引是共用的**:
@@ -172,6 +174,19 @@ const DungeonSealedBit = 0x80
 
 // YellInputMax 是 Yell 指令讀幾個字元(`sub_17E74` 的 `push 0Ch`)。
 const YellInputMax = 12
+
+// MantraSpoken 回報玩家打的這一行裡**有沒有出現**這句真言。
+//
+// ⚠ 黑棘的審問(`sub_C098`)用的**不是** `MatchPrefix`,而是一個
+// 不分大小寫的**子字串**搜尋:它拿 `edi` 從 0 開始一格一格滑過玩家打的字,
+// 每一格再逐字比對真言。所以「the mantra is Ahm」也算招供 ——
+// 想含糊帶過是躲不掉的。
+//
+// 寫成前綴比對的話,玩家只要在真言前面加一個字就能白嫖過關,
+// 而那正是這一幕唯一的抉擇。
+func MantraSpoken(mantra, typed string) bool {
+	return strings.Contains(lowerASCII(typed), lowerASCII(mantra))
+}
 
 // ToggleDungeonSeal 回傳這一格封印切換之後變成什麼。
 //

@@ -115,6 +115,8 @@ const (
 	PromptPeer
 	// PromptCodex 是在讀寶典:按任意鍵翻頁(與開場動畫同樣的節奏)。
 	PromptCodex
+	// PromptBlackthorn 是黑棘的審問:打字回答「真言是什麼」。
+	PromptBlackthorn
 	// PromptYell 是 Yell 指令的「what?」:打一個力量之言或暗影君主的名字。
 	//
 	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
@@ -226,6 +228,12 @@ type State struct {
 	Shrine *Shrine
 	// Codex 是進行中的寶典閱讀(Prompt == PromptCodex 時有效)。
 	Codex *Codex
+	// Blackthorn 是進行中的審問(Prompt == PromptBlackthorn 時有效)。
+	Blackthorn *Blackthorn
+	// Shards[i] 是有沒有第 i 塊寶石碎片(原版 byte_3DFC4)。
+	Shards [u5data.ShadowlordCount]bool
+	// DoomFlags 是消滅暗影君主之後累積的位元(原版 dword_3E3DC 的低位元組)。
+	DoomFlags byte
 	// ShrineQuestGiven / ShrineQuestActive 是八德的兩組位元
 	//(原版 byte_3E0DE / byte_3E0DC)。
 	//
@@ -745,6 +753,9 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.DungeonSeal = sv.DungeonSeal
 	s.ShadowlordAt = sv.ShadowlordAt
 	s.ShadowlordHere = sv.ShadowlordHere
+	for i := range s.Shards {
+		s.Shards[i] = sv.Shards[i] != 0
+	}
 	s.removed = nil
 	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
 	s.Location = 0

@@ -123,6 +123,22 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 黑棘的審問:打字回答,Enter 送出。**沒有 ESC** —— 汝逃不掉。
+	if st.Prompt == gamestate.PromptBlackthorn {
+		for _, r := range ebiten.AppendInputChars(nil) {
+			st.TypeRune(r)
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.SubmitBlackthorn()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.Backspace()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 讀寶典:任意鍵翻頁,ESC 直接闔上。
 	if st.Prompt == gamestate.PromptCodex {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {

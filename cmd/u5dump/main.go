@@ -709,6 +709,8 @@ func playScript(st *game.State, script string) error {
 				st.SubmitSpell()
 			case game.PromptYell:
 				st.SubmitYell()
+			case game.PromptBlackthorn:
+				st.SubmitBlackthorn()
 			default:
 				st.Submit()
 			}
@@ -760,6 +762,8 @@ func playScript(st *game.State, script string) error {
 			st.Yell() // 喊(船上收放帆;其餘接著用 "…" 打字)
 		case 'R':
 			st.ReadCodex() // 讀寶典(接著用 . 翻頁)
+		case 'A':
+			st.BeginInterrogation() // 黑棘的審問(接著用 "…" 回答)
 		case 'f':
 			st.DungeonForward(false) // 地牢:前進
 		case 'b':
@@ -770,7 +774,7 @@ func playScript(st *game.State, script string) error {
 			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、R 讀寶典、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、R 讀寶典、A 黑棘審問、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

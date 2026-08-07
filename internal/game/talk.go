@@ -86,7 +86,7 @@ func (s *State) beginConversation(dialogue byte) {
 func (s *State) TypeRune(r rune) {
 	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer &&
 		s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
-		s.Prompt != PromptYell {
+		s.Prompt != PromptYell && s.Prompt != PromptBlackthorn {
 		return
 	}
 	switch {
@@ -94,11 +94,12 @@ func (s *State) TypeRune(r rune) {
 	case r >= 'A' && r <= 'Z':
 		// 咒語名、真言與力量之言保留大小寫原樣(比對本來就不分大小寫),
 		// 關鍵字一律小寫。
-		if s.Prompt != PromptSpell && s.Prompt != PromptShrine && s.Prompt != PromptYell {
+		if s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
+			s.Prompt != PromptYell && s.Prompt != PromptBlackthorn {
 			r = r - 'A' + 'a'
 		}
-	case r == ' ' && s.Prompt == PromptSpell:
-		// 上古語咒語名有空格(「An Tym」)。
+	case r == ' ' && (s.Prompt == PromptSpell || s.Prompt == PromptBlackthorn):
+		// 上古語咒語名有空格(「An Tym」);回答黑棘也可以打一整句。
 	case r >= '0' && r <= '9' && s.Prompt == PromptShrine:
 		// 聖壇獻金是打數字。
 	default:

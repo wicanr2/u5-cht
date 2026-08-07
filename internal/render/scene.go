@@ -227,6 +227,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "打英文的美德名 / 真言後按 Enter,ESC 作罷"
 	case game.PromptYell:
 		hint = "喊一個字後按 Enter,ESC 作罷"
+	case game.PromptBlackthorn:
+		hint = "回答黑棘後按 Enter —— 說出真言就是招了"
 	}
 	s.Text.Draw(dst, MapOriginX, HintY, hint)
 }
@@ -249,6 +251,8 @@ func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
 		label = "汝言:"
 	case game.PromptYell:
 		label = "汝喊:"
+	case game.PromptBlackthorn:
+		label = "汝答:"
 	default:
 		return y
 	}
@@ -271,7 +275,7 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	}
 	avail := (CanvasHeight - 8 - PanelTextY) / LineHeight
 	switch s.State.Prompt {
-	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell:
+	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell, game.PromptBlackthorn:
 		avail-- // 留一行給輸入列
 	}
 	if avail < 1 {

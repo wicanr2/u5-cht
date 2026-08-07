@@ -68,6 +68,13 @@ func (s *State) ExportSave(base *u5data.Save) (*u5data.Save, error) {
 	out.DungeonSeal = s.DungeonSeal
 	out.ShadowlordAt = s.ShadowlordAt
 	out.ShadowlordHere = s.ShadowlordHere
+	// ⚠ 只覆蓋前三格 —— 第 4 個位元組原版沒用,底稿裡有什麼就留什麼。
+	for i := range s.Shards {
+		out.Shards[i] = 0
+		if s.Shards[i] {
+			out.Shards[i] = 1
+		}
+	}
 
 	// 在場景裡存檔時,X/Y 是**場景座標** —— 原版共用同一對變數,讀檔時
 	// 靠 Location 判斷該怎麼解讀,所以照原樣寫回就好(見 state.go 的 LoadFrom)。

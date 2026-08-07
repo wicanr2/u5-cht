@@ -656,13 +656,30 @@ func (s *State) MixByRecipe(spell, count int) bool {
 //
 // ⇒ **An Tym 期間火把不會燒。** 這不是小事:U5 玩家在地牢裡靠這一點省火把。
 func (s *State) AdvanceTime(minutes int) {
+	before := s.Clock
 	if s.TimeStop > 0 {
 		s.Clock.Advance(minutes)
+		s.afterMidnight(before)
 		return
 	}
 	s.Clock.Advance(minutes)
 	s.LightTurns = subFloor(s.LightTurns, minutes)
 	s.TorchTurns = subFloor(s.TorchTurns, minutes)
+	s.afterMidnight(before)
+}
+
+// afterMidnight 處理「跨過午夜」才發生的事(原版 `sub_29304` 在
+// `byte_3E08F` 從 23 進位成 0 的那一支)。
+//
+// 目前只有一件:把活著的暗影君主重新分派到八德城市之一(見 shadowlord.go)。
+//
+// ⚠ 判斷用的是**日期變了沒**,不是「小時剛好等於 0」——
+// 一次推進超過一小時(休息、進出聖壇石室)時後者會整個跳過去。
+func (s *State) afterMidnight(before Clock) {
+	if s.Clock.Day == before.Day && s.Clock.Month == before.Month && s.Clock.Year == before.Year {
+		return
+	}
+	s.roamShadowlords()
 }
 
 // subFloor 是飽和減法(原版 `sub_2BBFC`)。

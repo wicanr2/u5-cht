@@ -210,6 +210,8 @@ type Save struct {
 	Floor     int // signed:負數是地下
 	X, Y      int
 
+	// Shards[i] 是有沒有第 i 塊寶石碎片(存檔 0x0210 起 4 B,第 4 B 未用)。
+	Shards [ShardCount]byte
 	// ShadowlordAt[i] 是第 i 個暗影君主盤據的地點編號(0 = 不在城裡,0xFF = 已消滅)。
 	ShadowlordAt [ShadowlordCount]byte
 	// ShadowlordHere 是現在被召喚出來的那一個(0xFF = 沒有)。
@@ -288,6 +290,7 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.X = int(raw[SaveXOffset])
 	s.Y = int(raw[SaveYOffset])
 
+	copy(s.Shards[:], raw[SaveShardsOffset:])
 	copy(s.ShadowlordAt[:], raw[SaveShadowlordAtOffset:])
 	s.ShadowlordHere = raw[SaveShadowlordHereOffset]
 	s.ShrineQuest = raw[SaveShrineQuestOffset]
@@ -435,6 +438,7 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveXOffset] = byte(s.X)
 	out[SaveYOffset] = byte(s.Y)
 
+	copy(out[SaveShardsOffset:], s.Shards[:])
 	copy(out[SaveShadowlordAtOffset:], s.ShadowlordAt[:])
 	out[SaveShadowlordHereOffset] = s.ShadowlordHere
 	out[SaveShrineQuestOffset] = s.ShrineQuest

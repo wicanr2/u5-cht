@@ -225,13 +225,17 @@ puts("\nA shadowlord appears\n");
 - `game.yellInTown` / `spawnShadowlord` —— 召喚
 - 按鍵 **Y**;`u5dump` 腳本動作 `Y` 之後接 `"名字"`
 
-## 8. 還沒做的
+## 8. 後續
 
-- **暗影君主在城間遊走**(`sub_29304` 每隔一段時間重新指派 `byte_3E0D8[i]`,
-  三個不重複),以及**玷污聖壇**(`sub_C318` 寫 `byte_3E0E8[i] = 0xFF`)。
-  兩者都沒接 → 目前 `ShadowlordAt` 只從存檔讀進來,不會自己變。
-- **消滅暗影君主**(`sub_1A38C`:把碎片丟進對應的聖火 → `byte_3E0D8[i] = 0xFF`
-  + `dword_3E3DC |= byte_55E50[i]`,印 "The doom of the Shadowlord ")。
+✅ **遊走、玷污、消滅三塊已經補上**,連同它們背後的黑棘審問 ——
+見 **`docs/re/28-shadowlords-and-blackthorn.md`**。那一份順帶解出:
+玷污不是獨立的一支而是審問的結局之一、聖火的座標表藏在字串
+`aNoNoticeableEf` 後面、招供的判定是**子字串**而不是本檔 §2 的前綴。
+
+✅ **寶典**(`sub_1D850`)已補上 —— 見 `docs/re/27`。
+
+還沒做的:
+
 - 末日地牢入口的三個閘門(`sub_2D564` 要 `byte_3E0D8 & 3E0D9 & 3E0DA >= 0x80`,
   也就是三位全都不在城裡,否則 "Attacked at entrance!")。
-- **寶典**(`sub_1D850`),它才是 `byte_3E0DE` 真正的設定點 —— 見 `docs/re/25` §4。
+- 逮捕的觸發(`sub_1884`)—— 見 `docs/re/28` §5。

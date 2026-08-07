@@ -47,6 +47,14 @@ const (
 	MsgShadowlordAppears = "一位暗影君主現身了!"
 	// "\n\nThe Shrine is\nrestored!\n"
 	MsgShrineRestored = "聖壇復原了!"
+	// 黑棘的審問(原版 `sub_C414` 裡寫死在執行檔的三句)。
+	//
+	// "\nThou art subdued and blindfolded!"
+	MsgSubdued = "汝被制伏,雙眼遭蒙!"
+	// "\n\nStrong guards drag thee away!"
+	MsgDraggedAway = "壯碩的衛兵把汝拖走了!"
+	// "\n\nYour response?\n:"
+	MsgYourResponse = "汝如何回答?"
 	// "Don't hurt me!\nPlease go away!"
 	MsgFrightened = "「別傷害我!請走開!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
