@@ -179,6 +179,8 @@ type Save struct {
 	Minute    int
 	Karma     int
 	Transport byte
+	// Moongates 是八個月相各自的目的地(存檔 0x028A 起)。
+	Moongates [MoonPhaseCount]MoongateDest
 	Location  int // 0 = 大地圖
 	Floor     int // signed:負數是地下
 	X, Y      int
@@ -219,6 +221,7 @@ func ParseSave(raw []byte) (*Save, error) {
 		c.Exp = binary.LittleEndian.Uint16(rec[CharExp:])
 		c.Level = rec[CharLevel]
 	}
+	s.Moongates = parseMoongates(raw)
 	s.Inventory.Food = int(binary.LittleEndian.Uint16(raw[SaveFoodOffset:]))
 	s.Inventory.Gold = int(binary.LittleEndian.Uint16(raw[SaveGoldOffset:]))
 	s.Inventory.Keys = int(raw[SaveKeysOffset])
@@ -358,6 +361,7 @@ func (s *Save) Encode() ([]byte, error) {
 		rec[CharLevel] = c.Level
 	}
 
+	encodeMoongates(out, s.Moongates)
 	binary.LittleEndian.PutUint16(out[SaveFoodOffset:], clampU16(s.Inventory.Food))
 	binary.LittleEndian.PutUint16(out[SaveGoldOffset:], clampU16(s.Inventory.Gold))
 	out[SaveKeysOffset] = byte(s.Inventory.Keys)

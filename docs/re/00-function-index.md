@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **376** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **383** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -56,6 +56,9 @@
 | `sub_B9A8` | 0x0004 / 0x0200  /  **下毒**  /  `sub_B9A8` → `sub_B8DC`  /  巨蟒、大烏賊、巨蜘蛛 / 巨鼠、擬態怪  / | `15-combat-formulas.md`, `16-combat-turns-and-ai.md` |
 | `sub_C778` | 寫  0xC790   sub_C778    mov dword_65334, 1 | `03-scene-entry-and-tile-semantics.md` |
 | `sub_CE78` | `0x50`  /  噴泉  /  `sub_CE78` 印「a gurgling fountain!」  / | `18-dungeons.md` |
+| `sub_DF84` | └ sub_DF84(相位 − '0')   ★ 查目的地並傳送 | `22-moongates.md` |
+| `sub_E084` | sub_E084   踏上月門 | `22-moongates.md` |
+| `sub_E2A4` | sub_E2A4   每日更新月相 | `22-moongates.md` |
 | `sub_F35C` | `0x00`  /  **通道**(可走)  /  繪圖 `sub_F35C` case 0 什麼都不畫  / | `18-dungeons.md` |
 | `sub_FE48` | `sub_FE48` 在**隨機遭遇**那條路徑上寫 `byte_3F99F[槽] = 生物*4 + 0x40`, | `18-dungeons.md` |
 | `sub_10910` | call    sub_10910               ; → byte_3E0A5 == 0 ? "A:BRIT.OOL" : "A:UNDER.OOL" | `11-map-objects.md` |
@@ -111,7 +114,7 @@
 | `sub_19674` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
 | `sub_196A4` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
 | `sub_19810` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
-| `sub_1986C` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md` |
+| `sub_1986C` | `sub_19440`、`sub_195C0`、`sub_19674`、`sub_196A4`、`sub_19810`、`sub_1986C`、 | `17-magic.md`, `22-moongates.md` |
 | `sub_198E0` | An Tym  /  `sub_198E0`  /  `byte_3E08A = 'T'`、`byte_3E09E = 10`  / | `17-magic.md` |
 | `sub_1994C` | └ sub_1994C   ★ 施法主流程 | `17-magic.md` |
 | `sub_1AC20` | ⚠ **範圍的形狀還沒逆完**。`sub_1AC20` 吃一個每個咒語各自不同的參數 | `20-projectiles.md` |
@@ -244,23 +247,25 @@
 | `byte_3DFBC` | 上船時原本騎的東西會一起帶上:魔毯記進 `byte_3DFBC`、小艇讓船上的小艇數 +1 | `11-map-objects.md` |
 | `byte_3DFC0` | 地點 == 0x12 且 byte_3DFC0 == 0 → 「Absorbed!」 | `17-magic.md` |
 | `byte_3DFC4` | byte_3DFC4(4)  byte_3DFD0(48 裝備)   byte_3E000(48) | `13-save-writing.md` |
-| `byte_3DFD0` | `0x021A`  /  `byte_3DFD0`  /  裝備持有數 48 B,索引 = 裝備編號  / | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md` |
+| `byte_3DFD0` | `0x021A`  /  `byte_3DFD0`  /  裝備持有數 48 B,索引 = 裝備編號  / | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md`, `22-moongates.md` |
 | `byte_3E000` | 3. ★ byte_3E000[咒語] −−                          ← 從這裡開始都不退 | `13-save-writing.md`, `17-magic.md` |
 | `byte_3E030` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
 | `byte_3E038` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
-| `byte_3E040` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
-| `byte_3E048` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md` |
-| `byte_3E050` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `13-save-writing.md` |
-| `byte_3E058` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `13-save-writing.md` |
-| `byte_3E060` | `byte_3E060`(藥草)對應 `0x02AA`,兩者的差都是 `0x3DDB6` —— 一致, | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md` |
+| `byte_3E040` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md`, `22-moongates.md` |
+| `byte_3E048` | byte_3E030(8)  byte_3E038(8)  byte_3E040(8)  byte_3E048(8) | `13-save-writing.md`, `22-moongates.md` |
+| `byte_3E050` | 第一件事是 `cmp byte_3E050[相位], 0FFh` —— **地點 0xFF 代表這個相位還沒開通**, | `13-save-writing.md`, `22-moongates.md` |
+| `byte_3E058` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `13-save-writing.md`, `22-moongates.md` |
+| `byte_3E060` | `byte_3E060`(藥草)對應 `0x02AA`,兩者的差都是 `0x3DDB6` —— 一致, | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md`, `22-moongates.md` |
 | `byte_3E06B` | 0x02B5  /  隊伍人數  /  3(`sub_1BB5C` 用 `cmp byte_3E06B, 6` 判滿員)  / | `07-save-format.md` |
 | `byte_3E08A` | 全域 byte_3E08A == 'T'                  → 整場不動(時間停止 An Tym,10 回合) | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md`, `17-magic.md` |
-| `byte_3E08C` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md` |
+| `byte_3E08C` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md` |
 | `byte_3E08D` | byte_3E08D 月   > 13  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08E` | byte_3E08E 日   > 28  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
-| `byte_3E08F` | `@` 0x40  /  `byte_3E08F`  /  時段:< 12 morning、< 18 afternoon、其餘 evening  / | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md` |
+| `byte_3E08F` | `@` 0x40  /  `byte_3E08F`  /  時段:< 12 morning、< 18 afternoon、其餘 evening  / | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md` |
 | `byte_3E091` | byte_3E091 分   += minutes;  > 59 → 減 60 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E092` | 每 10 個單位行動 = 遊戲內 1 分鐘**(`byte_3E092` 數到 10 → `sub_29304(1)`)。 | `16-combat-turns-and-ai.md` |
+| `byte_3E095` | byte_3E095 = byte_41142[日 * 2]      ← 特拉梅爾 Trammel | `22-moongates.md` |
+| `byte_3E096` | byte_3E096 = byte_41143[日 * 2]      ← 費盧卡 Felucca | `22-moongates.md` |
 | `byte_3E098` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md`, `19-levelup.md` |
 | `byte_3E09E` | An Tym  /  `sub_198E0`  /  `byte_3E08A = 'T'`、`byte_3E09E = 10`  / | `17-magic.md` |
 | `byte_3E09F` | 判斷依據是 cdecl 的壓棧順序:`push esi(武器); push -byte_3E09F; | `15-combat-formulas.md` |
@@ -304,6 +309,8 @@
 | `byte_410F4` | for (i = 0; i < 32 && (byte_410F4[i] != 0  /  /  byte_4111C[i] != 0); ++i); | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md` |
 | `byte_4111B` | mov     dl, byte_4111B[edx] | `03-scene-entry-and-tile-semantics.md` |
 | `byte_4111C` | for (i = 0; i < 32 && (byte_410F4[i] != 0  /  /  byte_4111C[i] != 0); ++i); | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md` |
+| `byte_41142` | byte_3E095 = byte_41142[日 * 2]      ← 特拉梅爾 Trammel | `22-moongates.md` |
+| `byte_41143` | byte_3E096 = byte_41143[日 * 2]      ← 費盧卡 Felucca | `22-moongates.md` |
 | `byte_411FC` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md` |
 | `byte_41204` | `0x19`(25)  /  **the shrine of …**(八德聖壇;名字取自 `off_411BC[9]`,狀態看 `byte_411FC[8]`/`byte_41204[8]`)  /  `sub_1DA1… | `03-scene-entry-and-tile-semantics.md` |
 | `byte_4185C` | loop:                        ; 在 byte_4185C[店種][0..15] 裡找當前地點 | `08-shops.md`, `10-shop-prices-and-trade.md` |

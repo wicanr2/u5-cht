@@ -40,6 +40,7 @@ type Bundle struct {
 	Stats     *u5data.CombatStats   // 戰鬥數值(怪物三圍、裝備防禦/射程/類別)
 	Spells    *u5data.SpellTable    // 咒語表(名稱 / 圈數 / 藥草 / 可施法場合)
 	Dungeons  *u5data.DungeonSet    // 八座地牢的地圖(DUNGEON.DAT)
+	Moons     *u5data.MoonPhases    // 月相表(DATA.OVL)
 	DngRooms  *u5data.CombatMapSet  // 地牢房間(DUNGEON.CBT)
 	Objects   *u5data.ObjectSet     // 地表的地圖物件(BRIT.OOL)
 	UnderObjs *u5data.ObjectSet     // 地下世界的地圖物件(UNDER.OOL)
@@ -128,6 +129,12 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("咒語表:%v", err))
 	} else {
 		b.Spells = sp
+	}
+
+	if mp, err := u5data.LoadMoonPhases(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("月相表:%v", err))
+	} else {
+		b.Moons = mp
 	}
 
 	if dg, err := u5data.LoadDungeons(opts.GameData); err != nil {

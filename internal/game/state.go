@@ -131,6 +131,10 @@ type State struct {
 	DungeonRooms *u5data.CombatMapSet
 	// Dungeon 是「正在某座地牢裡」的狀態;nil 代表不在地牢。
 	Dungeon *DungeonState
+	// Moons 是月相表(DATA.OVL);可為 nil。
+	Moons *u5data.MoonPhases
+	// Moongates 是八個月相各自的目的地(從存檔讀進來)。
+	Moongates [u5data.MoonPhaseCount]u5data.MoongateDest
 	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。
 	LightTurns int
 	// TorchTurns 是火把還亮幾分鐘(原版 byte_3E0B7)。點一把是 random(0,15) + 0x70。
@@ -451,6 +455,8 @@ func (s *State) moveInWorld(d Direction) {
 	}
 	s.X, s.Y = nx, ny
 	s.tick()
+	// 踏上月門就被捲走(原版 `sub_E084`)。
+	s.EnterMoongateHere()
 	if loc, ok := u5data.LocationAt(nx, ny); ok {
 		s.Log("往" + d.Name() + "方前行 —— 此處是" + loc.DisplayName() + "。")
 	} else {
@@ -631,6 +637,7 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 		return
 	}
 	s.BaseSave = sv
+	s.Moongates = sv.Moongates
 	s.Clock = Clock{Minute: sv.Minute, Hour: sv.Hour, Day: sv.Day, Month: sv.Month, Year: sv.Year}
 	s.Karma = sv.Karma
 	s.Transport = sv.Transport

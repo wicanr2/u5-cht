@@ -319,6 +319,7 @@ func main() {
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
 		Dungeons:     bundle.Dungeons,
+		Moons:        bundle.Moons,
 		DungeonRooms: bundle.DngRooms,
 		Creatures:    bundle.Creatures,
 		UnderObjects: bundle.UnderObjs,

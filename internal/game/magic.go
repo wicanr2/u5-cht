@@ -183,6 +183,7 @@ const (
 	SpellInZu       = 28 // 睡眠風
 	SpellAnXenEx    = 34 // 魅惑
 	SpellSanctLor   = 36 // 隱形
+	SpellVasRelPor  = 46 // 大傳送門
 	SpellInNoxHur   = 40 // 毒風
 	SpellInVasGravC = 44 // 能量風
 	SpellInFlamHur  = 45 // 火風
@@ -295,6 +296,9 @@ func (s *State) spellEffect(caster, spell int) bool {
 
 	case SpellKalXen: // 召喚野獸
 		return s.summonCreature(caster, 20) // 巨鼠
+
+	case SpellVasRelPor: // 大傳送門:走到此刻月相的目的地
+		return s.CastGreatGate(s.MoonPhaseNow())
 
 	case SpellAnSanct: // 解陷阱 / 開箱 / 開鎖
 		return s.disarmOrUnlock()
