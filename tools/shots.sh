@@ -38,4 +38,6 @@ run "$OUT/17-guard.png"       --scene TRINSIC 0 15 23 --hour 12 --script 'T'
 run "$OUT/19-credits.png"     --at 100 100 --box --script 'Zy................'
 # 燈塔的光束(大地圖,夜裡;--beam 是截圖用的旗標,遊戲裡由主迴圈每幀推進)
 run "$OUT/20-lighthouse.png" --at 88 116 --hour 1 --beam 10
+# 檀香木盒:不列顛王城堡二樓,坐在豎琴前彈完十三個音,牆開了走進密室(docs/re/36)
+run "$OUT/21-sandalwood.png" --scene '#17' 2 17 17 --script '~6789878767653nnnnn'
 echo "→ $OUT"

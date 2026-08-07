@@ -383,6 +383,11 @@ func (s *State) VisibleObjects() []VisibleObject {
 		if !o.Present() || o.Floor != s.Floor {
 			continue
 		}
+		// NPC 鏡射出來的槽由 VisibleNPCs 負責畫(帶朝向與逐格移動),
+		// 這裡跳過免得同一格畫兩次。見 npcobject.go 的說明。
+		if _, mirrored := s.npcOfObject(i); mirrored {
+			continue
+		}
 		out = append(out, VisibleObject{Slot: i, X: o.X, Y: o.Y, Tile: int(o.Tile), Object: o})
 	}
 	return out
@@ -493,6 +498,8 @@ func (s *State) loadNPCs() {
 func (s *State) tick() {
 	s.AdvanceTime(MinutesPerTurn)
 	s.advanceNPCs()
+	// NPC 走完才更新鏡射 —— 物件表要跟著新位置走(原版 sub_1E74 在同一個迴圈裡)。
+	s.syncNPCObjects()
 }
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。
@@ -664,6 +671,8 @@ func (s *State) changeFloor(delta int) {
 	s.Floor = next
 	s.scene = m
 	s.loadNPCs()
+	// 換層要重配物件槽:不在這一層的 NPC 放掉槽、這一層的配一個。
+	s.syncNPCObjects()
 	if delta > 0 {
 		s.Log(MsgUp)
 	} else {
@@ -741,6 +750,7 @@ func (s *State) Enter() {
 	// 原版 sub_8924 只在**進場景**時建立執行期狀態;換樓層不重建
 	// (NPC 還在原本走到的位置上,只是玩家換層了)。
 	s.initRuntimeNPCs()
+	s.syncNPCObjects()
 	s.Log("進入" + loc.DisplayName() + "。")
 }
 
@@ -861,6 +871,7 @@ func (s *State) SetScene(num, floor, x, y int) error {
 	s.sceneObjects = &u5data.ObjectSet{}
 	s.loadNPCs()
 	s.initRuntimeNPCs()
+	s.syncNPCObjects()
 	return nil
 }
 

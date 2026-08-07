@@ -132,9 +132,17 @@ func (s *State) pickUp(kind byte, quality, slot int) {
 }
 
 // clearObject 把物件槽清空 —— 東西已經在背包裡了,地上不該還有一個。
+//
+// ⚠ 城鎮裡的東西多半是 NPC 鏡射出來的槽(寶箱、地上的物品、檀香木盒),
+// 只清物件表的話下一回合 `syncNPCObjects` 會**照原樣再配一格回來**。
+// 這種槽要連 NPC 一起除籍(原版 `sub_268` + `sub_218`)。
 func (s *State) clearObject(slot int) {
 	objs := s.currentObjects()
 	if objs == nil || slot <= 0 || slot >= u5data.ObjectSlots {
+		return
+	}
+	if i, mirrored := s.npcOfObject(slot); mirrored {
+		s.takeNPCObject(i)
 		return
 	}
 	objs.Objects[slot] = u5data.MapObject{}

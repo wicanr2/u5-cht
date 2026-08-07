@@ -123,6 +123,9 @@ type RuntimeNPC struct {
 	Floor    int
 	Creature byte
 	Slot     int // 目前採用的排程 slot(0..2)
+	// ObjSlot 是這個 NPC 目前佔著的物件槽(原版 word_3E77C);0 = 沒有。
+	// 見 npcobject.go —— 城裡的寶箱與地上的物品靠這條鏡射才被 Get 看見。
+	ObjSlot int
 
 	// path 是 (步數, 方向) 成對的序列,pathIdx 是走到第幾對。
 	path    []byte
@@ -148,7 +151,7 @@ func (s *State) initRuntimeNPCs() {
 			Mode:     ModeIdle,
 			X:        int(n.Schedule.X[slot]),
 			Y:        int(n.Schedule.Y[slot]),
-			Floor:    int(n.Schedule.Floor[slot]),
+			Floor:    u5data.SignedFloor(n.Schedule.Floor[slot]),
 			Creature: n.Creature,
 			Slot:     slot,
 		}
@@ -176,7 +179,7 @@ func (s *State) npcMode(i int) NPCMode {
 		}
 		rt.Slot = slot
 		rt.path, rt.pathIdx, rt.retries = nil, 0, 0
-		here, from, to := s.Floor, rt.Floor, int(sched.Floor[slot])
+		here, from, to := s.Floor, rt.Floor, u5data.SignedFloor(sched.Floor[slot])
 		switch {
 		case here != from && here != to:
 			return ModeOffscreen
@@ -194,7 +197,7 @@ func (s *State) npcMode(i int) NPCMode {
 	}
 	// 已經站在目標位置上就是閒置(原版在 sub_91A4 尾端補的那一段)。
 	if rt.X == int(sched.X[rt.Slot]) && rt.Y == int(sched.Y[rt.Slot]) &&
-		rt.Floor == int(sched.Floor[rt.Slot]) {
+		rt.Floor == u5data.SignedFloor(sched.Floor[rt.Slot]) {
 		return ModeIdle
 	}
 	return rt.Mode
@@ -228,7 +231,7 @@ func (s *State) advanceNPCs() {
 func (s *State) stepNPC(i int) {
 	rt := &s.rtNPCs[i]
 	sched := &s.npcs[i].Schedule
-	tx, ty, tf := int(sched.X[rt.Slot]), int(sched.Y[rt.Slot]), int(sched.Floor[rt.Slot])
+	tx, ty, tf := int(sched.X[rt.Slot]), int(sched.Y[rt.Slot]), u5data.SignedFloor(sched.Floor[rt.Slot])
 
 	switch rt.Mode {
 	case ModeIdle:

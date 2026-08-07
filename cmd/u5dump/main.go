@@ -699,9 +699,21 @@ func nonEmptyStr(s, fallback string) string {
 }
 
 // findLocation 依英文名找地點(不分大小寫)。
+// findLocation 依名字找地點;`#17` 這種寫法直接指定地點編號。
+//
+// 編號那條是必要的:地點表裡 14–17 沒有名字(原版 `sub_10928` 也不印它們),
+// 而 17 正是不列顛王的城堡 —— 少了它,城堡的截圖沒辦法用命令列指定。
 func findLocation(name string) (*u5data.Location, bool) {
+	if strings.HasPrefix(name, "#") {
+		n, err := strconv.Atoi(name[1:])
+		if err != nil || n < 1 || n > len(u5data.Locations) {
+			return nil, false
+		}
+		return &u5data.Locations[n-1], true
+	}
 	for i := range u5data.Locations {
-		if strings.EqualFold(u5data.Locations[i].Name, name) {
+		if u5data.Locations[i].Name != "" &&
+			strings.EqualFold(u5data.Locations[i].Name, name) {
 			return &u5data.Locations[i], true
 		}
 	}

@@ -52,8 +52,12 @@ func (s *State) PlayNote(key rune) bool {
 // 原版只發聲不印字(`sub_33D78(音高, 0x78, 0xC350)`);這裡多印一行,
 // 因為引擎還沒接音訊,不印的話玩家完全看不出自己彈了什麼。
 // 音高照原版算,所以之後接上音訊時數字是對的。
+//
+// ⚠ 前綴用「琴音」而不是音符符號:♪(U+266A)**不在 Big5 裡**,
+// 倚天字庫查不到就會掉 fallback,截圖上是一排空框。
+// 缺字數量是字型管線的品質指標(CLAUDE.md §5.1),不該由訊息文字自己製造。
 func harpNoteName(note int) string {
 	semitone := u5data.HarpScale[note] + u5data.HarpMiddleC
 	names := [12]string{"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}
-	return "♪ " + names[semitone%12]
+	return "琴音 " + names[semitone%12]
 }

@@ -144,7 +144,60 @@ func (n *NPC) IsShopkeeper() bool {
 // At 回報 hour 這個時刻 NPC 在哪裡。
 func (n *NPC) At(hour int) (x, y, floor int) {
 	s := n.Schedule.Slot(hour)
-	return int(n.Schedule.X[s]), int(n.Schedule.Y[s]), int(n.Schedule.Floor[s])
+	return int(n.Schedule.X[s]), int(n.Schedule.Y[s]), SignedFloor(n.Schedule.Floor[s])
+}
+
+// SignedFloor 把樓層位元組轉成有號樓層。
+//
+// ⚠ **地下層在檔案裡是補數表示**(0xFF = −1),與 `Location.SceneOffset` 用的
+// 是同一條規則。少了這一步,地下室的 NPC 與物件會拿 255 去跟樓層 −1 比 ——
+// 永遠不相等,於是整層的東西都不見。
+//
+// 實例:不列顛王城堡(地點 17)的三個寶箱在槽 23/24/25,樓層位元組都是 0xFF。
+func SignedFloor(b byte) int {
+	if b > 0x7F {
+		return int(b) - 0x100
+	}
+	return int(b)
+}
+
+// NPC 佔用的物件槽:品質欄的三種來源(原版 `sub_1E74`)
+//
+// 每個「在本層」的 NPC 都會在物件表 `dword_3E46C` 佔一格 —— 這就是
+// Get / Open 看得到寶箱與地上物品的原因(它們在 `.NPC` 檔裡,不在 `.OOL`)。
+const (
+	// NPCObjectQualityChest 是生物編號 1(關著的寶箱)的品質。
+	//
+	// = 30,正好是地表寶箱擲獎 `random(1, 30)` 的上限 —— 兩個數字獨立對上。
+	NPCObjectQualityChest = 0x1E
+	// NPCObjectQualityFlagged 給 NPCFlagged 點名的槽。
+	//
+	// ⚠ **這個值的用途還沒追到。** 被點名的十四個槽全是怪物(生物編號 0x90 / 0x94),
+	// 分佈在紫杉城地下、米諾克、溫德米爾、石門 —— 看得出是「特定的守衛」,
+	// 但品質欄在怪物身上代表什麼還沒有證據,所以只照抄數值、不賦予語意。
+	NPCObjectQualityFlagged = 0xFF
+)
+
+// NPCFlagged 是「品質給 0xFF」的每地點槽位元遮罩(原版 `off_4FC98[地點*4]`)。
+//
+// ⚠ 索引 0(大地圖)在原版是與碎片名指標表 `off_4FC90` 重疊的殘值
+//(0x47924 = 字串 "cowardice" 的位址),不是遮罩。大地圖不走這條路,讀不到。
+var NPCFlagged = [33]uint32{
+	4:  0x00028000, // 紫杉城:槽 15、17
+	5:  0x00000002, // 米諾克:槽 1
+	28: 0x000003F8, // 溫德米爾:槽 3..9
+	29: 0x000001E0, // 石門:槽 5..8
+}
+
+// NPCObjectQuality 回傳 NPC 佔用的物件槽該填什麼品質。
+func NPCObjectQuality(creature byte, location, slot int) byte {
+	if creature == 1 {
+		return NPCObjectQualityChest
+	}
+	if location >= 0 && location < len(NPCFlagged) && NPCFlagged[location]>>uint(slot)&1 == 1 {
+		return NPCObjectQualityFlagged
+	}
+	return 0
 }
 
 // NPCSet 是一個 .NPC 檔載好之後的內容(8 個地點 × 32 個槽)。
