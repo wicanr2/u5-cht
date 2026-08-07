@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/wicanr2/u5-cht/internal/cjk"
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -240,6 +241,9 @@ func Load(opts Options) (*Bundle, []string) {
 		if sh, err := u5data.LoadShops(opts.GameData, b.Talks.Dict); err != nil {
 			warn = append(warn, fmt.Sprintf("商店:%v", err))
 		} else {
+			// 商店對白走中譯覆蓋層。掛在載入處而不是 u5data 裡面 ——
+			// 資料層只讀原版檔,譯文是上層的事。
+			sh.Translate = i18n.Shop
 			b.Shops = sh
 		}
 	}

@@ -162,6 +162,12 @@ type ShopSet struct {
 	// text 是 SHOPPE.DAT 的原始內容,依位元組位移取用。
 	text []byte
 	dict *Dictionary
+
+	// Translate 是譯文覆蓋層的掛勾:`(位移, 展開後的英文) → 要顯示的字`。
+	//
+	// nil 就是不翻。放成函式欄位是為了讓 `u5data` 不必反向依賴 `i18n`
+	// (資料層只讀原版檔,譯文是上層的事)。
+	Translate func(off int, en string) string
 }
 
 // LoadShops 讀入商店目錄(DATA.OVL)與對白(SHOPPE.DAT)。
@@ -244,11 +250,18 @@ func (s *ShopSet) Say(off int, sh *Shop, hour, number int) string {
 }
 
 // SayWith 同 Say,但可以指定全部六個佔位符。
+//
+// ★ 譯文在**代換佔位符之前**接進來(見 Translate)。順序反了的話,
+// 譯文表的 key 會跟著價格與店名變 —— 同一句話會有幾百個版本。
 func (s *ShopSet) SayWith(off int, sh *Shop, ph Placeholders) string {
 	if s == nil || off <= 0 || off >= len(s.text) {
 		return ""
 	}
-	return s.FormatWith(s.readRecord(off), sh, ph)
+	text := s.dict.ExpandDAT(s.readRecord(off))
+	if s.Translate != nil {
+		text = s.Translate(off, text)
+	}
+	return s.substitute(text, sh, ph)
 }
 
 // readRecord 取 off 起到下一個 NUL 為止的原始位元組。
@@ -290,7 +303,11 @@ func (s *ShopSet) Format(raw []byte, sh *Shop, hour, number int) string {
 
 // FormatWith 展開一段商店文字並代換全部佔位符。
 func (s *ShopSet) FormatWith(raw []byte, sh *Shop, ph Placeholders) string {
-	expanded := s.dict.ExpandDAT(raw)
+	return s.substitute(s.dict.ExpandDAT(raw), sh, ph)
+}
+
+// substitute 只做佔位符代換,不碰詞典 —— 中譯與英文原文都走這一支。
+func (s *ShopSet) substitute(expanded string, sh *Shop, ph Placeholders) string {
 	pairs := []string{
 		"#", sh.Name,
 		"$", sh.Owner,

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -745,4 +746,100 @@ func abs(v int) int {
 		return -v
 	}
 	return v
+}
+
+// ⚠⚠ **佔位符的個數必須與原文完全相同。**
+//
+// 商店對白裡 `#$%&*@^` 七個字元會被代換成店名 / 店主 / 價格 / 物品 / 地名 /
+// 時段 / 數量。譯文少打一個就少一個資訊,多打一個會把中文裡本來的字
+// 吃掉換成價格 —— 而兩種錯誤在畫面上都只是「這句話怪怪的」,不會報錯。
+//
+// 這一條逐段比對 194 筆,是譯文品質的主要防線。
+func TestShopPlaceholdersMatchTheOriginal(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	dict, err := u5data.LoadDictionary(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(dir + "/SHOPPE.DAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := func(s string) map[rune]int {
+		m := map[rune]int{}
+		for _, r := range s {
+			switch r {
+			case '#', '$', '%', '&', '*', '@', '^':
+				m[r]++
+			}
+		}
+		return m
+	}
+	total, translated := 0, 0
+	for off := 0; off < len(raw); {
+		end := off
+		for end < len(raw) && raw[end] != 0 {
+			end++
+		}
+		if end > off {
+			en := dict.ExpandDAT(raw[off:end])
+			if strings.TrimSpace(en) != "" {
+				total++
+				if i18n.ShopTranslated(off) {
+					translated++
+					zh := i18n.Shop(off, en)
+					we, wz := count(en), count(zh)
+					for r, n := range we {
+						if wz[r] != n {
+							t.Errorf("位移 %d:原文有 %d 個 %q,譯文有 %d 個\n  EN: %s\n  ZH: %s",
+								off, n, string(r), wz[r], en, zh)
+						}
+					}
+					for r, n := range wz {
+						if we[r] != n {
+							t.Errorf("位移 %d:譯文多了 %d 個 %q(原文 %d 個)\n  ZH: %s",
+								off, n, string(r), we[r], zh)
+						}
+					}
+				}
+			}
+		}
+		off = end + 1
+	}
+	t.Logf("商店對白 %d 段,已翻 %d 段", total, translated)
+	if translated != total {
+		t.Errorf("還有 %d 段沒翻", total-translated)
+	}
+}
+
+// 譯文接得上引擎:買賣時顯示的是中文。
+func TestShopSpeaksChinese(t *testing.T) {
+	dir := gameDataDir(t)
+	if dir == "" {
+		return
+	}
+	set, err := u5data.LoadTalkSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shops, err := u5data.LoadShops(dir, set.Dict)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shops.Translate = i18n.Shop
+	sh, ok := shops.At(britain, u5data.ShopTavern)
+	if !ok {
+		t.Skip("不列顛城沒有酒館")
+	}
+	got := shops.Greeting(sh, 0, 10)
+	if !strings.ContainsAny(got, "歡迎你我") {
+		t.Errorf("酒館招呼還是英文:%q", got)
+	}
+	// 店名與店主要被代換掉,不能留佔位符。
+	if strings.ContainsAny(got, "#$@") {
+		t.Errorf("佔位符沒代換乾淨:%q", got)
+	}
 }

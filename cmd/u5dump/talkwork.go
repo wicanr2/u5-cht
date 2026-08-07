@@ -223,3 +223,58 @@ func recordByID(tf *u5data.TalkFile, id int) (*u5data.TalkRecord, bool) {
 	}
 	return nil, false
 }
+
+// `shopwork` —— 產出 `SHOPPE.DAT` 的翻譯工作清單
+//
+// 商店對白比 `.TLK` 小得多(194 筆),而且玩家每次買賣都會看到 ——
+// 投報率比對話本文高。key 是**檔案位移**,因為原版本來就是拿位移取文字的。
+func cmdShopWork(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump shopwork <gamedata> <out.md>")
+	}
+	dir, out := args[0], args[1]
+	dict, err := u5data.LoadDictionary(dir)
+	if err != nil {
+		return err
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "SHOPPE.DAT"))
+	if err != nil {
+		return err
+	}
+
+	var b strings.Builder
+	b.WriteString("# `SHOPPE.DAT` 商店對白翻譯工作清單\n\n")
+	b.WriteString("由 `u5dump shopwork` 產生。**含原版全文,不要入庫。**\n\n")
+	b.WriteString("佔位符要照抄進譯文:`#`店名 `$`店主 `%`價格 `&`物品 `*`地名 `@`時段 `^`數量。\n\n")
+	b.WriteString("| 位移 | 英文 |\n|---|---|\n")
+
+	total, done := 0, 0
+	off := 0
+	for off < len(raw) {
+		end := off
+		for end < len(raw) && raw[end] != 0 {
+			end++
+		}
+		if end > off {
+			en := dict.ExpandDAT(raw[off:end])
+			if strings.TrimSpace(en) != "" {
+				total++
+				mark := ""
+				if i18n.ShopTranslated(off) {
+					done++
+					mark = " ✅"
+				}
+				fmt.Fprintf(&b, "| `%d`%s | %s |\n", off, mark, cell(en))
+			}
+		}
+		off = end + 1
+	}
+	fmt.Fprintf(&b, "\n共 %d 段,已翻 %d 段(%.1f%%)。\n",
+		total, done, 100*float64(done)/float64(max1(total)))
+	if err := os.WriteFile(out, []byte(b.String()), 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %s —— %d 段,已翻 %d 段(%.1f%%)\n",
+		out, total, done, 100*float64(done)/float64(max1(total)))
+	return nil
+}

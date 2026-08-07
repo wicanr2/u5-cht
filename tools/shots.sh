@@ -18,7 +18,7 @@ run "$OUT/00-intro.png"   --script "I.."
 run "$OUT/01-world.png"   --at 81 108
 run "$OUT/02-town.png"    --scene BRITAIN 0 15 15
 run "$OUT/03-talk.png"    --scene BRITAIN 0 30 6 --script 'T"name"'
-run "$OUT/04-shop.png"    --scene BRITAIN 0 5 19 --script 'T[b]'
+run "$OUT/04-shop.png"    --scene BRITAIN 0 5 19 --script 'T[ba]'
 run "$OUT/05-combat.png"  --at 81 108 --script '!'
 run "$OUT/06-dungeon.png" --at 240 73 --script "EL"
 run "$OUT/07-peer.png"    --at 81 108 --script 'P'
