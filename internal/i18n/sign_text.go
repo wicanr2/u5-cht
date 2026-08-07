@@ -1,8 +1,8 @@
 package i18n
 
 // `SIGNS.DAT` 的招牌與墓碑譯文。key 尾巴的數字是第幾列(從 0 起)。
-// 框線(8 9 : ; a b c d e f h i j k l m n g)照原樣保留。
-// 文字列: g + 內容(14欄,中文字=2欄,空格=1欄) + g
+// 框線由引擎自動取用原文,無需手動填寫。
+// 文字列: g + 中文內容 + g,引擎自動置中。
 
 func init() {
 	addSign(map[string]string{
@@ -44,17 +44,17 @@ func init() {
 		// sign#0#233#242#0 - 聖跡尋求條件
 		"sign#0#233#242#0": "8lllllllllllll9",
 		"sign#0#233#242#1": "g             g",
-		"sign#0#233#242#2": "g 汝知悉 可方g",
+		"sign#0#233#242#2": "g 汝知悉可入 g",
 		"sign#0#233#242#3": "g  得入若係  g",
 		"sign#0#233#242#4": "g 神聖之任務  g",
-		"sign#0#233#242#5": "g     上      g",
+		"sign#0#233#242#5": "g 上如聖迹  g",
 		"sign#0#233#242#6": "g             g",
 		"sign#0#233#242#7": ":lllllllllllll;",
 
 		// sign#0#55#66#0 - 森林警告
 		"sign#0#55#66#0": "8lllllmlllll9",
 		"sign#0#55#66#1": "g           g",
-		"sign#0#55#66#2": "g 謹慎深林  g",
+		"sign#0#55#66#2": "g 謹慎深森林 g",
 		"sign#0#55#66#3": "g           g",
 		"sign#0#55#66#4": ":lllllnlllll;",
 
@@ -64,19 +64,19 @@ func init() {
 		"sign#0#45#172#2": "g 此乃如下島g",
 		"sign#0#45#172#3": "g  名舍洛克  g",
 		"sign#0#45#172#4": "g   其人     g",
-		"sign#0#45#172#5": "g  怪誕奇異  g",
+		"sign#0#45#172#5": "g 怪誕奇異  g",
 		"sign#0#45#172#6": "g           g",
 		"sign#0#45#172#7": ":lllllnlllll;",
 
 		// sign#0#54#143#0 - 不列顛王探險紀
 		"sign#0#54#143#0": "abbbbbmbbmbbbbbc",
-		"sign#0#54#143#1": "g 茲始開啟  g",
-		"sign#0#54#143#2": "g 陛下之聖 g",
-		"sign#0#54#143#3": "g  跡以探索  g",
-		"sign#0#54#143#4": "g  勘定於新  g",
-		"sign#0#54#143#5": "g  幽冥界起  g",
-		"sign#0#54#143#6": "g  月日   g",
-		"sign#0#54#143#7": "deeeeeneeneeeeef",
+		"sign#0#54#143#1": "g 茲始開啟聖迹 g",
+		"sign#0#54#143#2": "g  陛下之探索  g",
+		"sign#0#54#143#3": "g  以勘定新幽冥g",
+		"sign#0#54#143#4": "g136年11月27日g",
+		"sign#0#54#143#5": "g              g",
+		"sign#0#54#143#6": "g              g",
+		"sign#0#54#143#7": "g 幽冥界 g",
 
 		// sign#0#103#223#0 - 墓碑: 梅里丁
 		"sign#0#103#223#0": "     hlllli     ",
@@ -86,7 +86,7 @@ func init() {
 		"sign#0#103#223#4": "g          g",
 		"sign#0#103#223#5": "g   梅里丁   g",
 		"sign#0#103#223#6": "g          g",
-		"sign#0#103#223#7": "g 安眠  137年g",
+		"sign#0#103#223#7": "g 安眠 137年 g",
 		"sign#0#103#223#8": "jlllli    hllllk",
 		"sign#0#103#223#9": "     g    g    ",
 		"sign#0#103#223#10": "     g    g    ",
@@ -99,7 +99,7 @@ func init() {
 		"sign#0#104#223#4": "g          g",
 		"sign#0#104#223#5": "g 亞里歐尼斯g",
 		"sign#0#104#223#6": "g          g",
-		"sign#0#104#223#7": "g 安眠  137年g",
+		"sign#0#104#223#7": "g 安眠 137年 g",
 		"sign#0#104#223#8": "jlllli    hllllk",
 		"sign#0#104#223#9": "     g    g    ",
 		"sign#0#104#223#10": "     g    g    ",
@@ -125,7 +125,7 @@ func init() {
 		"sign#0#106#223#4": "g          g",
 		"sign#0#106#223#5": "g    諾因    g",
 		"sign#0#106#223#6": "g          g",
-		"sign#0#106#223#7": "g 安眠  137年g",
+		"sign#0#106#223#7": "g 安眠 137年 g",
 		"sign#0#106#223#8": "jlllli    hllllk",
 		"sign#0#106#223#9": "     g    g    ",
 		"sign#0#106#223#10": "     g    g    ",
@@ -138,7 +138,7 @@ func init() {
 		"sign#0#107#223#4": "g          g",
 		"sign#0#107#223#5": "g   傑拉西   g",
 		"sign#0#107#223#6": "g          g",
-		"sign#0#107#223#7": "g 安眠  137年g",
+		"sign#0#107#223#7": "g 安眠 137年 g",
 		"sign#0#107#223#8": "jlllli    hllllk",
 		"sign#0#107#223#9": "     g    g    ",
 		"sign#0#107#223#10": "     g    g    ",
@@ -150,8 +150,8 @@ func init() {
 		"sign#1#14#20#3": "gllllllllllllllg",
 		"sign#1#14#20#4": "g 汝不得妄言 g",
 		"sign#1#14#20#5": "g 否則汝將失 g",
-		"sign#1#14#20#6": "g  其舌頭矣  g",
-		"sign#1#14#20#7": "deeeeeeeeeeeeeef",
+		"sign#1#14#20#6": "g  其舌頭失  g",
+		"sign#1#14#20#7": "g 之舌 g",
 
 		// sign#1#16#20#0 - 黑棘法律：誠實(重複)
 		"sign#1#16#20#0": "abbbbbbbbbbbbbbc",
@@ -160,36 +160,36 @@ func init() {
 		"sign#1#16#20#3": "gllllllllllllllg",
 		"sign#1#16#20#4": "g 汝不得妄言 g",
 		"sign#1#16#20#5": "g 否則汝將失 g",
-		"sign#1#16#20#6": "g  其舌頭矣  g",
-		"sign#1#16#20#7": "deeeeeeeeeeeeeef",
+		"sign#1#16#20#6": "g  其舌頭失  g",
+		"sign#1#16#20#7": "g 之舌 g",
 
 		// sign#2#11#0#0 - 私人房間
 		"sign#2#11#0#0": "abbbbbbbbbbbbbc",
 		"sign#2#11#0#1": "g   私人居室   g",
-		"sign#2#11#0#2": "g  禁止進入   g",
-		"sign#2#11#0#3": "deeeeeeeeeeeeef",
+		"sign#2#11#0#2": "g  禁止入內   g",
+		"sign#2#11#0#3": "g 禁止進入 g",
 
 		// sign#2#16#27#0 - 黑棘法律：慈悲
 		"sign#2#16#27#0": "abbbbbbbbbbbbbbc",
 		"sign#2#16#27#1": "g  黑棘法律   g",
 		"sign#2#16#27#2": "g    慈 悲    g",
-		"sign#2#16#27#3": "gllllllllllllllg",
+		"sign#2#16#27#3": "g 慈悲 g",
 		"sign#2#16#27#4": "g  汝應救濟   g",
 		"sign#2#16#27#5": "g  陷入困厄者  g",
 		"sign#2#16#27#6": "g 或汝將自陷g",
-		"sign#2#16#27#7": "g  相同困厄內  g",
-		"sign#2#16#27#8": "deeeeeeeeeeeeeef",
+		"sign#2#16#27#7": "g 相同困厄內 g",
+		"sign#2#16#27#8": "g 必受其苦 g",
 
 		// sign#2#14#27#0 - 黑棘法律：慈悲(重複)
 		"sign#2#14#27#0": "abbbbbbbbbbbbbbc",
 		"sign#2#14#27#1": "g  黑棘法律   g",
 		"sign#2#14#27#2": "g    慈 悲    g",
-		"sign#2#14#27#3": "gllllllllllllllg",
+		"sign#2#14#27#3": "g 慈悲 g",
 		"sign#2#14#27#4": "g  汝應救濟   g",
 		"sign#2#14#27#5": "g  陷入困厄者  g",
 		"sign#2#14#27#6": "g 或汝將自陷g",
-		"sign#2#14#27#7": "g  相同困厄內  g",
-		"sign#2#14#27#8": "deeeeeeeeeeeeeef",
+		"sign#2#14#27#7": "g 相同困厄內 g",
+		"sign#2#14#27#8": "g 必受其苦 g",
 
 		// sign#3#15#28#0 - 黑棘法律：勇氣
 		"sign#3#15#28#0": "abbbbbbbbbbbbbbc",
@@ -200,49 +200,49 @@ func init() {
 		"sign#3#15#28#5": "g  奮戰至死   g",
 		"sign#3#15#28#6": "g 或汝將被逐g",
 		"sign#3#15#28#7": "g   被 貶 為   g",
-		"sign#3#15#28#8": "g    懦 夫    g",
-		"sign#3#15#28#9": "deeeeeeeeeeeeeef",
+		"sign#3#15#28#8": "g   如 懦 夫   g",
+		"sign#3#15#28#9": "g 懦夫 g",
 
 		// sign#4#14#5#0 - 寬恕
 		"sign#4#14#5#0": "8llllmlllmllll9",
 		"sign#4#14#5#1": "g 願入者知悉 g",
 		"sign#4#14#5#2": "g   得蒙寬恕   g",
-		"sign#4#14#5#3": ":llllnlllnllllk",
+		"sign#4#14#5#3": "g 寬恕 g",
 
 		// sign#4#17#17#0 - 政治囚禁
 		"sign#4#17#17#0": "8llllllmllllll9",
 		"sign#4#17#17#1": "g  政治囚犯   g",
-		"sign#4#17#17#2": "jllllllnllllllk",
+		"sign#4#17#17#2": "g 囚犯 g",
 
 		// sign#4#12#4#0 - 可憐的弗雷德
 		"sign#4#12#4#0": "8lllllllllllll9",
 		"sign#4#12#4#1": "g     哀哉    g",
 		"sign#4#12#4#2": "g  可憐的弗雷德 g",
 		"sign#4#12#4#3": "g   他失掉頭顱 g",
-		"sign#4#12#4#4": "jlllllllllllllk",
+		"sign#4#12#4#4": "g 其首級 g",
 
 		// sign#4#11#2#0 - 派特死於鼠咬
 		"sign#4#11#2#0": "8lllllllllllll9",
 		"sign#4#11#2#1": "g   於此眠臥   g",
 		"sign#4#11#2#2": "g     派 特    g",
 		"sign#4#11#2#3": "g   被鼠吞噬   g",
-		"sign#4#11#2#4": "jlllllllllllllk",
+		"sign#4#11#2#4": "g 為鼠所噬 g",
 
 		// sign#4#13#1#0 - 黑棘弄臣上半身
 		"sign#4#13#1#0": "8llllllllllllll9",
 		"sign#4#13#1#1": "g   於此眠臥    g",
 		"sign#4#13#1#2": "g   黑 棘 老    g",
 		"sign#4#13#1#3": "g    弄 臣 之    g",
-		"sign#4#13#1#4": "g     上 半 身    g",
-		"sign#4#13#1#5": "jllllllllllllllk",
+		"sign#4#13#1#4": "g   上 半 身    g",
+		"sign#4#13#1#5": "g 老弄臣 g",
 
 		// sign#4#14#1#0 - 黑棘弄臣下半身
 		"sign#4#14#1#0": "8llllllllllllll9",
 		"sign#4#14#1#1": "g   於此眠臥    g",
 		"sign#4#14#1#2": "g   黑 棘 老    g",
 		"sign#4#14#1#3": "g    弄 臣 之    g",
-		"sign#4#14#1#4": "g     下 半 身    g",
-		"sign#4#14#1#5": "jllllllllllllllk",
+		"sign#4#14#1#4": "g   下 半 身    g",
+		"sign#4#14#1#5": "g 老弄臣 g",
 
 		// sign#4#17#3#0 - 海伍德的墓碑
 		"sign#4#17#3#0": "8lllllllllllll9",
@@ -254,29 +254,31 @@ func init() {
 		"sign#4#17#3#6": "jlllllllllllllk",
 
 		// sign#4#18#4#0 - 萊夫的墓碑
-		"sign#4#18#4#0": "     hllli",
+		"sign#4#18#4#0": "     hllli    ",
 		"sign#4#18#4#1": "hllllk   jlllli",
 		"sign#4#18#4#2": "g   下埋著萊夫  g",
-		"sign#4#18#4#3": "g  誰實為小賊也 g",
-		"sign#4#18#4#4": "jlllli   hllllk",
-		"sign#4#18#4#5": "     g   g",
+		"sign#4#18#4#3": "g   誰實為小賊也 g",
+		"sign#4#18#4#4": "g      也      g",
+		"sign#4#18#4#5": "g 竟是個 g",
+		"sign#4#18#4#6": "g 竊賊 g",
 
 		// sign#4#18#1#0 - 黃堡的墓碑
-		"sign#4#18#1#0": "     hllli",
+		"sign#4#18#1#0": "     hllli    ",
 		"sign#4#18#1#1": "hllllk   jlllli",
 		"sign#4#18#1#2": "g   於此眠臥   g",
 		"sign#4#18#1#3": "g   黃堡冰冷   g",
-		"sign#4#18#1#4": "g   如冰山矣   g",
-		"sign#4#18#1#5": "jlllli   hllllk",
-		"sign#4#18#1#6": "     g   g",
+		"sign#4#18#1#4": "g   如 冰 山   g",
+		"sign#4#18#1#5": "g 冰山 g",
+		"sign#4#18#1#6": "     g   g    ",
 
 		// sign#4#16#2#0 - 約翰死於刑具
 		"sign#4#16#2#0": "    hllli    ",
 		"sign#4#16#2#1": "hlllk   jllli",
 		"sign#4#16#2#2": "g  約翰多邪惡  g",
 		"sign#4#16#2#3": "g 死於刑具上   g",
-		"sign#4#16#2#4": "jllll   hlllk",
-		"sign#4#16#2#5": "    g   g    ",
+		"sign#4#16#2#4": "g              g",
+		"sign#4#16#2#5": "g 手銬 g",
+		"sign#4#16#2#6": "    g   g    ",
 
 		// sign#4#14#3#0 - 傑克死於刑架
 		"sign#4#14#3#0": "     hllli    ",
@@ -284,8 +286,8 @@ func init() {
 		"sign#4#14#3#2": "g   於此眠臥   g",
 		"sign#4#14#3#3": "g    傑 克    g",
 		"sign#4#14#3#4": "g   被拉扯於   g",
-		"sign#4#14#3#5": "g    刑 架 上   g",
-		"sign#4#14#3#6": "jlllli   hllllk",
+		"sign#4#14#3#5": "g   刑 架 上   g",
+		"sign#4#14#3#6": "g 刑架 g",
 		"sign#4#14#3#7": "     g   g    ",
 
 		// sign#4#17#21#0 - 通緝
@@ -296,7 +298,7 @@ func init() {
 		"sign#4#17#21#4": "g             g",
 		"sign#4#17#21#5": "g             g",
 		"sign#4#17#21#6": "g   生死不論   g",
-		"sign#4#17#21#7": "deeeeeeeeeeeeef",
+		"sign#4#17#21#7": "g 生死不拘 g",
 
 		// sign#4#16#28#0 - 黑棘法律：正義
 		"sign#4#16#28#0": "abbbbbbbbbbbbbbc",
@@ -305,9 +307,9 @@ func init() {
 		"sign#4#16#28#3": "gllllllllllllllg",
 		"sign#4#16#28#4": "g  汝應認罪   g",
 		"sign#4#16#28#5": "g  並受正當審g",
-		"sign#4#16#28#6": "g  判 或 汝 將 g",
+		"sign#4#16#28#6": "g   判 罪 或  g",
 		"sign#4#16#28#7": "g   被 判 死 刑  g",
-		"sign#4#16#28#8": "deeeeeeeeeeeeeef",
+		"sign#4#16#28#8": "g 受罰,或 g",
 
 		// sign#4#14#28#0 - 黑棘法律：正義(重複)
 		"sign#4#14#28#0": "abbbbbbbbbbbbbbc",
@@ -316,9 +318,9 @@ func init() {
 		"sign#4#14#28#3": "gllllllllllllllg",
 		"sign#4#14#28#4": "g  汝應認罪   g",
 		"sign#4#14#28#5": "g  並受正當審g",
-		"sign#4#14#28#6": "g  判 或 汝 將 g",
+		"sign#4#14#28#6": "g   判 罪 或  g",
 		"sign#4#14#28#7": "g   被 判 死 刑  g",
-		"sign#4#14#28#8": "deeeeeeeeeeeeeef",
+		"sign#4#14#28#8": "g 受罰,或 g",
 
 		// sign#5#20#14#0 - 無助者的使命
 		"sign#5#20#14#0": "abbbbbbbbbbbbbbc",
@@ -330,23 +332,23 @@ func init() {
 		"sign#5#14#28#0": "abbbbbbbbbbbbbbc",
 		"sign#5#14#28#1": "g  黑棘法律   g",
 		"sign#5#14#28#2": "g    犧 牲    g",
-		"sign#5#14#28#3": "gllllllllllllllg",
+		"sign#5#14#28#3": "g 犧牲 g",
 		"sign#5#14#28#4": "g  汝應捐獻   g",
-		"sign#5#14#28#5": "g  收 入 之 半   g",
-		"sign#5#14#28#6": "g 予慈善 或汝g",
+		"sign#5#14#28#5": "g   收入之半   g",
+		"sign#5#14#28#6": "g  予 慈 善   g",
 		"sign#5#14#28#7": "g  將無收入矣  g",
-		"sign#5#14#28#8": "deeeeeeeeeeeeeef",
+		"sign#5#14#28#8": "g 行善,或 g",
 
 		// sign#5#16#28#0 - 黑棘法律：犧牲(重複)
 		"sign#5#16#28#0": "abbbbbbbbbbbbbbc",
 		"sign#5#16#28#1": "g  黑棘法律   g",
 		"sign#5#16#28#2": "g    犧 牲    g",
-		"sign#5#16#28#3": "gllllllllllllllg",
+		"sign#5#16#28#3": "g 犧牲 g",
 		"sign#5#16#28#4": "g  汝應捐獻   g",
-		"sign#5#16#28#5": "g  收 入 之 半   g",
-		"sign#5#16#28#6": "g 予慈善 或汝g",
+		"sign#5#16#28#5": "g   收入之半   g",
+		"sign#5#16#28#6": "g  予 慈 善   g",
 		"sign#5#16#28#7": "g  將無收入矣  g",
-		"sign#5#16#28#8": "deeeeeeeeeeeeeef",
+		"sign#5#16#28#8": "g 行善,或 g",
 
 		// sign#6#15#28#0 - 黑棘法律：榮譽
 		"sign#6#15#28#0": "abbbbbbbbbbbbbbc",
@@ -355,9 +357,9 @@ func init() {
 		"sign#6#15#28#3": "gllllllllllllllg",
 		"sign#6#15#28#4": "g 若汝失榮譽 g",
 		"sign#6#15#28#5": "g 則汝應取汝 g",
-		"sign#6#15#28#6": "g  自 己 的 生   g",
+		"sign#6#15#28#6": "g   自己的生   g",
 		"sign#6#15#28#7": "g    命 矣    g",
-		"sign#6#15#28#8": "deeeeeeeeeeeeeef",
+		"sign#6#15#28#8": "g 汝之所有 g",
 
 		// sign#7#5#1#0 - 吟遊詩人之末
 		"sign#7#5#1#0": "     hllli    ",
@@ -372,12 +374,12 @@ func init() {
 		"sign#7#15#25#0": "abbbbbbbbbbbbbbc",
 		"sign#7#15#25#1": "g  黑棘法律   g",
 		"sign#7#15#25#2": "g    靈 性    g",
-		"sign#7#15#25#3": "gllllllllllllllg",
+		"sign#7#15#25#3": "g 靈性 g",
 		"sign#7#15#25#4": "g  汝應施行   g",
 		"sign#7#15#25#5": "g  美德之法律 g",
-		"sign#7#15#25#6": "g 或汝將死作g",
+		"sign#7#15#25#6": "g  或汝將死   g",
 		"sign#7#15#25#7": "g   異 教 徒 矣   g",
-		"sign#7#15#25#8": "deeeeeeeeeeeeeef",
+		"sign#7#15#25#8": "g 修德,或 g",
 
 		// sign#8#15#27#0 - 新馬精西亞重建
 		"sign#8#15#27#0": "abbbbbbbbbbbbbbc",
@@ -394,7 +396,7 @@ func init() {
 		"sign#8#19#7#3": "g    的市民    g",
 		"sign#8#19#7#4": "g 願彼等安寧   g",
 		"sign#8#19#7#5": "g   安眠矣    g",
-		"sign#8#19#7#6": "deeeeeeeeeeeeef",
+		"sign#8#19#7#6": "g 安息 g",
 
 		// sign#8#18#1#0 - 海伍德
 		"sign#8#18#1#0": "8lllllllllllll9",
@@ -442,32 +444,32 @@ func init() {
 		"sign#8#20#20#0": "abbbbbbbbbbbbbbc",
 		"sign#8#20#20#1": "g  黑棘法律   g",
 		"sign#8#20#20#2": "g    謙 遜    g",
-		"sign#8#20#20#3": "gllllllllllllllg",
+		"sign#8#20#20#3": "g 謙遜 g",
 		"sign#8#20#20#4": "g  汝應謙卑   g",
-		"sign#8#20#20#5": "g  於  汝  之 g",
-		"sign#8#20#20#6": "g  上  位  者  g",
-		"sign#8#20#20#7": "g 或汝將遭其g",
+		"sign#8#20#20#5": "g    於汝之    g",
+		"sign#8#20#20#6": "g    上 位 者   g",
+		"sign#8#20#20#7": "g  或汝將遭其  g",
 		"sign#8#20#20#8": "g   怒 火 焚 燒  g",
-		"sign#8#20#20#9": "deeeeeeeeeeeeeef",
+		"sign#8#20#20#9": "g 汝當 g",
 
 		// sign#8#20#17#0 - 黑棘法律：謙遜(重複)
 		"sign#8#20#17#0": "abbbbbbbbbbbbbbc",
 		"sign#8#20#17#1": "g  黑棘法律   g",
 		"sign#8#20#17#2": "g    謙 遜    g",
-		"sign#8#20#17#3": "gllllllllllllllg",
+		"sign#8#20#17#3": "g 謙遜 g",
 		"sign#8#20#17#4": "g  汝應謙卑   g",
-		"sign#8#20#17#5": "g  於  汝  之 g",
-		"sign#8#20#17#6": "g  上  位  者  g",
-		"sign#8#20#17#7": "g 或汝將遭其g",
+		"sign#8#20#17#5": "g    於汝之    g",
+		"sign#8#20#17#6": "g    上 位 者   g",
+		"sign#8#20#17#7": "g  或汝將遭其  g",
 		"sign#8#20#17#8": "g   怒 火 焚 燒  g",
-		"sign#8#20#17#9": "deeeeeeeeeeeeeef",
+		"sign#8#20#17#9": "g 汝當 g",
 
 		// sign#9#12#28#0 - 破霧塔歡迎
 		"sign#9#12#28#0": "8lllllllmllllll9",
 		"sign#9#12#28#1": "g              g",
 		"sign#9#12#28#2": "g    破霧塔    g",
 		"sign#9#12#28#3": "g              g",
-		"sign#9#12#28#4": "g    訪客歡迎   g",
+		"sign#9#12#28#4": "g   訪客歡迎   g",
 		"sign#9#12#28#5": "g              g",
 		"sign#9#12#28#6": "jlllllllnllllllk",
 
@@ -476,7 +478,7 @@ func init() {
 		"sign#11#18#25#1": "g              g",
 		"sign#11#18#25#2": "g    灰港塔    g",
 		"sign#11#18#25#3": "g              g",
-		"sign#11#18#25#4": "g  美德之光    g",
+		"sign#11#18#25#4": "g   美德之光   g",
 		"sign#11#18#25#5": "g              g",
 		"sign#11#18#25#6": "jlllllllnllllllk",
 
@@ -486,35 +488,35 @@ func init() {
 		"sign#14#1#1#2": "g   於此眠臥   g",
 		"sign#14#1#1#3": "g  可憐的理查德 g",
 		"sign#14#1#1#4": "g  活埋而死欲速 g",
-		"sign#14#1#1#5": "g   成 終 極 五  g",
+		"sign#14#1#1#5": "g   成終極五  g",
 		"sign#14#1#1#6": "g              g",
-		"sign#14#1#1#7": "jllllllllllllllk",
+		"sign#14#1#1#7": "g 創世紀五 g",
 
 		// sign#14#3#1#0 - 列布林的棺木
 		"sign#14#3#1#0": "     hlllli     ",
 		"sign#14#3#1#1": "hllllk    jlllli",
 		"sign#14#3#1#2": "g   於此眠臥   g",
 		"sign#14#3#1#3": "g  列布林在棺內  g",
-		"sign#14#3#1#4": "g              g",
-		"sign#14#3#1#5": "g 龍毆過頻繁   g",
-		"sign#14#3#1#6": "g              g",
-		"sign#14#3#1#7": "jlllli    hllllk",
+		"sign#14#3#1#4": "g   踢龍過頻繁  g",
+		"sign#14#3#1#5": "g   於 龍 蛇   g",
+		"sign#14#3#1#6": "g   足尋常     g",
+		"sign#14#3#1#7": "g 過於頻繁 g",
 		"sign#14#3#1#8": "     g    g     ",
 
 		// sign#14#5#1#0 - 飲酒駕駛警示墓碑
 		"sign#14#5#1#0": "8llllllllllllll9",
 		"sign#14#5#1#1": "g 彼已不活     g",
 		"sign#14#5#1#2": "g 他欲飲酒與   g",
-		"sign#14#5#1#3": "g  駕駛(馬車)  g",
+		"sign#14#5#1#3": "g  駕 駛 馬 車  g",
 		"sign#14#5#1#4": "g              g",
-		"sign#14#5#1#5": "g 此為公共   g",
-		"sign#14#5#1#6": "g   服務墓碑    g",
-		"sign#14#5#1#7": "jllllllllllllllk",
+		"sign#14#5#1#5": "g   此為公共   g",
+		"sign#14#5#1#6": "g  服務墓碑    g",
+		"sign#14#5#1#7": "g 此地一向如此 g",
 
 		// sign#17#6#13#0 - 皇家監獄
 		"sign#17#6#13#0": "abbbbbbbbbbbbbbc",
 		"sign#17#6#13#1": "g              g",
-		"sign#17#6#13#2": "g   皇家獄所   g",
+		"sign#17#6#13#2": "g   皇家監獄   g",
 		"sign#17#6#13#3": "g              g",
 		"sign#17#6#13#4": "deeeeeeeeeeeeeef",
 
@@ -532,18 +534,17 @@ func init() {
 		"sign#17#20#24#0": "abbbbbbbbbbbbbbc",
 		"sign#17#20#24#1": "g              g",
 		"sign#17#20#24#2": "g   皇家馬廄   g",
-		"sign#17#20#24#3": "g              g",
-		"sign#17#20#24#4": "g   小心 汝之   g",
-		"sign#17#20#24#5": "g     步 伐     g",
-		"sign#17#20#24#6": "deeeeeeeeeeeeeef",
+		"sign#17#20#24#3": "g   小 心 汝   g",
+		"sign#17#20#24#4": "g     步 伐     g",
+		"sign#17#20#24#5": "g 留神腳下 g",
 
 		// sign#17#16#19#0 - 不列顛王私人居室
 		"sign#17#16#19#0": "abbbbbbbbbbbbbbc",
 		"sign#17#16#19#1": "g              g",
 		"sign#17#16#19#2": "g   不列顛王   g",
 		"sign#17#16#19#3": "g   私人房間   g",
-		"sign#17#16#19#4": "g              g",
-		"sign#17#16#19#5": "deeeeeeeeeeeeeef",
+		"sign#17#16#19#4": "g    的陛下    g",
+		"sign#17#16#19#5": "g 不列顛王 g",
 
 		// sign#18#15#26#0 - 黑棘宮殿歡迎
 		"sign#18#15#26#0": "abbbbbbbbbbbbbbc",
@@ -551,14 +552,14 @@ func init() {
 		"sign#18#15#26#2": "g   歡迎蒞臨   g",
 		"sign#18#15#26#3": "g  至尊主宰之   g",
 		"sign#18#15#26#4": "g    宮 殿     g",
-		"sign#18#15#26#5": "g   黑 棘     g",
-		"sign#18#15#26#6": "deeeeeeeeeeeeeef",
+		"sign#18#15#26#5": "g    黑 棘    g",
+		"sign#18#15#26#6": "g 黑棘 g",
 
 		// sign#19#13#6#0 - 盜墓警告
 		"sign#19#13#6#0": "8llllllmllllll9",
 		"sign#19#13#6#1": "g             g",
-		"sign#19#13#6#2": "g  盜墓者    g",
-		"sign#19#13#6#3": "g  必受追訴  g",
+		"sign#19#13#6#2": "g  盜墓者被   g",
+		"sign#19#13#6#3": "g   起訴矣    g",
 		"sign#19#13#6#4": "g             g",
 		"sign#19#13#6#5": ":llllllnllllll;",
 
@@ -568,16 +569,16 @@ func init() {
 		"sign#19#1#1#2": "g  於此眠臥可憐  g",
 		"sign#19#1#1#3": "g    柯 林     g",
 		"sign#19#1#1#4": "g  跌下懸崖身亡  g",
-		"sign#19#1#1#5": "g              g",
+		"sign#19#1#1#5": "g    曾失落    g",
 		"sign#19#1#1#6": "jllllllllllllllk",
 
 		// sign#19#3#1#0 - 伊恩的故事
 		"sign#19#3#1#0": "8llllllllllllll9",
 		"sign#19#3#1#1": "g              g",
 		"sign#19#3#1#2": "g  於此埋葬伊恩  g",
-		"sign#19#3#1#3": "g    何等壞孩子    g",
+		"sign#19#3#1#3": "g   何等壞孩子   g",
 		"sign#19#3#1#4": "g  他曾是怎樣壞  g",
-		"sign#19#3#1#5": "g  孩子遺憾他不  g",
+		"sign#19#3#1#5": "g   孩子失蹤    g",
 		"sign#19#3#1#6": "g              g",
 		"sign#19#3#1#7": "jllllllllllllllk",
 
@@ -586,7 +587,7 @@ func init() {
 		"sign#19#5#1#1": "hllllk    jlllli",
 		"sign#19#5#1#2": "g  柯克失利於   g",
 		"sign#19#5#1#3": "g  一場戰鬥矣   g",
-		"sign#19#5#1#4": "g 遭刀劍錯誤之側  g",
+		"sign#19#5#1#4": "g  遭刀劍錯誤之  g",
 		"sign#19#5#1#5": "g    傷 害 矣    g",
 		"sign#19#5#1#6": "jlllli    hllllk",
 		"sign#19#5#1#7": "     g    g     ",
@@ -607,8 +608,8 @@ func init() {
 		"sign#19#9#1#2": "g   強 者 且 勇  g",
 		"sign#19#9#1#3": "g   年輕勞瑞爾   g",
 		"sign#19#9#1#4": "g  試木桶下瀑布  g",
-		"sign#19#9#1#5": "g              g",
-		"sign#19#9#1#6": "jlllli    hllllk",
+		"sign#19#9#1#5": "g   一個 木 桶   g",
+		"sign#19#9#1#6": "g 於桶中 g",
 		"sign#19#9#1#7": "     g    g     ",
 
 		// sign#19#1#6#0 - 安德烈之死
@@ -618,7 +619,7 @@ func init() {
 		"sign#19#1#6#3": "g  地球傘下     g",
 		"sign#19#1#6#4": "g  哀哉彼死於   g",
 		"sign#19#1#6#5": "g  沙門氏菌病矣  g",
-		"sign#19#1#6#6": "jlllli    hllllk",
+		"sign#19#1#6#6": "g 沙門氏菌 g",
 		"sign#19#1#6#7": "     g    g     ",
 
 		// sign#19#3#6#0 - 戴爾在酒吧
@@ -637,16 +638,16 @@ func init() {
 		"sign#19#5#6#2": "g  愛慕女性者   g",
 		"sign#19#5#6#3": "g    英俊科特    g",
 		"sign#19#5#6#4": "g  與不當人調情  g",
-		"sign#19#5#6#5": "g              g",
-		"sign#19#5#6#6": "jllllllllllllllk",
+		"sign#19#5#6#5": "g    漂亮如是   g",
+		"sign#19#5#6#6": "g 調情 g",
 
 		// sign#19#7#6#0 - 珍與工作
 		"sign#19#7#6#0": "     hlllli     ",
 		"sign#19#7#6#1": "hllllk   jlllli",
 		"sign#19#7#6#2": "g  更加努力工作  g",
 		"sign#19#7#6#3": "g   曰珍女士    g",
-		"sign#19#7#6#4": "g  從未再見矣   g",
-		"sign#19#7#6#5": "jlllli   hllllk",
+		"sign#19#7#6#4": "g   從未再見矣   g",
+		"sign#19#7#6#5": "g 自此不復見 g",
 		"sign#19#7#6#6": "     g   g     ",
 
 		// sign#19#9#6#0 - 羅伯特小氣
@@ -655,9 +656,10 @@ func init() {
 		"sign#19#9#6#2": "g  過度節儉者   g",
 		"sign#19#9#6#3": "g   羅伯特爵士  g",
 		"sign#19#9#6#4": "g  僱員私刑彼以 g",
-		"sign#19#9#6#5": "g   紓解己貧苦   g",
-		"sign#19#9#6#6": "jlllli   hllllk",
-		"sign#19#9#6#7": "     g   g    ",
+		"sign#19#9#6#5": "g  以紓解己貧   g",
+		"sign#19#9#6#6": "g   貧 苦 矣    g",
+		"sign#19#9#6#7": "g 之貧苦 g",
+		"sign#19#9#6#8": "     g   g    ",
 
 		// sign#20#17#28#0 - 北不列塔尼歡迎
 		"sign#20#17#28#0": "8lllllllmllllll9",
@@ -697,8 +699,8 @@ func init() {
 		"sign#30#15#11#0": "abbbbbbbbbbbbbbc",
 		"sign#30#15#11#1": "g              g",
 		"sign#30#15#11#2": "g  酒館與治癒  g",
-		"sign#30#15#11#3": "g  位於二樓    g",
-		"sign#30#15#11#4": "deeeeeeeeeeeeeef",
+		"sign#30#15#11#3": "g   位於二樓上  g",
+		"sign#30#15#11#4": "g 二樓 g",
 
 		// sign#30#10#12#0 - 圖書館
 		"sign#30#10#12#0": "abbbbbbbbbbbbbbc",

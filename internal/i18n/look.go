@@ -90,7 +90,24 @@ func SignLines(location, x, y int, en []string) []string {
 	if len(out) == 0 {
 		return en
 	}
-	return out
+	return append(out, signMissingBottom(out, en)...)
+}
+
+// signMissingBottom 補回被漏掉的底框。
+//
+// 譯文列數與原文不同(中文拆行)時,譯者很容易在補完內容之後忘了把最後
+// 那一列框線也接上 —— 78 塊裡有 45 塊掉了底,招牌變成沒有底的口字。
+// 底框不是譯文,少了就補,跟 `signFit` 對純框線列的處理同一個道理。
+func signMissingBottom(out, en []string) []string {
+	if len(en) == 0 {
+		return nil
+	}
+	bottom := en[len(en)-1]
+	// 原文最後一列若有空白就代表它是內容而不是框,那就沒有底可補。
+	if signHasContent(bottom) || out[len(out)-1] == bottom {
+		return nil
+	}
+	return []string{bottom}
 }
 
 // signTemplate 挑原文的哪一列當對齊範本。
@@ -137,7 +154,12 @@ func signFit(zh, template string) string {
 	}
 	// 純框線列一律用原文。譯者重打一次 ASCII 美術只會少一根線 ——
 	// 實測 78 塊裡有 14 列就是這樣歪掉的。框不是譯文,不該經過譯者的手。
-	if !signHasCJK(zh) {
+	//
+	// ⚠ **空白列是例外。** 招牌裡常有一整列只有兩側框線、中間全空的留白列
+	// (`g            g`)。它沒有中文,但它是譯者刻意留的**內容**,不是框 ——
+	// 換成原文那一列會把英文原句叫回來。這個洞讓 62 列英文活了下來,
+	// 而且從表面看像「譯者漏譯」,其實譯文寫對了、是這裡吃掉的。
+	if !signHasCJK(zh) && !signBlankRow(zh) {
 		return template
 	}
 	if signCols(zh) == w {
@@ -156,6 +178,15 @@ func signFit(zh, template string) string {
 	left := pad / 2
 	return string(tr[0]) + strings.Repeat(" ", left) +
 		inner + strings.Repeat(" ", pad-left) + string(tr[len(tr)-1])
+}
+
+// signBlankRow 回報這一列是不是「兩側框線 + 中間全空」的留白列。
+func signBlankRow(s string) bool {
+	r := []rune(s)
+	if len(r) < 3 {
+		return false
+	}
+	return strings.TrimSpace(string(r[1:len(r)-1])) == ""
 }
 
 // signHasCJK 回報這一列有沒有中文。沒有就代表它是框線,不是譯文。
