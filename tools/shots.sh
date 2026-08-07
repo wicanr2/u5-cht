@@ -29,4 +29,7 @@ run "$OUT/11-codex.png"   --at 100 100 --script 'R.'
 run "$OUT/12-throne.png"  --at 100 100 --script 'Zy'
 run "$OUT/13-cell.png"    --at 100 100 --script 'A'
 run "$OUT/14-shrine-room.png" --at 128 92 --script 'E'
+# 夜晚:視野縮成身邊九格,火把再撐開一圈(docs/re/31)
+run "$OUT/15-night.png"       --at 81 108 --hour 1
+run "$OUT/16-night-torch.png" --at 81 108 --hour 1 --script "L"
 echo "→ $OUT"

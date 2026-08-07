@@ -90,6 +90,9 @@ func (s *State) LightRadius2() int {
 // `cmp byte_3E0A3, 80h; jnb loc_29EB4` 那裡就分了岔:地點編號 ≥ 0x80
 // 直接把場景視窗整份 `rep movsd` 過去,不跑 flood fill ——
 // 也就是**戰鬥與四間石室沒有視線遮蔽**。地牢是另一套(第一人稱透視)。
+//
+// 兩輪:先算場景照明(`sub_2E21C`),再以玩家為中心算罩子(`sub_2E0E8`)。
+// 順序不能顛倒 —— 第二輪要查第一輪的結果。
 func (s *State) SightMask() []byte {
 	if s.InCombat() || s.InDungeon() || s.InChamber() {
 		return nil
@@ -100,28 +103,22 @@ func (s *State) SightMask() []byte {
 		r = -1
 	}
 	half := u5data.SightSide / 2
+	// 視窗左上角 —— 亮度圖與罩子共用這個原點。
+	ox, oy := s.X-half, s.Y-half
+	lit := u5data.ComputeLit(func(x, y int) byte {
+		return s.TileAt(ox+x, oy+y)
+	})
 	w := u5data.SightWindow{
 		Tile: func(x, y int) byte {
-			return s.TileAt(s.X+x-half, s.Y+y-half)
+			return s.TileAt(ox+x, oy+y)
 		},
-		InScene: func(x, y int) bool {
-			return s.sightInScene(s.X+x-half, s.Y+y-half)
+		Lit: func(x, y int) bool {
+			i := y*u5data.SightStride + x
+			return i >= 0 && i < len(lit) && lit[i] != 0
 		},
 	}
 	mask := u5data.ComputeSight(w, r)
 	return mask[:]
-}
-
-// sightInScene 回報這個座標有沒有對應到真的地圖格。
-//
-// 原版問的是場景視窗緩衝 `byte_3F8F4` 那一格非 0(而且落在 0..31)。
-// 對大地圖來說永遠成立(不列顛尼亞環繞,沒有邊界);對城鎮場景就是
-// 32×32 的邊界。
-func (s *State) sightInScene(x, y int) bool {
-	if !s.InScene() {
-		return true
-	}
-	return x >= 0 && x < u5data.SceneSide && y >= 0 && y < u5data.SceneSide
 }
 
 // SightVisible 回報 11×11 視窗裡的某一格看不看得見。

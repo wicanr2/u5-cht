@@ -81,11 +81,11 @@ func TestDoorsAndBlockersDoNotOverlap(t *testing.T) {
 	}
 }
 
-// openWindow 是一片空地(全部看得穿、全部在場景內)。
+// openWindow 是一片空地(全部看得穿、全部亮著)。
 func openWindow(tile byte) SightWindow {
 	return SightWindow{
 		Tile:    func(x, y int) byte { return tile },
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 }
 
@@ -136,7 +136,7 @@ func TestWisAnYlemRevealsEverything(t *testing.T) {
 			}
 			return 0x4E
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	mask := ComputeSight(w, -1)
 	for y := 0; y < SightSide; y++ {
@@ -163,7 +163,7 @@ func TestAWallHidesWhatIsBehindIt(t *testing.T) {
 			}
 			return 0x03
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	mask := ComputeSight(w, 1)
 
@@ -199,7 +199,7 @@ func TestStandingNextToADoorSeesThrough(t *testing.T) {
 			}
 			return 0x03
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	mask := ComputeSight(w, 1)
 	if mask[4*SightSide+5] != 0x4B {
@@ -221,7 +221,7 @@ func TestStandingNextToADoorSeesThrough(t *testing.T) {
 			}
 			return 0x03
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	mask2 := ComputeSight(w2, 1)
 	if mask2[2*SightSide+5] != SightHidden {
@@ -229,17 +229,17 @@ func TestStandingNextToADoorSeesThrough(t *testing.T) {
 	}
 }
 
-// 場景外的格子是黑的,不是垃圾。
+// 沒有光照到的格子看不見 —— 這就是夜晚會變暗的機制。
 //
-// ⚠ **但燈光半徑內的例外**:原版的半徑判斷(`jl loc_2E065`)排在場景檢查
-// **之前**,所以半徑內的格子連「在不在場景裡」都不問就直接畫。
-// 這在正常遊玩時看不出來(場景邊緣外側本來就有牆),但重寫時很容易
-// 「順手」把場景檢查提前 —— 那就與原版不同了。這裡把兩件事都釘住。
-func TestOutOfSceneIsDarkExceptInsideTheLightRadius(t *testing.T) {
+// ⚠ **但玩家自己的半徑內是例外**:原版的半徑判斷(`jl loc_2E065`)排在
+// 亮度檢查**之前**,所以半徑內的格子連亮不亮都不問就直接畫。
+// 也就是說再暗都看得到身邊那一小圈。重寫時很容易「順手」把亮度檢查提前,
+// 那會讓玩家在全黑處連腳邊都看不到。這裡把兩件事都釘住。
+func TestUnlitCellsAreDarkExceptInsideTheLightRadius(t *testing.T) {
 	w := SightWindow{
 		Tile: func(x, y int) byte { return 0x03 },
-		// 只有右半邊在場景裡。
-		InScene: func(x, y int) bool { return x >= 5 },
+		// 只有右半邊亮著。
+		Lit: func(x, y int) bool { return x >= 5 },
 	}
 	mask := ComputeSight(w, 1)
 	for y := 0; y < SightSide; y++ {
@@ -247,13 +247,13 @@ func TestOutOfSceneIsDarkExceptInsideTheLightRadius(t *testing.T) {
 			// (4,5) 的平方距離是 1,落在燈光半徑內 —— 原版照畫。
 			if x == 4 && y == 5 {
 				if mask[y*SightSide+x] != 0x03 {
-					t.Fatalf("(4,5) 是 %02X,燈光半徑內原版不問場景直接畫",
+					t.Fatalf("(4,5) 是 %02X,半徑內原版不問亮度直接畫",
 						mask[y*SightSide+x])
 				}
 				continue
 			}
 			if mask[y*SightSide+x] != SightHidden {
-				t.Fatalf("(%d,%d) 是 %02X,場景外應該是黑的", x, y, mask[y*SightSide+x])
+				t.Fatalf("(%d,%d) 是 %02X,沒照到光應該是黑的", x, y, mask[y*SightSide+x])
 			}
 		}
 	}
@@ -282,7 +282,7 @@ func TestASealedRoomShowsOnlyItsWalls(t *testing.T) {
 			}
 			return 0x4E
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	mask := ComputeSight(w, 1)
 	// 3×3 的房間裡面看得到。
@@ -328,7 +328,7 @@ func TestTheFloodFillTerminatesAndCoversEveryCell(t *testing.T) {
 			}
 			return 0x4E
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	ComputeSight(w, 1)
 	if total > SightSide*SightSide*8 {
@@ -342,7 +342,7 @@ func TestTheFloodFillTerminatesAndCoversEveryCell(t *testing.T) {
 			visits[y*SightSide+x]++
 			return 0x03
 		},
-		InScene: func(x, y int) bool { return true },
+		Lit: func(x, y int) bool { return true },
 	}
 	ComputeSight(w2, 1)
 	if len(visits) != SightSide*SightSide {
@@ -356,7 +356,7 @@ func TestTheFloodFillTerminatesAndCoversEveryCell(t *testing.T) {
 // 換成走訪表的話,牆的可見與否會變成「BFS 先從哪一側碰到它」——
 // 畫面上看起來只是「有時候牆會閃一下」,很難追。
 func TestAWallIsVisibleFromTheLitSideOnly(t *testing.T) {
-	// (5,3) 是牆;它的北邊(5,2)在場景外(暗),南邊是玩家(亮)。
+	// (5,3) 是牆;它的北邊(5,2)沒照到光,南邊是玩家(亮)。
 	w := SightWindow{
 		Tile: func(x, y int) byte {
 			if y == 3 {
@@ -364,7 +364,7 @@ func TestAWallIsVisibleFromTheLitSideOnly(t *testing.T) {
 			}
 			return 0x03
 		},
-		InScene: func(x, y int) bool { return y >= 3 },
+		Lit: func(x, y int) bool { return y >= 3 },
 	}
 	mask := ComputeSight(w, 1)
 	if mask[3*SightSide+5] != 0x4E {
@@ -373,7 +373,7 @@ func TestAWallIsVisibleFromTheLitSideOnly(t *testing.T) {
 	for x := 0; x < SightSide; x++ {
 		for y := 0; y <= 2; y++ {
 			if mask[y*SightSide+x] != SightHidden {
-				t.Fatalf("(%d,%d) 是 %02X,場景外不該看得到", x, y, mask[y*SightSide+x])
+				t.Fatalf("(%d,%d) 是 %02X,沒照到光不該看得到", x, y, mask[y*SightSide+x])
 			}
 		}
 	}

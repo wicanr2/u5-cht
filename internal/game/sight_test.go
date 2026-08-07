@@ -199,33 +199,64 @@ func openScene(t *testing.T, hour int) *State {
 	return s
 }
 
-// 空曠處日夜都看得到整個視窗。
+// 白天看得到整個視窗,夜裡只剩身邊那一小圈。
 //
-// ⚠⚠ **這條的結論與直覺相反,而它就是原版的行為。** 我原本寫的測試假設
-// 「夜裡看得到的格數會變少」,結果對不上 —— 回去讀組語才發現半徑根本
-// 不參與傳播:`sub_2DDB0` 是否往外傳只看地形擋不擋視線
-//(`sub_2E1D0`),與 `arg_0` 無關。半徑只在**判定**時當捷徑,
-// 而場景內的判定另有一條「來源不是黑的就顯示」的路,一樣繞過半徑。
-//
-// ⚠ 尚未對 DOSBox 原版實測(見 `docs/re/31` §5)。在那之前不宣稱
-// 「夜間效果已完成」—— 這裡釘住的是**程式碼確實如此**,不是「畫面對了」。
-func TestOpenGroundIsFullyVisibleDayAndNight(t *testing.T) {
+// ★ 夜裡剩下的正好是 9 格 —— 平方距離 ≤ 2 的格子就是自己加八鄰。
+// 半徑 2 這個值與「3×3」對得上不是巧合,是同一件事的兩種說法。
+func TestNightShrinksTheViewToArmsLength(t *testing.T) {
 	full := u5data.SightSide * u5data.SightSide
-	for _, hour := range []int{12, 0} {
-		if got := visibleCount(openScene(t, hour)); got != full {
-			t.Errorf("%d 時在空曠處看得到 %d 格,應該是全部 %d 格", hour, got, full)
+	if got := visibleCount(openScene(t, 12)); got != full {
+		t.Errorf("白天在空曠處看得到 %d 格,應該是全部 %d 格", got, full)
+	}
+
+	night := 0
+	for y := 0; y < u5data.SightSide; y++ {
+		for x := 0; x < u5data.SightSide; x++ {
+			if sightDist2(x, y) <= SightRadiusNight {
+				night++
+			}
 		}
+	}
+	if night != 9 {
+		t.Fatalf("平方距離 ≤ %d 的格子有 %d 個,預期 9(自己加八鄰)",
+			SightRadiusNight, night)
+	}
+	if got := visibleCount(openScene(t, 0)); got != night {
+		t.Errorf("夜裡在空曠處看得到 %d 格,應該只剩 %d 格", got, night)
 	}
 }
 
-// 一間房間:看得到房間與四面牆,看不到牆外。
+// sightDist2 是視窗座標離中心的平方距離(與 u5data 的同一個算法)。
+func sightDist2(x, y int) int {
+	dx, dy := x-u5data.SightSide/2, y-u5data.SightSide/2
+	return dx*dx + dy*dy
+}
+
+// 火把讓夜裡看得遠一些,In Lor 又更遠 —— 兩個下限接得上遮蔽。
+func TestLightSourcesWidenTheNightView(t *testing.T) {
+	dark := visibleCount(openScene(t, 0))
+
+	torch := openScene(t, 0)
+	torch.TorchTurns = 100
+	lit := visibleCount(torch)
+
+	spell := openScene(t, 0)
+	spell.LightTurns = 100
+	bright := visibleCount(spell)
+
+	if !(dark < lit && lit < bright) {
+		t.Errorf("夜 %d 格 < 火把 %d 格 < In Lor %d 格 —— 這個順序沒成立",
+			dark, lit, bright)
+	}
+}
+
+// 一間白天的房間:看得到房間與四面牆,看不到牆外。
 //
-// ★ 這是視線遮蔽最實際的效果 —— 站在室內看不到隔壁房間。
-// 而且**日夜相同**(理由同上一條)。
+// ★ 這是視線遮蔽最實際的效果 —— 站在室內看不到隔壁房間,而且白天也一樣
+//(半徑 50 蓋滿視窗,但 flood fill 仍然過不了牆)。
 func TestYouSeeYourRoomAndItsWallsButNotBeyond(t *testing.T) {
 	blocker := u5data.SightBlockers[0]
-	floor := walkable(t)
-	scenes := synthScenes(t, floor)
+	scenes := synthScenes(t, walkable(t))
 	m := &scenes.Files[0][u5data.Locations[britain-1].SceneIndex]
 	// 內部 x 3..7、y 4..8(5×5),其餘全是牆。玩家站在正中央 (5,6)。
 	for y := 0; y < u5data.SceneSide; y++ {
@@ -235,33 +266,72 @@ func TestYouSeeYourRoomAndItsWallsButNotBeyond(t *testing.T) {
 			}
 		}
 	}
-	for _, hour := range []int{12, 0} {
+	s := &State{Scenes: scenes, MaxMessages: 8}
+	if err := s.SetScene(britain, 0, 5, 6); err != nil {
+		t.Fatalf("進不了不列顛城:%v", err)
+	}
+	s.Clock.Hour = 12
+	mask := s.SightMask()
+
+	// 房間內部看得到。
+	for dy := -2; dy <= 2; dy++ {
+		for dx := -2; dx <= 2; dx++ {
+			if !SightVisible(mask, dx, dy) {
+				t.Fatalf("(%+d,%+d) 在房間內卻看不到", dx, dy)
+			}
+		}
+	}
+	// 貼著房間的那一圈牆看得到。
+	for _, p := range [][2]int{{-3, 0}, {3, 0}, {0, -3}, {0, 3}} {
+		if !SightVisible(mask, p[0], p[1]) {
+			t.Errorf("(%+d,%+d) 的牆應該看得到", p[0], p[1])
+		}
+	}
+	// 牆外看不到。
+	for _, p := range [][2]int{{-5, 0}, {5, 0}, {0, -5}, {0, 5}, {-4, -4}} {
+		if SightVisible(mask, p[0], p[1]) {
+			t.Errorf("(%+d,%+d) 在牆外,不該看得到", p[0], p[1])
+		}
+	}
+}
+
+// 牆上的火把在夜裡照亮周圍 —— `sub_2E21C` 那一輪真的有接上。
+//
+// ★ 而且**火把照不進隔壁房間**:光源那一輪同樣會被牆擋住。
+func TestASceneTorchLightsTheRoomAtNight(t *testing.T) {
+	blocker := u5data.SightBlockers[0]
+	torch := u5data.SightLightTiles[1] // 0xBD 火盆(不在擋視線清單裡)
+	if u5data.SightEmitsLight(torch) != true {
+		t.Fatal("挑到的地形不會發光")
+	}
+	mk := func(withTorch bool) *State {
+		scenes := synthScenes(t, walkable(t))
+		m := &scenes.Files[0][u5data.Locations[britain-1].SceneIndex]
+		// 一道牆把場景切成上下兩半,牆在 y=10;玩家在 (15,15)。
+		for x := 0; x < u5data.SceneSide; x++ {
+			m.Tiles[10*u5data.SceneSide+x] = blocker
+		}
+		if withTorch {
+			// 火盆放在玩家北邊三格(平方距離 9,夜間半徑 2 之外)。
+			m.Tiles[12*u5data.SceneSide+15] = torch
+		}
 		s := &State{Scenes: scenes, MaxMessages: 8}
-		if err := s.SetScene(britain, 0, 5, 6); err != nil {
+		if err := s.SetScene(britain, 0, 15, 15); err != nil {
 			t.Fatalf("進不了不列顛城:%v", err)
 		}
-		s.Clock.Hour = hour
-		mask := s.SightMask()
-
-		// 房間內部看得到。
-		for dy := -2; dy <= 2; dy++ {
-			for dx := -2; dx <= 2; dx++ {
-				if !SightVisible(mask, dx, dy) {
-					t.Fatalf("%d 時 (%+d,%+d) 在房間內卻看不到", hour, dx, dy)
-				}
-			}
-		}
-		// 貼著房間的那一圈牆看得到。
-		for _, p := range [][2]int{{-3, 0}, {3, 0}, {0, -3}, {0, 3}} {
-			if !SightVisible(mask, p[0], p[1]) {
-				t.Errorf("%d 時 (%+d,%+d) 的牆應該看得到", hour, p[0], p[1])
-			}
-		}
-		// 牆外看不到。
-		for _, p := range [][2]int{{-5, 0}, {5, 0}, {0, -5}, {0, 5}, {-4, -4}} {
-			if SightVisible(mask, p[0], p[1]) {
-				t.Errorf("%d 時 (%+d,%+d) 在牆外,不該看得到", hour, p[0], p[1])
-			}
-		}
+		s.Clock.Hour = 0
+		return s
+	}
+	if SightVisible(mk(false).SightMask(), 0, -3) {
+		t.Error("沒有火盆時,夜裡看不到北邊三格")
+	}
+	if !SightVisible(mk(true).SightMask(), 0, -3) {
+		t.Error("放了火盆,夜裡那一格應該被照亮")
+	}
+	// 牆的另一邊(y=9,也就是 dy=−6)本來就在視窗外;取視窗內最遠的一格
+	// 來驗火把照不穿牆:牆在 dy=−5,牆後不在視窗裡,所以改驗牆自己被照亮、
+	// 而更遠處沒有被火把「穿透」照到。
+	if !SightVisible(mk(true).SightMask(), 0, -5) {
+		t.Error("火盆與牆之間沒有阻擋,那面牆應該被照亮")
 	}
 }
