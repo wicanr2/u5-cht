@@ -198,8 +198,9 @@ type Character struct {
 	Exp      uint16
 	Level    byte
 
-	// Raw 是完整的 32 B 紀錄。裝備欄位(0x17 之後)還沒對到物品表,
-	// 先原樣保留而不是硬取名字。
+	// Raw 是完整的 32 B 紀錄。0x17 之後的欄位**已經解出來了** ——
+	// 見 `items.go` 的 `CharInnDays`(0x17)/ `CharHelm`..`CharAmulet`(0x19..0x1E)/
+	// `CharInnFlag`(0x1F)。留著 Raw 是為了保住還沒命名的那幾格,不是因為沒解。
 	Raw [CharRecordSize]byte
 }
 

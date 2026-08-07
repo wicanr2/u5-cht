@@ -224,6 +224,13 @@ const (
 	// "You have none!" —— 沒有寶石可看。
 	MsgYouHaveNone = "汝一顆也沒有!"
 
+	// Ready(R)與 Wear(W)。
+	MsgCannotReady  = "那個拿不上手。"
+	MsgCannotWear   = "那個穿不上身。"
+	MsgDontHaveThat = "汝沒有那件東西。"
+	MsgEquipped     = "%s 裝上了%s。"
+	MsgUnequipped   = "%s 卸下了%s。"
+
 	// 主選單裡還沒實作的兩項 —— 照實說,不要做一個假裝有用的分支。
 	MsgTransferNotImplemented        = "(從創世紀 IV 轉入尚未實作 —— 轉換規則未逆)"
 	MsgAcknowledgementsNotImplemented = "(製作群畫面尚未實作 —— 原版是一張圖,素材未對到)"
