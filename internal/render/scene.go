@@ -26,8 +26,20 @@ const (
 
 	MapOriginX = 8
 	MapOriginY = 8
-	PanelX     = MapOriginX + ViewPixels + 8 // 右側狀態欄起點
-	MessageY   = MapOriginY + ViewPixels + 6 // 下方訊息欄起點
+
+	// 右側直欄:狀態在上、對話與訊息在下。
+	//
+	// 原版就是這個配置 —— 320×200 下地圖佔左邊 (8,8)-(183,183),文字走右邊那一欄
+	// (FM Towns 版的視窗矩形表 dword_3DD6C 也是同一個形狀)。
+	// 一開始把訊息放在地圖下方,結果 400 − 360 = 40px 只塞得下兩行,
+	// 對話一長就直接畫到畫布外。
+	PanelX     = MapOriginX + ViewPixels + 8 // 368
+	PanelWidth = CanvasWidth - PanelX - 8    // 264
+	// PanelTextY 是右欄裡「狀態結束、對話開始」的分界。
+	PanelTextY = MapOriginY + LineHeight*9
+
+	// 地圖下方剩下的一條給操作提示。
+	HintY = MapOriginY + ViewPixels + 6
 )
 
 var (
@@ -54,6 +66,7 @@ func (s *Scene) Render() *image.NRGBA {
 	s.drawMapView(dst)
 	s.drawPanel(dst)
 	s.drawMessages(dst)
+	s.drawHints(dst)
 	return dst
 }
 
@@ -120,39 +133,55 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 	}
 	y := MapOriginY
 	y = s.Text.DrawLines(dst, PanelX, y, []string{"創世紀 V", "命運勇士"})
+	y += LineHeight / 2
+	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("%s  業報 %2d", st.Clock, st.Karma))
 	y += LineHeight
-	s.Text.Draw(dst, PanelX, y, st.Clock.String())
-	y += LineHeight
-	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("座標 %3d,%3d", st.X, st.Y))
-	y += LineHeight
-	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("地形 %3d", st.TileAt(st.X, st.Y)))
+	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("座標 %3d,%3d  地形 %3d", st.X, st.Y, st.TileAt(st.X, st.Y)))
 	y += LineHeight
 	if st.InScene() {
-		s.Text.Draw(dst, PanelX, y, "★ "+st.LocationName())
-		y += LineHeight
-		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("第 %d 層", st.Floor+1))
-		y += LineHeight
-		if n := len(st.VisibleNPCs()); n > 0 {
-			s.Text.Draw(dst, PanelX, y, fmt.Sprintf("居民 %d 人", n))
-		}
-		y += LineHeight
+		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("★ %s 第 %d 層  居民 %d",
+			st.LocationName(), st.Floor+1, len(st.VisibleNPCs())))
 	} else {
 		// 地點名取自原版執行檔的地點表(u5data.Locations),不是自己打的清單。
-		if loc, ok := u5data.LocationAt(st.X, st.Y); ok {
-			s.Text.Draw(dst, PanelX, y, "★ "+loc.DisplayName())
-		}
-		y += LineHeight
+		line := "不列顛尼亞"
 		if st.Floor < 0 {
-			s.Text.Draw(dst, PanelX, y, "地下世界")
-			y += LineHeight
+			line = "地下世界"
 		}
+		if loc, ok := u5data.LocationAt(st.X, st.Y); ok {
+			line = "★ " + loc.DisplayName()
+		}
+		s.Text.Draw(dst, PanelX, y, line)
 	}
-	y += LineHeight
-	keys := []string{"方向鍵移動", "E 進入", "K 攀爬", "T 交談", "F10 離開"}
-	if st.Prompt != game.PromptNone {
-		keys = []string{"Y 是 / N 否"}
+
+	// 分隔線:狀態與對話之間
+	for x := PanelX; x < PanelX+PanelWidth; x++ {
+		SetPixel(dst, x, PanelTextY-LineHeight/2, ColorText)
 	}
-	s.Text.DrawLines(dst, PanelX, y, keys)
+}
+
+// drawHints 在地圖下方畫操作提示。
+func (s *Scene) drawHints(dst *image.NRGBA) {
+	if s.Text == nil || s.State == nil {
+		return
+	}
+	hint := "方向鍵移動   E 進入   K 攀爬   T 交談   F10 離開"
+	switch s.State.Prompt {
+	case game.PromptLeave:
+		hint = "Y 是 / N 否"
+	case game.PromptTalk:
+		hint = "輸入關鍵字後按 Enter,打 bye 或 ESC 結束"
+	}
+	s.Text.Draw(dst, MapOriginX, HintY, hint)
+}
+
+// drawInputLine 在對話中畫出玩家正在打的字,後面帶一個游標。
+// 沒有這一行,玩家打字時畫面完全沒反應 —— 會以為鍵盤壞了。
+func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
+	if s.State == nil || s.State.Prompt != game.PromptTalk {
+		return y
+	}
+	s.Text.Draw(dst, PanelX, y, "汝問:"+s.State.Input+"_")
+	return y + LineHeight
 }
 
 func (s *Scene) drawMessages(dst *image.NRGBA) {
@@ -162,12 +191,24 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	if s.State == nil {
 		return
 	}
-	y := MessageY
-	maxW := CanvasWidth - 2*MapOriginX
+	// 從下往上排:先算出全部行數,不夠高就只留最新的幾行 ——
+	// 訊息比空間多的時候,該掉的是最舊的,不是最新的。
+	var lines []string
 	for _, m := range s.State.Messages {
-		// 斷行用的是同一個 Advance,所以畫出來保證不溢框。
-		y = s.Text.DrawLines(dst, MapOriginX, y, Wrap(m, maxW))
+		lines = append(lines, Wrap(m, PanelWidth)...)
 	}
+	avail := (CanvasHeight - 8 - PanelTextY) / LineHeight
+	if s.State.Prompt == game.PromptTalk {
+		avail-- // 留一行給輸入列
+	}
+	if avail < 1 {
+		avail = 1
+	}
+	if len(lines) > avail {
+		lines = lines[len(lines)-avail:]
+	}
+	y := s.Text.DrawLines(dst, PanelX, PanelTextY, lines)
+	s.drawInputLine(dst, y)
 }
 
 func fill(dst *image.NRGBA, c color.NRGBA) {

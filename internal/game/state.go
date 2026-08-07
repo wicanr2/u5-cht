@@ -83,6 +83,8 @@ const (
 	PromptNone Prompt = iota
 	// PromptLeave 是「是否離開此地?」
 	PromptLeave
+	// PromptTalk 是對話中:鍵盤輸入的是關鍵字,不是指令鍵。
+	PromptTalk
 )
 
 // State 是一局遊戲的位置狀態。
@@ -108,8 +110,14 @@ type State struct {
 	// 通行判定 sub_2A694 的第一個參數就是它(docs/re/02)。
 	Transport byte
 
-	// Prompt 是待回答的提問;非 PromptNone 時,移動輸入要先交給 Answer。
+	// Prompt 是目前的輸入模式;非 PromptNone 時,移動輸入無效。
 	Prompt Prompt
+	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
+	Conv *u5data.Conversation
+	// Input 是對話中已經打進去的關鍵字。
+	Input string
+	// Karma 是業報(0..99)。對話裡的 opcode 0x89/0x8A 會動到它。
+	Karma int
 
 	Messages    []string
 	MaxMessages int
@@ -350,71 +358,6 @@ func (s *State) Klimb() {
 		return
 	}
 	s.changeFloor(delta)
-}
-
-// Talk 是原版的「交談」指令(sub_1B658 → sub_1B52C,按鍵 T)。
-//
-// 原版先問方向,這裡簡化成「看四鄰有沒有人」—— 只有一個人時直接對他說話。
-// 對話號碼的分派完全照 sub_1B52C(見 u5data 的 Dialogue 常數)。
-func (s *State) Talk() {
-	if !s.InScene() {
-		s.Log(MsgNobodyHere)
-		return
-	}
-	var found *VisibleNPC
-	for _, d := range []Direction{North, East, South, West} {
-		dx, dy := d.Delta()
-		if v, ok := s.NPCAt(s.X+dx, s.Y+dy); ok {
-			found = v
-			break
-		}
-	}
-	if found == nil {
-		s.Log(MsgNobodyHere)
-		return
-	}
-	n := found.NPC
-	switch {
-	case n.Dialogue == u5data.DialogueNone:
-		// 衛兵與雜役沒有對話資料。原版對衛兵另有一句,這裡先統一。
-		s.Log(MsgNoResponse)
-	case n.IsShopkeeper():
-		// 商店交易要 SHOPPE.DAT 的內容,還沒接上。原版在非營業時間也是給一句話帶過。
-		s.Log(MsgMerchantClosed)
-	case n.Dialogue == u5data.DialogueFrightened:
-		s.Log(MsgFrightened)
-	case n.Dialogue >= u5data.DialogueSpecialFE:
-		s.Log(MsgNoResponse)
-	default:
-		s.talkTo(n.Dialogue)
-	}
-}
-
-// talkTo 查出 .TLK 記錄並說出招呼語。
-func (s *State) talkTo(dialogue byte) {
-	if s.Talks == nil {
-		s.Log(MsgNoResponse)
-		return
-	}
-	rec, ok := s.Talks.Record(s.Location, int(dialogue))
-	if !ok {
-		s.Log(MsgNoResponse)
-		return
-	}
-	// ⚠ 這裡說的還是英文原文 —— 對話文字的中譯要等腳本結構解出來、
-	// 並且譯名對過《軟體世界》手冊之後才做,現在硬翻會變成要重來的二手轉譯。
-	name := rec.Name(s.Talks.Dict)
-	greeting := rec.Greeting(s.Talks.Dict)
-	if name == "" && greeting == "" {
-		s.Log(MsgNoResponse)
-		return
-	}
-	if name != "" {
-		s.Log(name + ":")
-	}
-	if greeting != "" {
-		s.Log("「" + greeting + "」")
-	}
 }
 
 // Enter 是原版的「進入」指令(sub_10928)。

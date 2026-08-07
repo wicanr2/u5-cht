@@ -21,7 +21,7 @@ import (
 	"github.com/wicanr2/u5-cht/internal/render"
 )
 
-const maxMessages = 2
+const maxMessages = 8
 
 // version 由建置時的 -ldflags 注入。
 var version = "dev"
@@ -43,6 +43,25 @@ func (g *game) Update() error {
 	st := g.state
 	before := len(st.Messages)
 	snapshot := g.key()
+
+	// 對話中鍵盤打的是關鍵字,不是指令鍵。ESC 退出對話(不是離開遊戲)。
+	if st.Prompt == gamestate.PromptTalk {
+		for _, r := range ebiten.AppendInputChars(nil) {
+			st.TypeRune(r)
+			g.dirty = true
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.Submit()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.Backspace()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.EndConversation()
+		}
+		g.dirty = true
+		return nil
+	}
 
 	// 有提問待答時只收 Y / N / ESC —— 原版 sub_86C 的 do-while 就是這個行為,
 	// ESC 等同於 N。
@@ -82,9 +101,9 @@ func (g *game) Update() error {
 }
 
 // key 是「畫面該不該重畫」的判斷依據 —— 回合制遊戲多數幀什麼都沒變。
-func (g *game) key() [5]int {
+func (g *game) key() [6]int {
 	st := g.state
-	return [5]int{st.X, st.Y, st.Location, st.Floor, st.Clock.Hour*60 + st.Clock.Minute}
+	return [6]int{st.X, st.Y, st.Location, st.Floor, st.Clock.Hour*60 + st.Clock.Minute, int(st.Prompt)}
 }
 
 func (g *game) Draw(screen *ebiten.Image) {

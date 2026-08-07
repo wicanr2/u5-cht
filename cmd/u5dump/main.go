@@ -49,6 +49,8 @@ func main() {
 		err = cmdScene(os.Args[2:])
 	case "scenemaps":
 		err = cmdSceneMaps(os.Args[2:])
+	case "conv":
+		err = cmdConv(os.Args[2:])
 	case "npc":
 		err = cmdNPC(os.Args[2:])
 	case "town":
@@ -396,7 +398,7 @@ func cmdScene(args []string) error {
 
 	st := &game.State{
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
-		NPCs: bundle.NPCs, Talks: bundle.Talks, Clock: game.NewClock(), MaxMessages: 3,
+		NPCs: bundle.NPCs, Talks: bundle.Talks, Clock: game.NewClock(), MaxMessages: 8,
 	}
 	if hour >= 0 {
 		st.Clock.Hour = hour
@@ -447,6 +449,77 @@ func cmdScene(args []string) error {
 		}
 	}
 	_ = u5data.TileSize
+	return nil
+}
+
+// cmdConv 把一筆對話完整解析出來:固定欄位 + 關鍵字表 + 每個關鍵字的回應與副作用。
+func cmdConv(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump conv <gamedata> <地點名> [對話號碼]")
+	}
+	set, err := u5data.LoadTalkSet(args[0])
+	if err != nil {
+		return err
+	}
+	loc, ok := findLocation(args[1])
+	if !ok {
+		return fmt.Errorf("地點表裡沒有 %q", args[1])
+	}
+	npcs, err := u5data.LoadNPCSet(args[0])
+	if err != nil {
+		return err
+	}
+	slots, err := npcs.At(loc.Number())
+	if err != nil {
+		return err
+	}
+	want := -1
+	if len(args) > 2 {
+		want, _ = strconv.Atoi(args[2])
+	}
+	for i := range slots {
+		n := &slots[i]
+		if !n.Present() || n.Dialogue == 0 || n.Dialogue >= u5data.DialogueShopFirst {
+			continue
+		}
+		if want >= 0 && int(n.Dialogue) != want {
+			continue
+		}
+		rec, ok := set.Record(loc.Number(), int(n.Dialogue))
+		if !ok {
+			fmt.Printf("#%d 對話 %d:.TLK 裡找不到\n", i, n.Dialogue)
+			continue
+		}
+		c := u5data.ParseConversation(rec, set.Dict)
+		fmt.Printf("\n=== #%d 對話 %d:%s ===\n", i, n.Dialogue, c.Name)
+		fmt.Printf("  外貌:%s\n  招呼:%s\n  職業:%s\n  道別:%s\n",
+			c.Description, c.Greeting, c.Job, c.Bye)
+		fmt.Printf("  關鍵字(%d):%v\n", len(c.Keywords()), c.Keywords())
+		for _, kw := range c.Keywords() {
+			t, fx, _ := c.Respond(kw)
+			var tags []string
+			if fx.JoinParty {
+				tags = append(tags, "加入隊伍")
+			}
+			if fx.CallGuards {
+				tags = append(tags, "叫衛兵")
+			}
+			if fx.KarmaDelta != 0 {
+				tags = append(tags, fmt.Sprintf("業報%+d", fx.KarmaDelta))
+			}
+			if fx.AsksPlayer {
+				tags = append(tags, "反問玩家")
+			}
+			if fx.EndTalk {
+				tags = append(tags, "結束對話")
+			}
+			suffix := ""
+			if len(tags) > 0 {
+				suffix = "  [" + strings.Join(tags, " ") + "]"
+			}
+			fmt.Printf("    %-5s → %s%s\n", kw, strings.ReplaceAll(t, "\n", " "), suffix)
+		}
+	}
 	return nil
 }
 
@@ -524,9 +597,23 @@ func findLocation(name string) (*u5data.Location, bool) {
 
 // playScript 把一串按鍵餵給狀態機,讓「走進城裡再走出來」這種劇本能 headless 重現。
 //
-//	n s e w 移動   E 進入   K 攀爬   T 交談   y / N 回答提問
+//	n s e w 移動   E 進入   K 攀爬   T 交談   y / N 回答提問   "keyword" 對話輸入
 func playScript(st *game.State, script string) error {
-	for _, r := range script {
+	rs := []rune(script)
+	for i := 0; i < len(rs); i++ {
+		r := rs[i]
+		// 對話中要打字:用 `"keyword"` 包起來,送出後自動按 Enter。
+		if r == '"' {
+			word := ""
+			for i++; i < len(rs) && rs[i] != '"'; i++ {
+				word += string(rs[i])
+			}
+			for _, c := range word {
+				st.TypeRune(c)
+			}
+			st.Submit()
+			continue
+		}
 		switch r {
 		case 'n':
 			st.Move(game.North)

@@ -35,6 +35,12 @@ const (
 	MsgFrightened = "「別傷害我!請走開!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
 	MsgMerchantClosed = "「營業時再來吧。」"
+	// "He does not understand thee." —— 打了 NPC 不認得的關鍵字。
+	MsgDoesNotUnderstand = "對方聽不懂汝所言。"
+	// 尚未實作的副作用:誠實說明,不要假裝發生了(CLAUDE.md §3.0)。
+	MsgJoinNotImplemented   = "(對方欲加入隊伍 —— 隊伍系統尚未實作)"
+	MsgGuardsNotImplemented = "(對方喚來衛兵 —— 衛兵反應尚未實作)"
+	MsgAskNotImplemented    = "(對方反問汝 —— 問答流程尚未實作)"
 	// "\nWhat town?\n" —— 原版在按下「進入」卻不站在地點上時的回應。
 	// 直譯「什麼城鎮?」在中文裡像在反問玩家,改成敘述句。
 	MsgNothingToEnter = "此處無可進入之地。"
