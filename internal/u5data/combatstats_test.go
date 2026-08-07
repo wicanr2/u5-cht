@@ -167,3 +167,156 @@ func TestCreatureArmourAndAttack(t *testing.T) {
 		t.Error("戰士的護甲該高於法師")
 	}
 }
+
+// TestCreatureGroupSizeMatchesArchetype:一次遭遇幾隻該符合各自的定位。
+//
+// 成群的小怪 16、獨行的大怪 1 —— 兩端同時對上,位移偏一格就會一起垮。
+func TestCreatureGroupSizeMatchesArchetype(t *testing.T) {
+	s := loadStats(t)
+	swarm := map[int]string{21: "蝙蝠", 24: "史萊姆"}
+	for i, name := range swarm {
+		if g := s.Creature[i].GroupMax; g != 16 {
+			t.Errorf("%s 一次最多 %d 隻,預期 16", name, g)
+		}
+	}
+	lone := map[int]string{14: "黑刺", 15: "不列顛王", 26: "擬態怪", 40: "巨蟒陷阱"}
+	for i, name := range lone {
+		if g := s.Creature[i].GroupMax; g != 1 {
+			t.Errorf("%s 一次最多 %d 隻,預期獨行(1)", name, g)
+		}
+	}
+	if d, b := s.Creature[39].GroupMax, s.Creature[21].GroupMax; d >= b {
+		t.Errorf("巨龍 %d 隻不該多於蝙蝠 %d 隻", d, b)
+	}
+}
+
+// TestCreatureMaxHPOrder:生命上限要跟強弱一致。
+func TestCreatureMaxHPOrder(t *testing.T) {
+	s := loadStats(t)
+	bat, slime, dragon := s.Creature[21].MaxHP, s.Creature[24].MaxHP, s.Creature[39].MaxHP
+	if !(bat < slime && slime < dragon) {
+		t.Errorf("生命上限 蝙蝠%d < 史萊姆%d < 巨龍%d 不成立", bat, slime, dragon)
+	}
+	if dragon != 99 {
+		t.Errorf("巨龍的生命上限是 %d,預期 99", dragon)
+	}
+}
+
+// TestCreatureRangeSplitsMeleeFromRanged:射程表要把近戰與遠程分乾淨。
+//
+// 近戰的一律 1、遠程的一律 > 1 —— 這是「射程 1 的那一批對應的 0x15DC 欄位
+// 也全是 0」的另一面,兩張表互相佐證。
+func TestCreatureRangeSplitsMeleeFromRanged(t *testing.T) {
+	s := loadStats(t)
+	melee := []int{2, 3, 4, 19, 20, 21, 22, 23, 24, 25, 29, 31, 32, 33, 36, 40}
+	for _, i := range melee {
+		if r := s.Creature[i].Range; r != 1 {
+			t.Errorf("生物 %d 的射程是 %d,預期近戰 1", i, r)
+		}
+		if u := s.CreatureMissile[i]; u != 0 {
+			t.Errorf("生物 %d 是近戰,投射物圖號卻是 %d(預期 0)", i, u)
+		}
+	}
+	ranged := map[int]byte{0: 7, 12: 15, 28: 5, 39: 9}
+	for i, want := range ranged {
+		if r := s.Creature[i].Range; r != want {
+			t.Errorf("生物 %d 的射程是 %d,預期 %d", i, r, want)
+		}
+		if s.CreatureMissile[i] == 0 {
+			t.Errorf("生物 %d 有射程,投射物圖號卻是 0", i)
+		}
+	}
+}
+
+// TestCreatureFlagsPickOutTheRightCreatures:每個旗標指到的那批生物要說得通。
+//
+// 這是旗標表最強的驗收 —— 位移只要偏一格,「只有小魔怪會偷食物」
+// 「只有那三位殺不死」這些條件會同時垮掉。
+func TestCreatureFlagsPickOutTheRightCreatures(t *testing.T) {
+	s := loadStats(t)
+	with := func(flag uint16) []int {
+		var got []int
+		for i := range s.Creature {
+			if s.Creature[i].Has(flag) {
+				got = append(got, i)
+			}
+		}
+		return got
+	}
+	eq := func(name string, flag uint16, want ...int) {
+		t.Helper()
+		got := with(flag)
+		if len(got) != len(want) {
+			t.Errorf("%s:%v,預期 %v", name, got, want)
+			return
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Errorf("%s:%v,預期 %v", name, got, want)
+				return
+			}
+		}
+	}
+	// 小魔怪偷食物,而且全表只有牠。
+	eq("偷食物", CreatureStealsFood, 25)
+	// 殺不死的三位 = 旅人 / 黑刺 / 不列顛王。
+	eq("無敵", CreatureInvulnerable, 13, 14, 15)
+	// 死了會消失的多一位暗影領主(47)。
+	eq("消失", CreatureVanishes, 13, 14, 15, 47)
+	// 下毒:巨蜘蛛 / 大烏賊 / 巨蟒(0x0004)+ 巨鼠 / 擬態怪(0x0200)。
+	var poison []int
+	for i := range s.Creature {
+		if s.Creature[i].IsPoisonous() {
+			poison = append(poison, i)
+		}
+	}
+	for _, i := range []int{17, 20, 22, 26, 34} {
+		found := false
+		for _, p := range poison {
+			if p == i {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("生物 %d 該會下毒,卻不在 %v 裡", i, poison)
+		}
+	}
+	// 史萊姆會分裂。⚠ 不能寫「只有史萊姆」—— 石像鬼(30)的旗標也有這一位,
+	// 原因不明,但那是原版資料寫的。
+	if !s.Creature[24].Has(CreatureDivides) {
+		t.Error("史萊姆不會分裂?")
+	}
+	// 鬼火會瞬移。
+	if !s.Creature[37].Has(CreatureTeleports) {
+		t.Error("鬼火不會瞬移?")
+	}
+	// 會施法的一定包含法師與注視者,而戰士一定不會。
+	for _, i := range []int{0, 28} {
+		if !s.Creature[i].Has(CreatureCasts) {
+			t.Errorf("生物 %d 該會施法", i)
+		}
+	}
+	if s.Creature[2].Has(CreatureCasts) {
+		t.Error("戰士不該會施法")
+	}
+}
+
+// TestCreatureMixIsSelfConsistent:混編表指到的一定是合法索引。
+func TestCreatureMixIsSelfConsistent(t *testing.T) {
+	s := loadStats(t)
+	for i, m := range s.CreatureMix {
+		if int(m) >= CreatureCount {
+			t.Errorf("生物 %d 的混編對象是 %d,超出 0..%d", i, m, CreatureCount-1)
+		}
+	}
+	// 幾個明顯是「同類的頭目」的對應:小魔怪 → 擬態怪、擬態怪 → 巨人。
+	if s.CreatureMix[25] != 26 || s.CreatureMix[26] != 35 {
+		t.Errorf("混編表:25→%d、26→%d,預期 26 與 35", s.CreatureMix[25], s.CreatureMix[26])
+	}
+	// 殺不死的三位只會混到自己(不會帶小弟)。
+	for _, i := range []int{13, 14, 15} {
+		if int(s.CreatureMix[i]) != i {
+			t.Errorf("生物 %d 的混編對象是 %d,預期自己", i, s.CreatureMix[i])
+		}
+	}
+}

@@ -18,7 +18,11 @@ func combatState(t *testing.T) *State {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.CombatMaps, s.Creatures = cm, ct
+	st, err := u5data.LoadCombatStats("../../gamedata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.CombatMaps, s.Creatures, s.Stats = cm, ct, st
 	return s
 }
 
@@ -76,6 +80,17 @@ func TestWaterBattleException(t *testing.T) {
 	}
 }
 
+// activeUnits 收集場上還在的單位(Units 現在是固定 32 槽,大半是空的)。
+func activeUnits(c *Combat) []*Combatant {
+	var out []*Combatant
+	for i := range c.Units {
+		if c.Units[i].Active() {
+			out = append(out, &c.Units[i])
+		}
+	}
+	return out
+}
+
 // TestBumpingMonsterStartsCombat:走進怪物就開打,而且隊員與敵人各就各位。
 func TestBumpingMonsterStartsCombat(t *testing.T) {
 	s := combatState(t)
@@ -91,10 +106,7 @@ func TestBumpingMonsterStartsCombat(t *testing.T) {
 		t.Errorf("戰鬥中 Prompt 是 %v", s.Prompt)
 	}
 	c := s.Combat
-	if len(c.Units) != s.PartySize+1 {
-		t.Errorf("場上 %d 個單位,預期 %d 名隊員 + 1 隻敵人", len(c.Units), s.PartySize)
-	}
-	// 位置要與圖裡的入場點一致。
+	// 隊員一律排在 0..5,位置要與圖裡的入場點一致。
 	m := c.Map
 	for i := 0; i < s.PartySize; i++ {
 		u := c.Units[i]
@@ -106,9 +118,10 @@ func TestBumpingMonsterStartsCombat(t *testing.T) {
 				i, u.X, u.Y, m.PartyX[i], m.PartyY[i])
 		}
 	}
-	e := c.Units[len(c.Units)-1]
-	if e.IsParty() {
-		t.Error("最後一個單位應該是敵人")
+	// 敵人從第 6 槽起,第一隻站在圖裡的第 0 個敵方入場點。
+	e := c.Units[u5data.CombatPartySlots]
+	if e.IsParty() || !e.Active() {
+		t.Fatal("第 6 槽應該是一隻活著的敵人")
 	}
 	if e.X != int(m.EnemyX[0]) || e.Y != int(m.EnemyY[0]) {
 		t.Errorf("敵人在 (%d,%d),圖裡的入場點是 (%d,%d)", e.X, e.Y, m.EnemyX[0], m.EnemyY[0])
@@ -116,6 +129,149 @@ func TestBumpingMonsterStartsCombat(t *testing.T) {
 	// 敵人名字要查得出來(種類 0x40 = Mage)。
 	if c.EnemyName != "Mage" {
 		t.Errorf("敵人名字是 %q,預期 Mage", c.EnemyName)
+	}
+}
+
+// TestEnemyGroupSizeComesFromTheTable:出現幾隻要落在生物屬性表的上限裡。
+//
+// 法師(索引 0)的上限是 3,所以擲出來一定是 1..3;史萊姆(24)的 16
+// 是原版直接用的固定值,不擲骰 —— 兩種路徑各驗一次。
+func TestEnemyGroupSizeComesFromTheTable(t *testing.T) {
+	s := combatState(t)
+	count := func(kind byte) int {
+		s.Combat = nil
+		objs := s.CurrentObjects()
+		slot, ok := objs.Spawn(kind, s.X+1, s.Y, s.Floor)
+		if !ok {
+			t.Fatal("放不下怪物")
+		}
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		n := 0
+		for i := u5data.CombatPartySlots; i < CombatUnitSlots; i++ {
+			if s.Combat.Units[i].Flags != 0 {
+				n++
+			}
+		}
+		objs.Remove(slot)
+		return n
+	}
+	for try := 0; try < 20; try++ {
+		if n := count(0x40); n < 1 || n > 3 {
+			t.Fatalf("法師出現 %d 隻,表裡的上限是 3", n)
+		}
+	}
+	// 史萊姆 = 生物索引 24 → 種類碼 64 + 24*4 = 160。
+	if n := count(160); n != 16 {
+		t.Errorf("史萊姆出現 %d 隻,預期固定 16", n)
+	}
+}
+
+// TestTownFightIsOneOnOne:在城鎮裡動手只打得到眼前那一個。
+//
+// 原版 `sub_2F0EC` 的條件是「地點編號 1..32、而且不是衛兵」。
+// 衛兵是唯一的例外 —— 叫來一整隊。
+func TestTownFightIsOneOnOne(t *testing.T) {
+	s := combatState(t)
+	s.Location = 2 // 不列顛城
+	spawn := func(kind byte) int {
+		s.Combat = nil
+		objs := s.CurrentObjects()
+		slot, ok := objs.Spawn(kind, s.X+1, s.Y, s.Floor)
+		if !ok {
+			t.Fatal("放不下怪物")
+		}
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		n := 0
+		for i := u5data.CombatPartySlots; i < CombatUnitSlots; i++ {
+			if s.Combat.Units[i].Flags != 0 {
+				n++
+			}
+		}
+		objs.Remove(slot)
+		return n
+	}
+	// 史萊姆在野外是 16 隻,在城裡只有 1 隻。
+	if n := spawn(160); n != 1 {
+		t.Errorf("城裡的史萊姆出現 %d 隻,預期 1", n)
+	}
+	// 衛兵(索引 12 → 種類碼 112)是例外,整隊 8 個。
+	if n := spawn(112); n != 8 {
+		t.Errorf("城裡的衛兵出現 %d 個,預期 8", n)
+	}
+}
+
+// TestInitiativeFavoursDexterity:敏捷高的出手比較密。
+//
+// 原版的行動倒數是 `36 − 敏捷`,而不是輪流。蝙蝠(敏捷 30)每 6 輪動一次、
+// 史萊姆(敏捷 6)每 30 輪 —— 差五倍。這條把「排程不是 round-robin」釘住。
+func TestInitiativeFavoursDexterity(t *testing.T) {
+	fast := Combatant{Dex: 30}
+	slow := Combatant{Dex: 6}
+	if fast.resetInit() >= slow.resetInit() {
+		t.Errorf("敏捷 30 的倒數 %d 不短於敏捷 6 的 %d",
+			fast.resetInit(), slow.resetInit())
+	}
+	if got := fast.resetInit(); got != 6 {
+		t.Errorf("敏捷 30 的倒數是 %d,預期 36 − 30 = 6", got)
+	}
+	// 敏捷 ≥ 36 不能讓倒數變成 0 或負數,否則排程會在同一個單位上打轉。
+	if got := (&Combatant{Dex: 99}).resetInit(); got < 1 {
+		t.Errorf("敏捷 99 的倒數是 %d,不該 < 1", got)
+	}
+}
+
+// TestCombatDistanceIsFlooredEuclidean:距離是 floor(√(dx²+dy²))。
+//
+// 斜角相鄰要算 1 格(才打得到),隔一格的斜角是 2。
+func TestCombatDistanceIsFlooredEuclidean(t *testing.T) {
+	cases := []struct{ x1, y1, x2, y2, want int }{
+		{0, 0, 0, 0, 0},
+		{0, 0, 1, 0, 1},
+		{0, 0, 1, 1, 1}, // √2 = 1.41 → 1
+		{0, 0, 2, 2, 2}, // √8 = 2.83 → 2
+		{0, 0, 3, 4, 5}, // 3-4-5
+		{5, 5, 0, 0, 7}, // √50 = 7.07 → 7
+	}
+	for _, c := range cases {
+		if got := combatDistance(c.x1, c.y1, c.x2, c.y2); got != c.want {
+			t.Errorf("(%d,%d)→(%d,%d) 距離 %d,預期 %d",
+				c.x1, c.y1, c.x2, c.y2, got, c.want)
+		}
+	}
+}
+
+// TestSadujIsAlwaysHostile:名字第 5 個字母是 j 的隊員永遠站在敵方。
+//
+// 這是原版寫死的一條(`cmp byte_3DDB8[角色*32], 'j'`),要認的只有 Saduj。
+func TestSadujIsAlwaysHostile(t *testing.T) {
+	u := Combatant{Flags: UnitParty}
+	if u.Hostile("Iolo") {
+		t.Error("Iolo 不該是敵方")
+	}
+	if !u.Hostile("Saduj") {
+		t.Error("Saduj 該永遠站在敵方")
+	}
+	// 名字太短的不能越界。
+	if u.Hostile("Gorn") {
+		t.Error("Gorn 不該是敵方")
+	}
+	// 死了就不算任何一邊(原版先查 0x20 再查別的)。
+	dead := Combatant{Flags: UnitParty | UnitDead}
+	if dead.Hostile("Saduj") {
+		t.Error("死掉的 Saduj 不該再算敵方")
+	}
+	// 怪物反過來:陣營反轉位元成立才是我方。
+	mon := Combatant{Flags: UnitMonster}
+	if !mon.Hostile("") {
+		t.Error("怪物預設該是敵方")
+	}
+	mon.Flags |= UnitSideFlip
+	if mon.Hostile("") {
+		t.Error("被馴服的怪物該站在我方")
 	}
 }
 
@@ -145,6 +301,9 @@ func TestCombatMoveStaysOnField(t *testing.T) {
 		}
 		for i := range c.Units {
 			u := &c.Units[i]
+			if !u.Active() {
+				continue
+			}
 			if u.X < 0 || u.X >= u5data.CombatSide || u.Y < 0 || u.Y >= u5data.CombatSide {
 				t.Fatalf("單位 %d 走到 (%d,%d),出了戰場", i, u.X, u.Y)
 			}
@@ -152,11 +311,17 @@ func TestCombatMoveStaysOnField(t *testing.T) {
 		seen := map[[2]int]int{}
 		for i := range c.Units {
 			u := &c.Units[i]
+			if !u.Active() {
+				continue
+			}
 			k := [2]int{u.X, u.Y}
 			if prev, dup := seen[k]; dup {
 				t.Fatalf("單位 %d 與 %d 疊在 (%d,%d)", prev, i, u.X, u.Y)
 			}
 			seen[k] = i
+		}
+		if c.Over {
+			break
 		}
 	}
 }
@@ -358,5 +523,223 @@ func TestDamageSubtractsResist(t *testing.T) {
 	}
 	if lo != 2 || hi != 9 {
 		t.Errorf("傷害範圍 %d..%d,預期 2..9", lo, hi)
+	}
+}
+
+// TestBattleReachesAConclusion:一場仗打得完,而且結局只有勝或敗。
+//
+// 這是整套回合機制唯一的決定性驗收 —— 排程、AI、傷害、死亡判定任何一環
+// 卡住,這條就會逾時而不是安靜地跑出一個看起來還好的畫面。
+func TestBattleReachesAConclusion(t *testing.T) {
+	for seed := int64(1); seed <= 12; seed++ {
+		battleToConclusion(t, seed)
+	}
+}
+
+// battleToConclusion 用固定種子打一場到結束。
+func battleToConclusion(t *testing.T, seed int64) {
+	t.Helper()
+	s := combatState(t)
+	s.SeedRandom(seed)
+	slot, ok := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !ok {
+		t.Fatal("放不下怪物")
+	}
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	for act := 0; act < 4000 && !c.Over; act++ {
+		if c.Turn < 0 {
+			t.Fatalf("種子 %d 第 %d 步輪不到任何人,而勝負也還沒定", seed, act)
+		}
+		playerActs(s)
+	}
+	if !c.Over {
+		t.Fatalf("種子 %d:4000 步之後還沒打完 —— 回合排程大概卡住了。log:\n%s",
+			seed, s.log())
+	}
+	// 勝負要與場上實況一致。
+	enemies, party := s.sideCounts(c)
+	if c.Won && enemies != 0 {
+		t.Errorf("種子 %d 宣告勝利,場上卻還有 %d 個敵人", seed, enemies)
+	}
+	if !c.Won && party != 0 {
+		t.Errorf("種子 %d 宣告敗北,我方卻還有 %d 個人", seed, party)
+	}
+}
+
+// playerActs 幫輪到的隊員下一個會**改變狀態**的指令:先找相鄰的敵人打,
+// 沒有就往最近的敵人走;被擋住就換方向。回傳 false 代表四個方向都試過了。
+func playerActs(s *State) bool {
+	c := s.Combat
+	turn := c.Turn
+	u := &c.Units[turn]
+	dirs := []Direction{North, East, South, West}
+	// 相鄰有敵人就打。
+	for _, d := range dirs {
+		dx, dy := d.Delta()
+		if t, ok := c.CombatUnitAt(u.X+dx, u.Y+dy); ok && s.hostile(t) != s.hostile(u) {
+			s.CombatAttack(d)
+			return true
+		}
+	}
+	// 否則朝目標走,擋住就換一個方向。
+	_, tdx, tdy := s.aiTarget(turn)
+	try := []Direction{}
+	if tdx != 0 {
+		try = append(try, deltaDirection(tdx, 0))
+	}
+	if tdy != 0 {
+		try = append(try, deltaDirection(0, tdy))
+	}
+	try = append(try, dirs...)
+	for _, d := range try {
+		x, y := u.X, u.Y
+		s.CombatMove(d)
+		if c.Over || c.Turn != turn || u.X != x || u.Y != y {
+			return true
+		}
+	}
+	// 四面被堵住 —— 原版的出路是空白鍵(Pass),那也是一個完整的回合。
+	s.CombatPass()
+	return true
+}
+
+// deltaDirection 把一步的位移換成方向(斜角優先取水平)。
+func deltaDirection(dx, dy int) Direction {
+	switch {
+	case dx > 0:
+		return East
+	case dx < 0:
+		return West
+	case dy > 0:
+		return South
+	default:
+		return North
+	}
+}
+
+// TestBattlesGoBothWays:同一種遭遇要有輸有贏。
+//
+// 這條擋的是兩種都會「全綠但玩壞」的情況:公式寫錯讓怪物變沙包(場場贏)、
+// 或遠程規則漏了那個 1/2 讓法師每回合都轟(場場輸)。
+// 兩者都不會讓別的測試變紅。
+func TestBattlesGoBothWays(t *testing.T) {
+	wins := 0
+	const runs = 20
+	for seed := int64(1); seed <= runs; seed++ {
+		s := combatState(t)
+		s.SeedRandom(seed)
+		slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		c := s.Combat
+		for act := 0; act < 4000 && !c.Over; act++ {
+			if c.Turn < 0 {
+				break
+			}
+			playerActs(s)
+		}
+		if c.Won {
+			wins++
+		}
+	}
+	if wins == 0 || wins == runs {
+		t.Errorf("%d 場對三名法師全部同一個結果(勝 %d)—— 不像在擲骰", runs, wins)
+	}
+	t.Logf("對法師群 %d 場勝 %d 場", runs, wins)
+}
+
+// TestMimicAndReaperNeverMove:擬態怪與收割者釘在原地。
+//
+// 原版 `sub_AE20` 開頭 `cmp dl, 1Bh / 1Ah` 就直接 return —— 這是牠們
+// 「守在寶箱旁 / 長在地上」的設定,不是漏做。
+func TestMimicAndReaperNeverMove(t *testing.T) {
+	for _, cre := range []int{u5data.CreatureMimicIdx, u5data.CreatureReaperIdx} {
+		s := combatState(t)
+		s.SeedRandom(3)
+		kind := u5data.CreatureBase + byte(cre*4)
+		slot, _ := s.CurrentObjects().Spawn(kind, s.X+1, s.Y, s.Floor)
+		if !s.BeginCombat(slot) {
+			t.Fatal("打不起來")
+		}
+		c := s.Combat
+		u := &c.Units[u5data.CombatPartySlots]
+		x, y := u.X, u.Y
+		for i := 0; i < 40; i++ {
+			s.aiMove(u5data.CombatPartySlots)
+		}
+		if u.X != x || u.Y != y {
+			t.Errorf("生物 %d 從 (%d,%d) 移到 (%d,%d),牠不該動", cre, x, y, u.X, u.Y)
+		}
+	}
+}
+
+// TestGremlinStealsFood:小魔怪命中之後多半是偷糧食而不是造成傷害。
+func TestGremlinStealsFood(t *testing.T) {
+	s := combatState(t)
+	s.SeedRandom(11)
+	// 小魔怪 = 生物索引 25 → 種類碼 64 + 100 = 164。
+	slot, _ := s.CurrentObjects().Spawn(164, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	s.Inventory.Food = 500
+	gremlin := u5data.CombatPartySlots
+	if s.Combat.Units[gremlin].Creature != 25 {
+		t.Fatalf("第一隻不是小魔怪,是生物 %d", s.Combat.Units[gremlin].Creature)
+	}
+	before := s.Inventory.Food
+	for i := 0; i < 60; i++ {
+		s.resolveAttack(gremlin, 0)
+	}
+	if s.Inventory.Food >= before {
+		t.Errorf("被小魔怪打了 60 次,糧食還是 %d(原本 %d)", s.Inventory.Food, before)
+	}
+}
+
+// TestKillGivesExperience:打死怪物拿的經驗值是「生命上限 / 4 + 1」。
+//
+// 原版 `sub_B51C` 只看這種怪物有多耐打,與實際打了幾下無關。
+func TestKillGivesExperience(t *testing.T) {
+	s := combatState(t)
+	slot, _ := s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	enemy := u5data.CombatPartySlots
+	before := s.Roster[0].Exp
+	// 直接送一記必殺,略過命中骰。
+	s.applyDamage(0, enemy, u5data.InstantKillDamage)
+	if !c.Units[enemy].Dead() {
+		t.Fatal("吃了必殺卻沒死")
+	}
+	want := int(s.Stats.Creature[0].MaxHP)/4 + 1
+	if got := int(s.Roster[0].Exp) - int(before); got != want {
+		t.Errorf("拿到 %d 點經驗,預期 %d(法師生命上限 %d)",
+			got, want, s.Stats.Creature[0].MaxHP)
+	}
+}
+
+// TestInvulnerableCreaturesTakeNoDamage:旅人 / 黑刺 / 不列顛王打不死。
+func TestInvulnerableCreaturesTakeNoDamage(t *testing.T) {
+	s := combatState(t)
+	// 不列顛王 = 生物索引 15 → 種類碼 64 + 15*4 = 124。
+	slot, _ := s.CurrentObjects().Spawn(124, s.X+1, s.Y, s.Floor)
+	if !s.BeginCombat(slot) {
+		t.Fatal("打不起來")
+	}
+	c := s.Combat
+	enemy := u5data.CombatPartySlots
+	hp := c.Units[enemy].HP
+	for i := 0; i < 20; i++ {
+		s.applyDamage(0, enemy, u5data.InstantKillDamage)
+	}
+	if c.Units[enemy].Dead() || c.Units[enemy].HP != hp {
+		t.Errorf("不列顛王被打掉了(HP %d → %d、死亡 %v)",
+			hp, c.Units[enemy].HP, c.Units[enemy].Dead())
 	}
 }

@@ -33,6 +33,8 @@ type game struct {
 
 	tex   *ebiten.Image // 上傳到 GPU 的畫面
 	dirty bool          // 畫面是否需要重畫(回合制遊戲多數幀不需要)
+	// combatAiming 是「按了 A、正在等方向」的中間狀態。
+	combatAiming bool
 }
 
 func (g *game) Update() error {
@@ -70,19 +72,43 @@ func (g *game) Update() error {
 		return nil
 	}
 
-	// 戰鬥中:方向鍵移動,ESC 撤離。
+	// 戰鬥中:方向鍵移動、A + 方向攻擊、空白鍵按兵不動、ESC 撤離。
+	//
+	// 鍵位照原版的玩家指令表(`jpt_A5C8`):A 攻擊、空白 Pass、ESC 離開。
 	if st.Prompt == gamestate.PromptCombat {
-		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			st.CombatFlee()
-		}
-		for key, dir := range map[ebiten.Key]gamestate.Direction{
+		dirs := map[ebiten.Key]gamestate.Direction{
 			ebiten.KeyArrowUp:    gamestate.North,
 			ebiten.KeyArrowDown:  gamestate.South,
 			ebiten.KeyArrowLeft:  gamestate.West,
 			ebiten.KeyArrowRight: gamestate.East,
-		} {
-			if inpututil.IsKeyJustPressed(key) {
-				st.CombatMove(dir)
+		}
+		if g.combatAiming {
+			// A 按下之後在等方向。
+			for key, dir := range dirs {
+				if inpututil.IsKeyJustPressed(key) {
+					st.CombatAttack(dir)
+					g.combatAiming = false
+				}
+			}
+			if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+				g.combatAiming = false
+			}
+			g.dirty = true
+			return nil
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyA):
+			g.combatAiming = true
+			st.Log("攻擊 —— 哪個方向?")
+		case inpututil.IsKeyJustPressed(ebiten.KeySpace):
+			st.CombatPass()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.CombatFlee()
+		default:
+			for key, dir := range dirs {
+				if inpututil.IsKeyJustPressed(key) {
+					st.CombatMove(dir)
+				}
 			}
 		}
 		g.dirty = true

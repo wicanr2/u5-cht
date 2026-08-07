@@ -1,6 +1,7 @@
 package u5data
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,20 +9,29 @@ import (
 
 // 戰鬥數值
 //
-// 四張表,全部在 DOS `DATA.OVL` 裡(位址是拿 FM Towns 的資料段逐位元組比對出來的):
+// 八張表,全部在 DOS `DATA.OVL` 裡(位址是拿 FM Towns 的資料段逐位元組比對出來的)。
+// 前四張緊緊相鄰,後四張間距 0x38(48 件 + 8 B 空白):
 //
 //	FM Towns   DOS       內容
-//	0x3F050    0x13CC    怪物屬性  48 筆 × 8 B
+//	0x3F050    0x13CC    怪物屬性   48 筆 × 8 B
+//	0x3F1D0    0x154C    怪物旗標   48 × u16
+//	0x3F230    0x15AC    怪物射程   48 B
+//	0x3F260    0x15DC    投射物圖號 48 B
 //	0x3F290    0x160C    武器傷害   48 B
 //	0x3F2C8    0x1644    裝備防禦值 48 B
 //	0x3F2F8    0x1674    武器射程   48 B
 //	0x3F330    0x16AC    裝備類別   48 B
+//	0x3F368    0x16E4    混編生物   48 B
 const (
 	statsCreature = 0x13CC // 48 × 8
+	statsCreFlags = 0x154C // 48 × u16
+	statsCreRange = 0x15AC // 48
+	statsCreMisl  = 0x15DC // 48
 	statsItemDmg  = 0x160C // 48
 	statsItemDef  = 0x1644 // 48
 	statsItemRnge = 0x1674 // 48
 	statsItemKind = 0x16AC // 48
+	statsCreMix   = 0x16E4 // 48
 )
 
 // CreatureStatSize 是怪物屬性一筆的大小。
@@ -41,7 +51,8 @@ const CreatureStatSize = 8
 // —— 正好是力量與智力。
 //
 // +3 與 +4 由傷害公式(`sub_B274`)認出來:護甲與攻擊力。
-// +5..+7 還沒對出語意,原樣留在 Raw 裡。
+// +5 與 +6 由死亡處理(`sub_B51C`)與遭遇生成(`sub_2F0EC`)認出來。
+// +7 還沒對出語意,原樣留在 Raw 裡。
 const (
 	CreatureStrength = 0
 	CreatureDex      = 1
@@ -52,14 +63,81 @@ const (
 	// CreatureAttack 是傷害用的攻擊力(`sub_B274` 讀 `byte_3F054[生物*8]`)。
 	// 聖者 30 最高。
 	CreatureAttack = 4
+	// CreatureMaxHP 是生命上限(`sub_B51C` 死亡時用 `byte_3F055[生物*8] / 4 + 1`
+	// 算經驗值)。蝙蝠 5、史萊姆 10、巨龍 99、精靈守衛 99。
+	CreatureMaxHP = 5
+	// CreatureGroupMax 是一次遭遇最多幾隻(`sub_2F0EC` 的 `byte_3F056[生物*8]`)。
+	// 蝙蝠與史萊姆 16、蟲群與鯊魚與獸人 10、衛兵 8、巨龍 2、
+	// 巨蟒陷阱與石像鬼與擬態怪 1。
+	CreatureGroupMax = 6
 )
+
+// 怪物旗標(`word_3F1D0[生物]`,48 × u16)。
+//
+// 每一條都是從實際讀那一位元的程式碼認出來的,不是從名字猜的;
+// 認不出來的就照實留白(見 `docs/re/16`)。
+const (
+	// CreatureNoRemains:死了不留屍體也不留寶箱(`sub_B51C` 的 `test …, 0x1001`)。
+	// 海洋生物、蝙蝠、蟲群、幽靈這些都有。
+	CreatureNoRemains = 0x0001
+	// CreatureStealsFood:命中時有 3/4 機率偷食物而不造成傷害
+	//(`sub_9F08` 的 `test al, 2`)。全表只有小魔怪(Gremlin)。
+	CreatureStealsFood = 0x0002
+	// CreaturePoison1 / CreaturePoison9:任一位元成立就走下毒攻擊
+	//(`sub_B9A8` 的 `test …, 0x204` → `sub_B8DC`)。
+	// 巨蟒與大烏賊是 0x0004,巨鼠與擬態怪是 0x0200,巨蜘蛛兩個都有。
+	CreaturePoison1 = 0x0004
+	CreaturePoison9 = 0x0200
+	// CreatureInvulnerable:傷害直接歸零(`sub_B51C` 的 `test al, 8`)。
+	// 旅人、黑刺、不列顛王 —— 這三個本來就殺不死。
+	CreatureInvulnerable = 0x0008
+	// CreatureDivides:被打到但沒死會分裂(`sub_B51C` 的 `test al, 0x10`,
+	// 最多試 8 個空位,印「X divides!」)。全表只有史萊姆。
+	CreatureDivides = 0x0010
+	// CreatureHalfDamage:傷害減半,除非 `byte_3E0A0`(疑為魔法武器旗標)成立
+	//(`sub_B51C` 的 `test al, 0x20`)。幽靈、骷髏、惡魔、暗影領主。
+	CreatureHalfDamage = 0x0020
+	// CreatureCharms:遠程回合可能對隨機隊員施展魅惑(`sub_1F5A4` 的 `test al, 0x40`)。
+	// 注視者(Gazer)是代表。
+	CreatureCharms = 0x0040
+	// CreatureVanishes:死時不留屍體而是印「X vanishes!」並換成 tile 0x16
+	//(`sub_B51C` 的 `test 高位元組, 0x10`)。旅人、黑刺、不列顛王、暗影領主。
+	CreatureVanishes = 0x1000
+	// CreatureTeleports:移動時可能瞬間移動到別處(`sub_AE20` 的 `test 高位元組, 0x20`)。
+	// 鬼火(Wisp)是代表。
+	CreatureTeleports = 0x2000
+	// CreatureCasts:走施法那條遠程路徑(`sub_9E10` / `sub_9F08` 的 `test ah, 0x80`)。
+	// 法師、注視者、收割者、惡魔、海馬、黑刺、不列顛王、暗影領主。
+	CreatureCasts = 0x8000
+)
+
+// ItemAmuletOfTurning 是「轉化護符」。
+//
+// 戴在護符欄(紀錄 0x1E)時,施法者的遠程攻擊有 **1/2 機率被抵銷**
+//(`sub_9F08` 先看目標的 `byte_3DDD2[角色*32] == 0x2D`,
+// 再看攻擊者有沒有 CreatureCasts,兩個都成立才擲那一枚硬幣)。
+const ItemAmuletOfTurning = 0x2D
 
 // CreatureStats 是一種怪物的戰鬥數值。
 type CreatureStats struct {
 	Strength, Dex, Intel byte
 	// Armour 是被打時的減傷,Attack 是打人時的傷害上限。
 	Armour, Attack byte
-	Raw            [CreatureStatSize]byte
+	// MaxHP 是生命上限,GroupMax 是一次遭遇的隻數上限。
+	MaxHP, GroupMax byte
+	// Flags 是旗標位元(見上面那組 Creature* 常數)。
+	Flags uint16
+	// Range 是這種怪物打得到幾格(近戰是 1、衛兵 15、巨龍 9、法師 7)。
+	Range byte
+	Raw   [CreatureStatSize]byte
+}
+
+// Has 回報這種怪物有沒有某個旗標。
+func (c *CreatureStats) Has(flag uint16) bool { return c != nil && c.Flags&flag != 0 }
+
+// IsPoisonous 回報這種怪物的攻擊會不會下毒(`sub_B9A8` 的 0x204 是**兩個位元任一**)。
+func (c *CreatureStats) IsPoisonous() bool {
+	return c.Has(CreaturePoison1) || c.Has(CreaturePoison9)
 }
 
 // CombatStats 是全部四張表。
@@ -88,6 +166,15 @@ type CombatStats struct {
 	// `sub_B398` 用它決定命中要看力量還是看另一項:類別 8 走力量。
 	// 其餘的值(2、3、7)還沒對出語意。
 	ItemKind [ItemCount]int
+	// CreatureMix[索引] 是遭遇時可能混進來的另一種怪物(`sub_2F0EC` 的
+	// `byte_3F368[生物]`)。前四分之一的同伴各有 1/9 機率換成這一種。
+	CreatureMix [CreatureCount]byte
+	// CreatureMissile[索引] 是遠程攻擊飛出去的那個東西的圖號。
+	//
+	// 依據:`sub_9E10` 一開頭就 `movzx eax, byte_3F260[生物]`,原封不動
+	// 當成 `sub_1FE54`(投射物飛行)的最後一個參數。近戰生物那一批全是 0,
+	// 有射程的那一批全非 0 —— 與射程表互為佐證。
+	CreatureMissile [CreatureCount]byte
 }
 
 // ItemKindBlunt 是「鈍器」的類別碼(`sub_B398` 的 `cmp byte_3F330[edi], 8`)。
@@ -102,9 +189,9 @@ func LoadCombatStats(dir string) (*CombatStats, error) {
 	return ParseCombatStats(raw)
 }
 
-// ParseCombatStats 從 DATA.OVL 的內容取出四張表。
+// ParseCombatStats 從 DATA.OVL 的內容取出全部八張表。
 func ParseCombatStats(ovl []byte) (*CombatStats, error) {
-	need := statsItemKind + ItemCount
+	need := statsCreMix + CreatureCount
 	if len(ovl) < need {
 		return nil, fmt.Errorf("DATA.OVL 只有 %d B,放不下 0x%X 的戰鬥數值區", len(ovl), need)
 	}
@@ -118,6 +205,12 @@ func ParseCombatStats(ovl []byte) (*CombatStats, error) {
 		c.Intel = c.Raw[CreatureIntel]
 		c.Armour = c.Raw[CreatureArmour]
 		c.Attack = c.Raw[CreatureAttack]
+		c.MaxHP = c.Raw[CreatureMaxHP]
+		c.GroupMax = c.Raw[CreatureGroupMax]
+		c.Flags = binary.LittleEndian.Uint16(ovl[statsCreFlags+i*2:])
+		c.Range = ovl[statsCreRange+i]
+		s.CreatureMix[i] = ovl[statsCreMix+i]
+		s.CreatureMissile[i] = ovl[statsCreMisl+i]
 	}
 	for i := 0; i < ItemCount; i++ {
 		s.ItemDamage[i] = int(ovl[statsItemDmg+i])
@@ -176,8 +269,39 @@ func (s *CombatStats) validate() error {
 				id, s.ItemDamage[id], InstantKillDamage)
 		}
 	}
+	// 旗標表:殺不死的那三位(旅人 / 黑刺 / 不列顛王)必須同時是無敵與消失。
+	// 六個位元一起對上,位移偏一格不可能還成立。
+	for _, i := range []int{CreatureWanderer, CreatureBlackthorn, CreatureLordBritish} {
+		c := &s.Creature[i]
+		if !c.Has(CreatureInvulnerable) || !c.Has(CreatureVanishes) {
+			return fmt.Errorf("生物 %d 的旗標是 %04X,預期同時有無敵(%04X)與消失(%04X)",
+				i, c.Flags, CreatureInvulnerable, CreatureVanishes)
+		}
+	}
+	// 射程表:近戰的一定是 1,衛兵(拿十字弓)是全表最大。
+	if r := s.Creature[CreatureFighterIdx].Range; r != 1 {
+		return fmt.Errorf("戰士的射程是 %d,近戰該是 1", r)
+	}
+	if g, f := s.Creature[CreatureGuardIdx].Range, s.Creature[CreatureFighterIdx].Range; g <= f {
+		return fmt.Errorf("衛兵射程 %d 不大於戰士 %d —— 射程表的位移大概錯了", g, f)
+	}
 	return nil
 }
+
+// 幾個在驗證與規則裡點名到的生物索引(索引 = (編號 − 64) / 4)。
+const (
+	CreatureFighterIdx  = 2
+	CreatureGuardIdx    = 12
+	CreatureWanderer    = 13
+	CreatureBlackthorn  = 14
+	CreatureLordBritish = 15
+	// CreatureMimicIdx / CreatureReaperIdx 是**不會移動**的兩種
+	//(`sub_AE20` 開頭 `cmp dl, 1Ah` / `1Bh` 直接 return)。
+	CreatureMimicIdx  = 0x1A
+	CreatureReaperIdx = 0x1B
+	// CreatureGazerIdx 的攻擊會讓目標睡著(`sub_B9A8` 的 `cmp …, 1Ch`)。
+	CreatureGazerIdx = 0x1C
+)
 
 // StatsFor 依生物編號取屬性(編號 → 索引的公式與生物名表同一套)。
 func (s *CombatStats) StatsFor(creature byte) (*CreatureStats, bool) {

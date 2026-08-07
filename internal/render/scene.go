@@ -274,7 +274,7 @@ func (s *Scene) drawCombat(dst *image.NRGBA) {
 	}
 	for i := range c.Units {
 		u := &c.Units[i]
-		if u.Dead {
+		if !u.Active() {
 			continue
 		}
 		s.drawTile(dst, u.Tile, MapOriginX+u.X*TilePixels, MapOriginY+u.Y*TilePixels)
