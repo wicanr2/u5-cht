@@ -83,6 +83,11 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 		s.drawCombat(dst)
 		return
 	}
+	// 地牢:8×8 俯視。⚠ 原版是第一人稱透視 —— 那要先解 DNG1-3.16,還沒做。
+	if s.State.InDungeon() {
+		s.drawDungeon(dst)
+		return
+	}
 	for dy := -half; dy <= half; dy++ {
 		for dx := -half; dx <= half; dx++ {
 			s.drawTile(dst, int(s.State.TileAt(s.State.X+dx, s.State.Y+dy)),
@@ -285,4 +290,57 @@ func (s *Scene) drawCombat(dst *image.NRGBA) {
 		DrawFrame(dst, MapOriginX+u.X*TilePixels, MapOriginY+u.Y*TilePixels,
 			TilePixels, TilePixels, ColorMarker)
 	}
+}
+
+// 地牢的俯視畫面。
+//
+// ⚠ **這不是原版的樣子。** 原版的地牢是第一人稱透視圖(素材在 `DNG1-3.16`),
+// 那三組圖還沒解碼。規則(移動、朝向、爬梯、陷阱、房間)是照原版的,
+// 呈現方式是暫時的 —— 解完透視圖之後這一段會整個換掉。
+//
+// 8×8 的地牢畫在 11×11 視窗的中央,朝向用一個外框加箭頭表示。
+func (s *Scene) drawDungeon(dst *image.NRGBA) {
+	d := s.State.Dungeon
+	const side = u5data.DungeonSide
+	off := (ViewTiles - side) / 2
+	for y := 0; y < side; y++ {
+		for x := 0; x < side; x++ {
+			s.drawTile(dst, dungeonViewTile(s.State.DungeonTileAt(x, y)),
+				MapOriginX+(off+x)*TilePixels, MapOriginY+(off+y)*TilePixels)
+		}
+	}
+	// 隊伍與朝向。
+	px := MapOriginX + (off+d.X)*TilePixels
+	py := MapOriginY + (off+d.Y)*TilePixels
+	s.drawTile(dst, u5data.NPCTileBase+u5data.VehicleWalk, px, py)
+	DrawFrame(dst, px, py, TilePixels, TilePixels, ColorMarker)
+}
+
+// dungeonViewTile 把地牢格子換成一個看得懂的世界 tile。
+//
+// 只是為了讓俯視圖分得出通道 / 牆 / 梯子 / 房間,**不是原版的對應** ——
+// 原版根本不畫俯視圖。
+func dungeonViewTile(t byte) int {
+	switch u5data.DungeonKind(t) {
+	case u5data.DungeonWall, u5data.DungeonUnknownC,
+		u5data.DungeonUnknownD, u5data.DungeonUnknownE:
+		return 0x0E // 山:走不過去
+	case u5data.DungeonLadderUp:
+		return 0xC8 // 上行梯
+	case u5data.DungeonLadderDown:
+		return 0xC9 // 下行梯
+	case u5data.DungeonLadderBoth:
+		return 0xC8
+	case u5data.DungeonChest:
+		return 0x101 // 寶箱
+	case u5data.DungeonFountain:
+		return 0x01 // 水
+	case u5data.DungeonTrap, u5data.DungeonMagic:
+		return 0x8F // 有東西不對勁
+	case u5data.DungeonDoor:
+		return 0x44 // 門
+	case u5data.DungeonRoomA, u5data.DungeonRoomF:
+		return 0x43 // 房間入口
+	}
+	return 0x04 // 通道:草地當地板
 }

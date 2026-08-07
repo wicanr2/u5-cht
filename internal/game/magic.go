@@ -248,9 +248,9 @@ func (s *State) spellEffect(caster, spell int) bool {
 		return true
 
 	case SpellUusPor:
-		return s.spellChangeFloor(+1)
+		return s.spellChangeFloor(true)
 	case SpellDesPor:
-		return s.spellChangeFloor(-1)
+		return s.spellChangeFloor(false)
 	}
 	s.Log("(此咒語的效果尚未實作 —— 藥草與魔力已照原版消耗)")
 	return false
@@ -390,17 +390,32 @@ func (s *State) charmNearest(caster int) bool {
 	return true
 }
 
-// spellChangeFloor 是 Uus Por / Des Por(地牢裡上下一層)。
-func (s *State) spellChangeFloor(delta int) bool {
+// spellChangeFloor 是 Uus Por / Des Por。up 為真是往上。
+//
+// 兩個咒語的可施法場合表只放行**地牢**,所以正常情況一定走地牢那條;
+// 場景那條留著是防呆(場景的樓層號與地牢相反 —— 場景 +1 是往上,
+// 地牢 +1 是往下)。
+func (s *State) spellChangeFloor(up bool) bool {
+	if s.InDungeon() {
+		d := -1
+		if !up {
+			d = 1
+		}
+		return s.DungeonChangeLevel(d)
+	}
 	if !s.InScene() || s.Scenes == nil {
 		s.Log("此處無路可去。")
 		return false
 	}
-	if _, err := s.Scenes.Map(s.Location, s.Floor+delta); err != nil {
+	d := 1
+	if !up {
+		d = -1
+	}
+	if _, err := s.Scenes.Map(s.Location, s.Floor+d); err != nil {
 		s.Log("此處無路可去。")
 		return false
 	}
-	s.changeFloor(delta)
+	s.changeFloor(d)
 	return true
 }
 

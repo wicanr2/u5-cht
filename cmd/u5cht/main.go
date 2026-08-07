@@ -35,6 +35,8 @@ type game struct {
 	dirty bool          // 畫面是否需要重畫(回合制遊戲多數幀不需要)
 	// combatAiming 是「按了 A、正在等方向」的中間狀態。
 	combatAiming bool
+	// dungeonKlimb 是「按了 K、正在等 U/D」的中間狀態。
+	dungeonKlimb bool
 }
 
 func (g *game) Update() error {
@@ -157,6 +159,45 @@ func (g *game) Update() error {
 		case inpututil.IsKeyJustPressed(ebiten.KeyN), inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 			st.Answer(false)
 		}
+	} else if st.InDungeon() {
+		// 地牢:↑ 前進、↓ 後退、← → 轉向,K 爬梯(再按 U/D),C 施法,I 火把。
+		//
+		// ⚠ 這是照原版的**第一人稱**操作;畫面卻還是俯視的(透視圖要先解
+		// DNG1-3.16)。兩者並存看起來有點怪,但規則是對的。
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowUp):
+			st.DungeonForward(false)
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowDown):
+			st.DungeonForward(true)
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft):
+			st.DungeonTurn(true)
+		case inpututil.IsKeyJustPressed(ebiten.KeyArrowRight):
+			st.DungeonTurn(false)
+		case inpututil.IsKeyJustPressed(ebiten.KeyK):
+			g.dungeonKlimb = true
+			st.Log("攀爬 —— 上(U)還是下(D)?")
+		case inpututil.IsKeyJustPressed(ebiten.KeyC):
+			st.BeginCastPrompt()
+		case inpututil.IsKeyJustPressed(ebiten.KeyI):
+			st.LightTorch()
+		case inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ctrl:
+			st.Save()
+		}
+		if g.dungeonKlimb {
+			if inpututil.IsKeyJustPressed(ebiten.KeyU) {
+				st.DungeonKlimb(true)
+				g.dungeonKlimb = false
+			}
+			if inpututil.IsKeyJustPressed(ebiten.KeyD) {
+				st.DungeonKlimb(false)
+				g.dungeonKlimb = false
+			}
+			if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+				g.dungeonKlimb = false
+			}
+		}
+		g.dirty = true
+		return nil
 	} else {
 		if inpututil.IsKeyJustPressed(ebiten.KeyE) {
 			st.Enter()
@@ -275,6 +316,8 @@ func main() {
 		CombatMaps:   bundle.Combat,
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
+		Dungeons:     bundle.Dungeons,
+		DungeonRooms: bundle.DngRooms,
 		Creatures:    bundle.Creatures,
 		UnderObjects: bundle.UnderObjs,
 		MaxMessages:  maxMessages,

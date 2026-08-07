@@ -180,6 +180,49 @@ func (s *State) BeginCombat(slot int) bool {
 		c.LastAttacker[i] = -1
 	}
 	// 隊員照圖裡的入場位置排;人數不足就只排前 n 個。
+	s.placeParty(c, m)
+	s.spawnEnemies(c, o)
+
+	s.Combat = c
+	s.Prompt = PromptCombat
+	s.Log("「" + c.EnemyName + "」來襲!")
+	s.Log("(戰場 #" + strconv.Itoa(idx) + ")")
+	s.advanceCombat()
+	return true
+}
+
+// beginRoomCombat 用一張現成的地圖開一場戰鬥(地牢房間走這條)。
+//
+// 與撞上怪物那條的差別只在**敵人從哪來**:房間的怪物寫在地圖自己的
+// `EnemyKind` 裡(檔案位移 171),不是由撞到的物件決定。
+func (s *State) beginRoomCombat(m *u5data.CombatMap, idx int) bool {
+	c := &Combat{Map: m, MapIndex: idx, fromSlot: -1, Turn: -1, EnemyName: "房間裡的東西"}
+	for i := range c.LastAttacker {
+		c.LastAttacker[i] = -1
+	}
+	s.placeParty(c, m)
+	for n, kind := range m.EnemyKind {
+		if kind < u5data.CreatureBase {
+			continue
+		}
+		cre, ok := s.creatureIndexOf(kind)
+		if !ok {
+			continue
+		}
+		s.placeEnemy(c, n, kind, cre)
+		if c.EnemyName == "房間裡的東西" {
+			c.EnemyName = s.enemyDisplayName(kind)
+		}
+	}
+	s.Combat = c
+	s.Prompt = PromptCombat
+	s.Log("「" + c.EnemyName + "」!")
+	s.advanceCombat()
+	return true
+}
+
+// placeParty 把隊員排到圖裡的入場位置。
+func (s *State) placeParty(c *Combat, m *u5data.CombatMap) {
 	for i, ch := range s.Party() {
 		if i >= u5data.CombatPartySlots {
 			break
@@ -198,20 +241,10 @@ func (s *State) BeginCombat(slot int) bool {
 		if ch.Status == u5data.StatusDead {
 			u.Flags |= UnitDead
 		}
-		// 混沌之劍拿在手上的人不歸玩家指揮 —— 原版 `sub_A360` 一開始就檢查
-		// 兩個武器欄位是不是 0x23,是的話立刻掛上陣營反轉位元交給 AI。
 		if wieldsSwordOfChaos(ch) {
 			u.Flags |= UnitSideFlip
 		}
 	}
-	s.spawnEnemies(c, o)
-
-	s.Combat = c
-	s.Prompt = PromptCombat
-	s.Log("「" + c.EnemyName + "」來襲!")
-	s.Log("(戰場 #" + strconv.Itoa(idx) + ")")
-	s.advanceCombat()
-	return true
 }
 
 // wieldsSwordOfChaos 回報這名角色是不是握著混沌之劍。

@@ -50,6 +50,13 @@ func (d Direction) Delta() (dx, dy int) {
 	return 0, 0
 }
 
+// TurnLeft / TurnRight 是第一人稱轉向。方向碼順時針排(北 0 東 1 南 2 西 3),
+// 所以右轉是 +1、左轉是 −1,兩者都對 4 取模。
+func (d Direction) TurnRight() Direction { return (d + 1) & 3 }
+
+// TurnLeft 見 TurnRight。
+func (d Direction) TurnLeft() Direction { return (d + 3) & 3 }
+
 // Name 回傳中文方位(訊息欄用)。
 func (d Direction) Name() string {
 	switch d {
@@ -118,6 +125,12 @@ type State struct {
 	Stats *u5data.CombatStats
 	// Spells 是咒語表(名稱 / 圈數 / 藥草 / 可施法場合);可為 nil。
 	Spells *u5data.SpellTable
+	// Dungeons 是八座地牢的地圖(DUNGEON.DAT);可為 nil。
+	Dungeons *u5data.DungeonSet
+	// DungeonRooms 是地牢房間(DUNGEON.CBT,格式同地表戰鬥地圖);可為 nil。
+	DungeonRooms *u5data.CombatMapSet
+	// Dungeon 是「正在某座地牢裡」的狀態;nil 代表不在地牢。
+	Dungeon *DungeonState
 	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。
 	LightTurns int
 	// TorchTurns 是火把還亮幾分鐘(原版 byte_3E0B7)。點一把是 random(0,15) + 0x70。
@@ -528,6 +541,16 @@ func (s *State) Klimb() {
 func (s *State) Enter() {
 	if s.InScene() {
 		s.Log(MsgNothingToEnter)
+		return
+	}
+	// 地牢入口與城鎮共用同一張地點表(索引 0x20..0x27),先查地牢。
+	if n, ok := u5data.DungeonAt(s.X, s.Y); ok {
+		if s.Transport != u5data.VehicleWalk && s.Transport != u5data.VehicleWalk+1 {
+			s.Log("得下來走路才進得去!")
+			return
+		}
+		s.Log("進入" + u5data.DungeonEntrances[n].DisplayName() + "。")
+		s.EnterDungeon(n, false)
 		return
 	}
 	loc, ok := u5data.LocationAt(s.X, s.Y)

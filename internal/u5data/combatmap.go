@@ -48,6 +48,13 @@ const (
 	combatPartyY = 113
 	combatEnemyX = 203
 	combatEnemyY = 235
+	// combatEnemyKind 是 16 個敵人各自的種類碼(5×32 + 11 = 171)。
+	//
+	// 依據:`sub_FE48` 在隨機遭遇那條路徑上寫 `byte_3F99F[槽] = 生物*4 + 0x40`,
+	// 而 `0x3F99F − 0x3F8F4 = 171`。地牢房間則是從檔案裡讀 —— 兩條路徑
+	// 共用同一個陣列。`DUNGEON.CBT` 的這 16 B 幾乎全是 4 的倍數 + 0x40,
+	// 對得上生物編號的公式。
+	combatEnemyKind = 171
 )
 
 // CombatMap 是一張戰鬥地圖。
@@ -58,6 +65,11 @@ type CombatMap struct {
 	PartyX, PartyY [CombatPartySlots]byte
 	// EnemyX / EnemyY 是十六個敵人的入場位置。
 	EnemyX, EnemyY [CombatEnemySlots]byte
+	// EnemyKind 是十六個敵人各自的種類碼;0 代表這一槽空著。
+	//
+	// 地表的 `BRIT.CBT` 這一段全是 0(地表遭遇的怪物由撞到的那個物件決定),
+	// 地牢房間的 `DUNGEON.CBT` 才用得到。
+	EnemyKind [CombatEnemySlots]byte
 	// Raw 是完整的 352 B。每列 +11..+31 還有幾組沒解出來的資料
 	// (列 1、2、4、5 各有一批,格式看起來像「另一種入場方向」的位置),
 	// 沒有證據就不取名字,原樣留著。
@@ -96,6 +108,7 @@ func ParseCombatMaps(raw []byte) (*CombatMapSet, error) {
 		copy(m.PartyY[:], blk[combatPartyY:])
 		copy(m.EnemyX[:], blk[combatEnemyX:])
 		copy(m.EnemyY[:], blk[combatEnemyY:])
+		copy(m.EnemyKind[:], blk[combatEnemyKind:])
 	}
 	if err := s.validate(); err != nil {
 		return nil, err
