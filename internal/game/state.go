@@ -100,6 +100,9 @@ type State struct {
 	Talks  *u5data.TalkSet   // 對話文字;可為 nil
 	Shops  *u5data.ShopSet   // 商店目錄與對白;可為 nil
 	Items  *u5data.ItemTable // 裝備名字;可為 nil
+	// Objects 是大地圖上「會動的東西」:隊伍自己、坐騎、船、地上的物品、遊蕩的怪物
+	// (原版 dword_3E46C,來自 BRIT.OOL / UNDER.OOL)。地表與地下各一份。
+	Objects, UnderObjects *u5data.ObjectSet
 
 	// Clock 是遊戲內時間。NPC 站在哪裡完全由它決定(排程以小時為單位)。
 	Clock Clock
@@ -111,6 +114,11 @@ type State struct {
 	// X, Y 是原版的 byte_3E0A6 / byte_3E0A7。大地圖時是世界座標,場景時是場景座標
 	// —— 原版共用同一對變數,離開場景時從地點表把世界座標讀回來。
 	X, Y int
+
+	// HasShip 與 DockX/DockY 是買到的船停在哪(原版 byte_3EE17 的旗標
+	// 與 byte_3E165 / byte_3E166 的座標)。船不佔物件槽。
+	HasShip      bool
+	DockX, DockY int
 
 	// Transport 是原版的 byte_3E08C:隊伍當前的載具 tile(0 = 步行)。
 	// 通行判定 sub_2A694 的第一個參數就是它(docs/re/02)。
@@ -146,8 +154,80 @@ type State struct {
 	// key 是 地點編號<<8 | 槽號 —— 換地點回來時他不該又站在原地。
 	removed map[int]bool
 
+	// sceneObjects 是場景裡的物件槽;進場景時清空(原版 sub_1678)。
+	sceneObjects *u5data.ObjectSet
+
 	scene *u5data.SceneMap                    // 目前這一層的場景地圖快取
 	npcs  *[u5data.NPCsPerLocation]u5data.NPC // 目前地點的 NPC 槽
+}
+
+// currentObjects 回傳目前該用哪一份物件表。
+//
+// 大地圖用 `BRIT.OOL` / `UNDER.OOL` 讀進來的那兩份;場景裡另有一份,
+// 進場景時**整份清空**(原版 `sub_1678` 把槽 1..31 的種類碼歸零再載入場景),
+// 所以在城裡買的馬離開就不見了 —— 那是原版行為,不是漏做。
+func (s *State) currentObjects() *u5data.ObjectSet {
+	if s.InScene() {
+		if s.sceneObjects == nil {
+			s.sceneObjects = &u5data.ObjectSet{}
+		}
+		return s.sceneObjects
+	}
+	if s.Floor < 0 {
+		return s.UnderObjects
+	}
+	return s.Objects
+}
+
+// Objects 回傳目前這一層的物件表,讓引擎其他部分能放東西進去。
+func (s *State) CurrentObjects() *u5data.ObjectSet { return s.currentObjects() }
+
+// VisibleObjects 回傳此刻該畫出來的地圖物件。
+//
+// 隊伍自己那一槽不畫 —— 玩家的位置由 State.X/Y 決定,畫兩次只會疊在一起。
+func (s *State) VisibleObjects() []VisibleObject {
+	objs := s.currentObjects()
+	if objs == nil {
+		return nil
+	}
+	var out []VisibleObject
+	for i := range objs.Objects {
+		if i == u5data.PartyObjectSlot {
+			continue
+		}
+		o := &objs.Objects[i]
+		if !o.Present() || o.Floor != s.Floor {
+			continue
+		}
+		out = append(out, VisibleObject{Slot: i, X: o.X, Y: o.Y, Tile: int(o.Tile), Object: o})
+	}
+	return out
+}
+
+// VisibleObject 是「此刻該畫在這一格的地圖物件」。
+type VisibleObject struct {
+	Slot   int
+	X, Y   int
+	Tile   int
+	Object *u5data.MapObject
+}
+
+// ObjectAt 回報某一格上有沒有物件。
+func (s *State) ObjectAt(x, y int) (*u5data.MapObject, int, bool) {
+	objs := s.currentObjects()
+	if objs == nil {
+		return nil, 0, false
+	}
+	for i := range objs.Objects {
+		if i == u5data.PartyObjectSlot {
+			continue
+		}
+		o := &objs.Objects[i]
+		if o.Present() && o.X == WrapWorld(x) && o.Y == WrapWorld(y) && o.Floor == s.Floor {
+			return o, i, true
+		}
+	}
+	return nil, 0, false
 }
 
 // VisibleNPC 是「此刻該畫在這一格的 NPC」。
@@ -504,6 +584,8 @@ func (s *State) SetScene(num, floor, x, y int) error {
 		return err
 	}
 	s.Location, s.Floor, s.X, s.Y, s.scene = num, floor, x, y, m
+	// 進場景要清空物件槽(原版 sub_1678 把槽 1..31 歸零再載入場景)。
+	s.sceneObjects = &u5data.ObjectSet{}
 	s.loadNPCs()
 	return nil
 }

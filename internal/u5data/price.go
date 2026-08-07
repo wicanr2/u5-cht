@@ -41,6 +41,8 @@ const (
 	priceTavernRation = 0x4C64 // 9 × u16(一份乾糧多少錢)
 	priceWine         = 0x4C58 // 6 × u16
 	priceTavernStyle  = 0x4D5C // 9 × byte(這家酒館用哪一套菜單)
+	priceDockX        = 0x4D86 // 4 × byte(買到的船停在哪)
+	priceDockY        = 0x4D8A // 4 × byte
 	priceFrigate      = 0x4D76 // 4 × u16
 	priceSkiff        = 0x4D7E // 4 × u16
 	priceInn          = 0x4D8E // 6 × byte
@@ -165,6 +167,10 @@ type PriceTable struct {
 	// Frigate / Skiff 是四家造船廠的船價。
 	Frigate [ShipwrightCount]int
 	Skiff   [ShipwrightCount]int
+	// DockX / DockY 是買到的船停泊的**世界座標**。
+	// 原版買船不生成物件槽,只把這兩個值寫進 byte_3E165 / byte_3E166
+	// (`sub_218DC`)—— 船在碼頭等你,不是憑空出現在腳邊。
+	DockX, DockY [ShipwrightCount]int
 	// Inn 是六家旅店每人每天的價錢。
 	Inn [InnCount]int
 	// InnRooms 是每家旅店的房間數;寄放的人超過就客滿(原版 sub_21CE4)。
@@ -237,6 +243,8 @@ func ParsePrices(ovl []byte) (*PriceTable, error) {
 	for i := 0; i < ShipwrightCount; i++ {
 		t.Frigate[i] = u16(priceFrigate, i)
 		t.Skiff[i] = u16(priceSkiff, i)
+		t.DockX[i] = int(ovl[priceDockX+i])
+		t.DockY[i] = int(ovl[priceDockY+i])
 	}
 	for i := 0; i < InnCount; i++ {
 		t.Inn[i] = int(ovl[priceInn+i])

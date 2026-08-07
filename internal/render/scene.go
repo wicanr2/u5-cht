@@ -97,6 +97,17 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 			MapOriginY+(dy+half)*TilePixels)
 	}
 
+	// 大地圖的物件(坐騎、船、地上的東西、遊蕩的怪物)也疊在地形上。
+	for _, o := range s.State.VisibleObjects() {
+		dx, dy := o.X-s.State.X, o.Y-s.State.Y
+		if dx < -half || dx > half || dy < -half || dy > half {
+			continue
+		}
+		s.drawTile(dst, o.Tile,
+			MapOriginX+(dx+half)*TilePixels,
+			MapOriginY+(dy+half)*TilePixels)
+	}
+
 	// 玩家位置標記。
 	// TODO(P3):換成原版的 Avatar tile —— 索引要從反編譯碼確認,不猜。
 	DrawFrame(dst,

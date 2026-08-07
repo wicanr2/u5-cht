@@ -55,3 +55,27 @@ func TileIsWater(tile int) bool {
 func TileNeedsSpecialMover(tile int) bool {
 	return tile&0xFC == 0x90
 }
+
+// 幾個有名字的 tile。兩個都有直接證據,不是看圖猜的:
+//
+//   - `TileHorse` 是買馬時寫進物件槽的值(`sub_118CC` 的 `mov al, 10h`)。
+//   - `TileWalking` 是隊伍步行的 tile —— `BRIT.OOL` 槽 0 的實際內容就是它,
+//     而存檔的載具欄位(`SaveTransportOffset`)讀出來也是 0x1C。
+//
+// ⚠ 船的 tile **沒有列在這裡**:買船在原版不生成物件,所以那段程式碼裡
+// 根本沒有船的 tile 值可抄。船的四個朝向出現在轉向函式 `sub_23FC`
+// (0x2C..0x2F),但那是「船在海上時的顯示」,與「買到的是哪種船」是兩件事,
+// 還沒對上。沒有證據就不填。
+const (
+	TileHorse   = 0x10 // 16
+	TileWalking = 0x1C // 28
+)
+
+// 可以放坐騎的地形。
+//
+// 原版 `sub_118CC` 找位置時比的三個值:`cmp [var_4], 'D'`(68)、`'E'`(69)、`5`。
+// 前兩個是城鎮的地面磚,5 是草地。放不下就「馬廄關門了」。
+var mountableTiles = map[int]bool{5: true, 68: true, 69: true}
+
+// TileAllowsMount 回報這個地形能不能放坐騎。
+func TileAllowsMount(tile int) bool { return mountableTiles[tile] }

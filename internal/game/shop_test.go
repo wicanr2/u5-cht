@@ -31,7 +31,19 @@ func shopState(t *testing.T, location int) *State {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &State{Shops: shops, Items: items, Clock: NewClock(), MaxMessages: 64}
+	scenes, err := u5data.LoadSceneSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sur, und, err := u5data.LoadWorldObjects(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &State{
+		Shops: shops, Items: items, Scenes: scenes,
+		Objects: sur, UnderObjects: und,
+		Clock: NewClock(), MaxMessages: 64,
+	}
 	s.LoadFrom(sv)
 	s.Location = location
 	return s
@@ -616,4 +628,99 @@ func TestShipwrightPrices(t *testing.T) {
 		}
 		s.ShopChoose('n')
 	}
+}
+
+// TestStableSpawnsHorse:買了馬,馬要真的出現在旁邊的格子上。
+//
+// 原版 `sub_118CC` 依 **南、北、東、西** 的順序找第一個地形是 5/68/69
+// 又沒被佔住的鄰格。生成之後那一格就查得到物件 —— 這是物件層接上了的證據。
+func TestStableSpawnsHorse(t *testing.T) {
+	s := shopState(t, 22) // PAWS 有馬廄
+	shop, ok := s.Shops.At(22, u5data.ShopStable)
+	if !ok {
+		t.Fatal("PAWS 沒有馬廄")
+	}
+	if err := s.SetScene(22, 0, 8, 19); err != nil {
+		t.Fatal(err)
+	}
+	if !s.openShop(shop) {
+		t.Fatal("馬廄開不起來")
+	}
+	s.Inventory.Gold = 9999
+	s.ShopChoose('a')
+	s.ShopChoose('y')
+
+	found := false
+	for _, o := range s.VisibleObjects() {
+		if o.Object.Kind == u5data.TileHorse {
+			found = true
+			if o.X == s.X && o.Y == s.Y {
+				t.Error("馬生在玩家自己那一格")
+			}
+			dist := abs(o.X-s.X) + abs(o.Y-s.Y)
+			if dist != 1 {
+				t.Errorf("馬在 (%d,%d),離玩家 %d 格,預期就在隔壁", o.X, o.Y, dist)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("買了馬卻不在地圖上:\n%s", s.log())
+	}
+}
+
+// TestSceneEntryClearsObjects:進場景要清空物件槽(原版 sub_1678)。
+//
+// 在城裡買的馬,離開再回來就不在了 —— 那是原版行為,不是漏做。
+func TestSceneEntryClearsObjects(t *testing.T) {
+	s := shopState(t, 22)
+	if err := s.SetScene(22, 0, 8, 19); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.CurrentObjects().Spawn(u5data.TileHorse, 9, 19, 0); !ok {
+		t.Fatal("放不下馬")
+	}
+	if len(s.VisibleObjects()) != 1 {
+		t.Fatalf("放了一匹馬卻看到 %d 個物件", len(s.VisibleObjects()))
+	}
+	if err := s.SetScene(22, 0, 8, 19); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(s.VisibleObjects()); n != 0 {
+		t.Errorf("重新進場景後還有 %d 個物件", n)
+	}
+}
+
+// TestShipwrightSetsDock:買船不生成物件,只記下停泊座標。
+//
+// 原版 `sub_218DC` 寫的是 byte_3E165 / byte_3E166 —— 船在碼頭等你。
+// 之前我一度把船當成物件槽處理,那是沒有依據的:買船那段程式碼裡
+// 根本沒有出現任何 tile 值。
+func TestShipwrightSetsDock(t *testing.T) {
+	s := shopState(t, 3)
+	shop, ok := s.Shops.At(3, u5data.ShopShipwright)
+	if !ok {
+		t.Fatal("地點 3 沒有造船廠")
+	}
+	s.openShop(shop)
+	s.Inventory.Gold = 9999
+	s.ShopChoose('a') // 帆船
+	s.ShopChoose('y')
+	if !s.HasShip {
+		t.Fatal("買了船卻沒記下來")
+	}
+	p := s.Shops.Prices
+	if s.DockX != p.DockX[shop.TypeIndex] || s.DockY != p.DockY[shop.TypeIndex] {
+		t.Errorf("停泊座標 (%d,%d),預期 (%d,%d)",
+			s.DockX, s.DockY, p.DockX[shop.TypeIndex], p.DockY[shop.TypeIndex])
+	}
+	if len(s.VisibleObjects()) != 0 {
+		t.Error("買船不該生成地圖物件")
+	}
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }

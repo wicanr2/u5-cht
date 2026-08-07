@@ -650,13 +650,51 @@ func (s *State) deliver(it ShopItem) {
 			s.Inventory.Torches = add(s.Inventory.Torches, it.Qty)
 		}
 	case GoodsHorse:
-		// 原版買了馬會在店門口的地圖格放一隻馬 tile;地圖物件層還沒做,
-		// 先誠實說明而不是假裝馬憑空出現。
-		s.Log("(馬已備妥 —— 地圖上的坐騎物件尚未實作)")
+		s.spawnMount(u5data.TileHorse, "馬")
 	case GoodsShip:
-		// 同上:船要生成在碼頭的水格,一樣等地圖物件層。
-		s.Log("(" + it.Name + "已備妥 —— 碼頭上的載具物件尚未實作)")
+		// ⚠ 買船**不生成物件槽** —— 原版 `sub_218DC` 只把停泊座標寫進
+		// byte_3E165 / byte_3E166,船在碼頭等你。
+		p := s.Shops.Prices
+		i := s.Shop.Shop.TypeIndex
+		s.DockX, s.DockY = p.DockX[i], p.DockY[i]
+		s.HasShip = true
+		s.Log(it.Name + "已備妥,停在碼頭 (" +
+			strconv.Itoa(s.DockX) + "," + strconv.Itoa(s.DockY) + ")。")
 	}
+}
+
+// spawnMount 把買到的坐騎或船放到店旁邊的空地上。
+//
+// 原版 `sub_118CC` 開頭就先找位置:依 **南、北、東、西** 的順序看四個鄰格
+// (`dword_555E8` = {0,0,1,-1}、`dword_555F8` = {1,-1,0,0}),
+// 挑第一個「沒有東西擋著、而且地形是 5 / 68 / 69」的格子。
+// 四格都不行就「馬廄關門了」—— 買賣根本不會開始。
+//
+// 這裡在成交後才放,結果一樣:找不到位置就誠實說明,而不是讓坐騎憑空消失。
+func (s *State) spawnMount(tile byte, what string) {
+	objs := s.currentObjects()
+	if objs == nil {
+		s.Log("(" + what + "無處可放)")
+		return
+	}
+	for _, d := range []Direction{South, North, East, West} {
+		dx, dy := d.Delta()
+		x, y := s.X+dx, s.Y+dy
+		if !u5data.TileAllowsMount(int(s.TileAt(x, y))) {
+			continue
+		}
+		if _, _, occupied := s.ObjectAt(x, y); occupied {
+			continue
+		}
+		if _, taken := s.NPCAt(x, y); taken {
+			continue
+		}
+		if _, ok := objs.Spawn(tile, x, y, s.Floor); ok {
+			s.Log(what + "已備妥,就在" + d.Name() + "邊。")
+			return
+		}
+	}
+	s.Log("(此處放不下" + what + ")")
 }
 
 // pitch 取店員的推銷詞:% 是價格,^ 是一次賣幾份(藥草才有)。
