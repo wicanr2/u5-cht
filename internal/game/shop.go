@@ -703,7 +703,8 @@ func (s *State) pitch(off, price, count int) string {
 	if off == 0 || s.Shops == nil || s.Shop == nil {
 		return ""
 	}
-	ph := u5data.Placeholders{Hour: s.Clock.Hour, Number: price, Count: count}
+	ph := u5data.Placeholders{Hour: s.Clock.Hour, Number: price, Count: count,
+		TimeWord: i18n.TimeOfDay(s.Clock.Hour)}
 	return oneLine(s.Shops.SayWith(off, s.Shop.Shop, ph))
 }
 
@@ -712,6 +713,7 @@ func (s *State) pitchWithItem(off, price int, item string) string {
 	if off == 0 || s.Shops == nil || s.Shop == nil {
 		return ""
 	}
-	ph := u5data.Placeholders{Hour: s.Clock.Hour, Number: price, Item: item}
+	ph := u5data.Placeholders{Hour: s.Clock.Hour, Number: price, Item: item,
+		TimeWord: i18n.TimeOfDay(s.Clock.Hour)}
 	return oneLine(s.Shops.SayWith(off, s.Shop.Shop, ph))
 }

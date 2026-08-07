@@ -294,6 +294,13 @@ type Placeholders struct {
 	Count  int    // ^  數量;0 時不代換,避免把「沒給值」印成 0
 	Item   string // &  物品名
 	Place  string // *  地名
+	// TimeWord 覆寫時段字(`@`)。
+	//
+	// ⚠ 中文化必須用到它:`TimeOfDay` 回的是英文 "morning" / "afternoon" /
+	// "evening",而譯好的對白長這樣 ——「@好!我是 $……」。不覆寫的話
+	// 玩家看到的是「morning好!」。**譯文正確保留了 `@`,壞的是代入的字。**
+	// 留空時用 `TimeOfDay(Hour)`,英文原文那條路不受影響。
+	TimeWord string
 }
 
 // Format 展開一段商店文字,只代換店名 / 店主 / 時段 / 價格。
@@ -311,7 +318,7 @@ func (s *ShopSet) substitute(expanded string, sh *Shop, ph Placeholders) string 
 	pairs := []string{
 		"#", sh.Name,
 		"$", sh.Owner,
-		"@", TimeOfDay(ph.Hour),
+		"@", ph.timeWord(),
 		"%", strconv.Itoa(ph.Number),
 	}
 	if ph.Count > 0 {
@@ -324,6 +331,14 @@ func (s *ShopSet) substitute(expanded string, sh *Shop, ph Placeholders) string 
 		pairs = append(pairs, "*", ph.Place)
 	}
 	return strings.NewReplacer(pairs...).Replace(expanded)
+}
+
+// timeWord 是這一次代換要用的時段字:有覆寫就用它,否則用原版的英文。
+func (ph Placeholders) timeWord() string {
+	if ph.TimeWord != "" {
+		return ph.TimeWord
+	}
+	return TimeOfDay(ph.Hour)
 }
 
 // TimeOfDay 回傳原版用的時段字(sub_10FEC 的 `@`)。

@@ -51,3 +51,20 @@ func addShop(m map[int]string) {
 		shops[k] = v
 	}
 }
+
+// TimeOfDay 是時段字的中文(原版 `sub_10FEC` 的 `@` token)。
+//
+// 商店對白裡長這樣:「@好!我是 $,# 的老闆。」—— 譯文正確保留了 `@`,
+// 但 `u5data.TimeOfDay` 回的是英文,不覆寫的話玩家看到「morning好!」。
+//
+// ⚠ 邊界照原版(`byte_3E08F < 0x0C` / `< 0x12`),不要照中文的作息直覺重畫 ——
+// 「下午」在原版是 12 時到 18 時,不是 13 時起。
+func TimeOfDay(hour int) string {
+	switch {
+	case hour < 12:
+		return "早"
+	case hour < 18:
+		return "午"
+	}
+	return "晚"
+}
