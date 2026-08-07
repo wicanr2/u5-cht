@@ -18,7 +18,7 @@ const (
 	// "Britannia!\n"
 	MsgBritannia = "不列顛尼亞!"
 	// "Underworld!\n"
-	MsgUnderworld = "地下世界!"
+	MsgUnderworld = "幽冥界!"
 	// "No\n"
 	MsgNo = "否。"
 	// "Up!\n"
