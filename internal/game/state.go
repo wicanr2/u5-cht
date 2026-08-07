@@ -120,6 +120,10 @@ type State struct {
 	HasShip      bool
 	DockX, DockY int
 
+	// ShipHull / ShipSkiffs 是**目前搭乘中**那艘船的耐久與載著的小艇數。
+	// 原版把它們暫存在物件槽 0(隊伍那一槽)的 +5 / +7,下船時再搬回船物件。
+	ShipHull, ShipSkiffs int
+
 	// Transport 是原版的 byte_3E08C:隊伍當前的載具 tile(0 = 步行)。
 	// 通行判定 sub_2A694 的第一個參數就是它(docs/re/02)。
 	Transport byte

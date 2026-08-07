@@ -55,6 +55,22 @@ const (
 	MsgJoined = "加入了汝的隊伍。"
 	// 尚未實作的副作用:誠實說明,不要假裝發生了(CLAUDE.md §3.0)。
 	MsgGuardsNotImplemented = "(對方喚來衛兵 —— 衛兵反應尚未實作)"
+	// "\nNot here!\n" —— 在不能做這件事的地方按了 B / X。
+	MsgNotHere = "此處不可。"
+	// "What?\n"
+	MsgWhat = "此為何意?"
+	// "\nOn foot\n" —— 要先下來走路才能上另一個載具。
+	MsgOnFoot = "汝須先下來步行。"
+	// "\nDANGER: SHIP BADLY DAMAGED!\n"
+	MsgShipDamaged = "警告:此船受損嚴重!"
+	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
+	MsgNoSkiffs = "船上沒有小艇。"
+	// "\nNo land nearby!\n"
+	MsgNoLandNearby = "附近無陸地可登。"
+	// "Under sail" —— 揚帆中不能下船。
+	MsgUnderSail = "船正揚帆而行。"
+	// 腳下放不下東西 —— 原版靠「取空槽」失敗,沒有專屬訊息;這是引擎的回饋。
+	MsgNoRoom = "(此處放不下)"
 	// "You respond-\n:" —— 回答 NPC 的提問時的提示。
 	MsgYouRespond = "汝答:"
 	// 記錄裡找不到對應的提問區塊 —— 資料或解析的問題,讓它看得見。

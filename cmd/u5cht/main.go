@@ -95,6 +95,12 @@ func (g *game) Update() error {
 		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
 			st.Talk()
 		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+			st.Board()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyX) {
+			st.Exit()
+		}
 		for key, dir := range map[ebiten.Key]gamestate.Direction{
 			ebiten.KeyArrowUp:    gamestate.North,
 			ebiten.KeyArrowDown:  gamestate.South,
@@ -174,14 +180,16 @@ func main() {
 	}
 
 	st := &gamestate.State{
-		World:       bundle.World,
-		Under:       bundle.Under,
-		Scenes:      bundle.Scenes,
-		NPCs:        bundle.NPCs,
-		Talks:       bundle.Talks,
-		Shops:       bundle.Shops,
-		Items:       bundle.Items,
-		MaxMessages: maxMessages,
+		World:        bundle.World,
+		Under:        bundle.Under,
+		Scenes:       bundle.Scenes,
+		NPCs:         bundle.NPCs,
+		Talks:        bundle.Talks,
+		Shops:        bundle.Shops,
+		Items:        bundle.Items,
+		Objects:      bundle.Objects,
+		UnderObjects: bundle.UnderObjs,
+		MaxMessages:  maxMessages,
 	}
 	if bundle.Save != nil {
 		// 開局狀態一律取自原版存檔:時間、隊伍、位置都不是自己編的。

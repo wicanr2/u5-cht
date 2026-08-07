@@ -39,8 +39,26 @@ func shopState(t *testing.T, location int) *State {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// 世界地圖一定要載 —— 少了它 TileAt 一律回 0,而 tile 0 不阻擋通行,
+	// 於是「附近有沒有陸地」這類判斷全部恆真,測試會靜靜地失去意義。
+	chunks, err := u5data.LoadChunks(dir+"/BRIT.DAT", u5data.ChunkSide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ovl, err := os.ReadFile(dir + "/DATA.OVL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	index, err := u5data.ReadWorldChunkIndex(ovl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	world, err := u5data.BuildWorldMap(chunks, index, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	s := &State{
-		Shops: shops, Items: items, Scenes: scenes,
+		Shops: shops, Items: items, Scenes: scenes, World: world,
 		Objects: sur, UnderObjects: und,
 		Clock: NewClock(), MaxMessages: 64,
 	}

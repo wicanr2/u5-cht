@@ -79,3 +79,36 @@ var mountableTiles = map[int]bool{5: true, 68: true, 69: true}
 
 // TileAllowsMount 回報這個地形能不能放坐騎。
 func TileAllowsMount(tile int) bool { return mountableTiles[tile] }
+
+// 載具碼(原版 `byte_3E08C`)
+//
+// 這是「隊伍現在騎/坐在什麼上面」,與地上那個物件的 tile **不是同一個值**。
+// 上下載具的兩支函式(`sub_16F08` / `sub_177AC`)把換算寫得很明白:
+//
+//	馬    物件 0x10/0x11  ⇄  載具 = 物件 + 2 = 0x12/0x13
+//	魔毯  物件 0x1B       ⇄  載具 0x14
+//	小艇  物件 0x28..0x2B ⇄  載具 = 物件(同值)
+//	大船  物件 0x24..0x27 ⇄  載具 = 物件(同值)
+//
+// 「馬 + 2」這條同時解釋了通行判定裡的 `byte_3E08C & 0xFE == 0x12`。
+const (
+	VehicleCarpet   = 0x14 // 0x14/0x15 魔毯
+	VehicleWalk     = 0x1C // 0x1C/0x1D 步行
+	VehicleSailing  = 0x20 // 0x20..0x23 揚帆中(船正在動)
+	VehicleShip     = 0x24 // 0x24..0x27 大船
+	VehicleSkiff    = 0x28 // 0x28..0x2B 小艇
+	TileCarpetObj   = 0x1B // 地上的魔毯
+	HorseToVehicle  = 2    // 騎上馬時載具碼要加的量
+	ShipHullWarning = 10   // 耐久低於這個值會警告「船嚴重受損」
+)
+
+// VehicleKind 把載具碼歸類。回傳的是該類的起始碼(VehicleWalk / VehicleShip …)。
+func VehicleKind(transport byte) int { return int(transport) &^ 0x03 }
+
+// IsOnFoot 回報隊伍是不是在走路。
+//
+// 原版 `sub_16DA4` 判的就是 `byte_3E08C` 等於 0x1C 或 0x1D ——
+// 上馬、上毯、上小艇都要求先下來走路。
+func IsOnFoot(transport byte) bool {
+	return transport == VehicleWalk || transport == VehicleWalk+1
+}

@@ -150,6 +150,9 @@ type Inventory struct {
 	Items [ItemCount]int
 	// Reagents[藥草編號] 是持有份數,順序同 ReagentNames。
 	Reagents [ReagentCount]int
+	// Carpets 是持有的魔毯數(原版 byte_3DFBC)。
+	// ⚠ 存檔位移還沒對出來,目前只在遊戲中維護,讀檔不會帶進來。
+	Carpets int
 }
 
 // Save 是一份存檔。

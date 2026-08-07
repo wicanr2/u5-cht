@@ -205,3 +205,30 @@ func (s *ObjectSet) Remove(slot int) {
 	}
 	s.Objects[slot] = MapObject{}
 }
+
+// 船專用的兩個欄位
+//
+// `sub_16F08`(上船)與 `sub_177AC`(下船)把槽裡的 +5 與 +7 當成船的屬性用:
+//
+//	movzx eax, byte ptr dword_3E470+1[edi*8]   ; 3E46C + 5 + slot*8 → 船的耐久
+//	movzx esi, byte ptr dword_3E470+3[edi*8]   ; 3E46C + 7 + slot*8 → 船上的小艇數
+//
+// 耐久 < 10 會警告「DANGER: SHIP BADLY DAMAGED!」,小艇數 0 會警告
+// 「WARNING: NO SKIFFS ON BOARD!」。上船時兩個值搬到**槽 0**(隊伍那一槽),
+// 下船時再搬回新生成的船物件 —— 所以槽 0 在載具期間兼作「當前載具的狀態」。
+//
+// 這填掉了先前標「用途不明」的三個位元組其中兩個;+6 仍然沒有讀寫處。
+const (
+	ObjShipHull   = 5 // 船的耐久
+	ObjShipSkiffs = 7 // 船上載的小艇數
+)
+
+// Hull 回傳船的耐久。
+func (o *MapObject) Hull() int { return int(o.Raw[ObjShipHull]) }
+
+// Skiffs 回傳船上載的小艇數。
+func (o *MapObject) Skiffs() int { return int(o.Raw[ObjShipSkiffs]) }
+
+// SetHull / SetSkiffs 設定船的兩個屬性。
+func (o *MapObject) SetHull(v int)   { o.Raw[ObjShipHull] = byte(v) }
+func (o *MapObject) SetSkiffs(v int) { o.Raw[ObjShipSkiffs] = byte(v) }
