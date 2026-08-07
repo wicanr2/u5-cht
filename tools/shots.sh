@@ -36,4 +36,6 @@ run "$OUT/16-night-torch.png" --at 81 108 --hour 1 --script "L"
 run "$OUT/17-guard.png"       --scene TRINSIC 0 15 23 --hour 12 --script 'T'
 # 真結局的製作名單(--box 是截圖用的旗標,遊戲本體沒有這個開關)
 run "$OUT/19-credits.png"     --at 100 100 --box --script 'Zy................'
+# 燈塔的光束(大地圖,夜裡;--beam 是截圖用的旗標,遊戲裡由主迴圈每幀推進)
+run "$OUT/20-lighthouse.png" --at 88 116 --hour 1 --beam 10
 echo "→ $OUT"

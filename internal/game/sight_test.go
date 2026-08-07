@@ -335,3 +335,96 @@ func TestASceneTorchLightsTheRoomAtNight(t *testing.T) {
 		t.Error("火盆與牆之間沒有阻擋,那面牆應該被照亮")
 	}
 }
+
+// 燈塔的光束:天黑時掃亮一片扇形,白天不畫。
+func TestTheLighthouseBeamSweepsAtNight(t *testing.T) {
+	// ⚠ 真正的燈塔在**大地圖**上(`BRIT.DAT` 裡 0x1B 剛好四個)。
+	// 這裡用合成場景只是要驗掃描與扇區的邏輯 —— 位置放在玩家南邊五格,
+	// 這樣往北掃的扇區才落在視窗裡(燈塔在視窗座標 (5,10))。
+	scenes := synthScenes(t, walkable(t))
+	m := &scenes.Files[0][u5data.Locations[britain-1].SceneIndex]
+	m.Tiles[20*u5data.SceneSide+15] = u5data.LighthouseTile
+
+	mk := func(hour, frame int) *State {
+		s := &State{Scenes: scenes, MaxMessages: 8}
+		if err := s.SetScene(britain, 0, 15, 15); err != nil {
+			t.Fatalf("進不了不列顛城:%v", err)
+		}
+		s.Clock.Hour = hour
+		s.BeamFrame = frame
+		return s
+	}
+	count := func(s *State) int {
+		lit := u5data.ComputeLit(func(x, y int) byte {
+			return s.TileAt(s.X-5+x, s.Y-5+y)
+		})
+		before := 0
+		for _, v := range lit {
+			if v != 0 {
+				before++
+			}
+		}
+		s.applyBeam(lit, s.LightRadius2())
+		after := 0
+		for _, v := range lit {
+			if v != 0 {
+				after++
+			}
+		}
+		return after - before
+	}
+
+	if n := count(mk(0, 1)); n <= 0 {
+		t.Errorf("夜裡光束應該多照亮一些格子,實得 %d", n)
+	}
+	if n := count(mk(12, 1)); n != 0 {
+		t.Errorf("白天不該畫光束,卻多亮了 %d 格", n)
+	}
+	// 沒有燈塔的場景不畫。
+	plain := &State{Scenes: synthScenes(t, walkable(t)), MaxMessages: 8}
+	if err := plain.SetScene(britain, 0, 15, 15); err != nil {
+		t.Fatal(err)
+	}
+	plain.Clock.Hour = 0
+	if _, _, ok := plain.beamSource(); ok {
+		t.Error("沒有燈塔的場景不該找到光源")
+	}
+}
+
+// 十六個扇區排成羅盤:1 正北、5 正東、9 正南、13 正西。
+func TestBeamSectorsFormACompass(t *testing.T) {
+	cardinal := map[int][2]int{1: {0, -1}, 5: {1, 0}, 9: {0, 1}, 13: {-1, 0}}
+	for sector, want := range cardinal {
+		cells := u5data.BeamCells(sector)
+		if len(cells) == 0 {
+			t.Fatalf("扇區 %d 是空的", sector)
+		}
+		if cells[0] != want {
+			t.Errorf("扇區 %d 的第一格是 %v,預期 %v(正向)", sector, cells[0], want)
+		}
+	}
+	// ⚠ 填充的 (0,0) 要被濾掉 —— 不然燈塔自己那一格會被反覆點亮。
+	for s := 0; s < u5data.BeamSectorCount; s++ {
+		for _, c := range u5data.BeamCells(s) {
+			if c[0] == 0 && c[1] == 0 {
+				t.Fatalf("扇區 %d 混進了填充值 (0,0)", s)
+			}
+		}
+	}
+	// 環繞。
+	if len(u5data.BeamCells(16)) != len(u5data.BeamCells(0)) {
+		t.Error("扇區編號應該對 16 取模")
+	}
+}
+
+// 掃一圈回到原點。
+func TestBeamWrapsAfterSixteenFrames(t *testing.T) {
+	s := newState(t)
+	for i := 0; i < u5data.BeamSectorCount; i++ {
+		s.AdvanceBeam()
+	}
+	if s.BeamFrame != 0 {
+		t.Errorf("掃了 %d 幀之後停在 %d,應該回到 0",
+			u5data.BeamSectorCount, s.BeamFrame)
+	}
+}

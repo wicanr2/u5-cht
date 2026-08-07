@@ -52,6 +52,10 @@ func (g *game) Update() error {
 		return ebiten.Termination
 	}
 	st := g.state
+	// 燈塔的光束每一幀往前掃一格(原版 `sub_2E944` 每次重畫都做一次)。
+	// ⚠ 只有夜裡、而且場景裡真的有燈塔時才看得出來 —— `applyBeam` 自己會判。
+	st.AdvanceBeam()
+	g.dirty = true
 	before := len(st.Messages)
 	snapshot := g.key()
 

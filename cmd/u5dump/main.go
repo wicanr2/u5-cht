@@ -385,6 +385,7 @@ func cmdScene(args []string) error {
 	sceneName, sceneFloor := "", 0
 	hour := -1
 	giveBox := false
+	beamFrame := 0
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
 		case "--hour":
@@ -397,6 +398,11 @@ func cmdScene(args []string) error {
 		// 指的是拿它當驗收;這裡只用來產截圖,不參與任何測試。
 		case "--box":
 			giveBox = true
+		// 燈塔光束轉到第幾個扇區(截圖用;遊戲裡由主迴圈每幀推進)。
+		case "--beam":
+			if i+1 < len(args) {
+				beamFrame, _ = strconv.Atoi(args[i+1])
+			}
 		case "--scene":
 			if i+4 < len(args) {
 				sceneName = args[i+1]
@@ -444,6 +450,7 @@ func cmdScene(args []string) error {
 	if giveBox {
 		st.SandalwoodBox = true
 	}
+	st.BeamFrame = beamFrame
 	// 存檔先套(時間、隊伍、位置),命令列參數再覆蓋。順序反了的話
 	// --at / --scene 會被存檔的位置蓋掉,截圖就永遠停在同一個地方。
 	if atX >= 0 && atY >= 0 {

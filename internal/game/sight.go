@@ -108,6 +108,8 @@ func (s *State) SightMask() []byte {
 	lit := u5data.ComputeLit(func(x, y int) byte {
 		return s.TileAt(ox+x, oy+y)
 	})
+	// 燈塔的光束疊在場景照明之上(原版 `sub_2E944` 寫的也是同一張亮度圖)。
+	s.applyBeam(lit, r)
 	w := u5data.SightWindow{
 		Tile: func(x, y int) byte {
 			return s.TileAt(ox+x, oy+y)
@@ -134,4 +136,62 @@ func SightVisible(mask []byte, dx, dy int) bool {
 		return false
 	}
 	return mask[y*u5data.SightSide+x] != u5data.SightHidden
+}
+
+// 燈塔的光束(原版 `sub_10738` 找燈塔、`sub_2E944` 掃描)
+//
+// 天一黑,燈塔的光束就開始轉 —— 三個扇區寬,一圈十六格,每幀往前一格。
+// 白天(半徑 ≥ 0x32)不畫。
+
+// beamSource 找視野裡的燈塔。回傳它在**視窗座標**裡的位置。
+//
+// ★ 這是**大地圖**上的效果,不是場景裡的。原版掃的 `byte_404F4` 是
+// 世界地圖的 32×32 視窗緩衝(索引由 `byte_3E0AB`/`byte_3E0AC` 也就是
+// 視窗原點算出來),`memchr(…, 0x1B, 0x400)` 找的是地形 0x1B。
+//
+// 佐證:**`BRIT.DAT` 裡 0x1B 剛好出現 4 次**,對得上四座燈塔
+//(破霧塔 / 風暴鴉 / 灰港 / 浪導);`UNDER.DAT` 與四個場景檔則一次都沒有。
+// 我第一版寫成「找場景裡的燈塔」,那樣永遠找不到。
+//
+// 只找**第一個** —— 原版另有第二組變數(`word_41410/41412`),
+// 但填它的那條路還沒追,所以同一個視窗裡有兩座時只有前面那座會轉。
+func (s *State) beamSource() (int, int, bool) {
+	half := u5data.SightSide / 2
+	ox, oy := s.X-half, s.Y-half
+	for y := 0; y < u5data.SightSceneSide; y++ {
+		for x := 0; x < u5data.SightSceneSide; x++ {
+			if s.TileAt(ox+x, oy+y) == u5data.LighthouseTile {
+				return x, y, true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+// applyBeam 把光束畫進亮度圖。
+//
+// ⚠ 光束寫的是**亮度圖**不是罩子 —— 所以它真的會讓那幾格「看得見」,
+// 不只是畫面上亮一下。這也是為什麼原版每掃一格就要重算一次視線遮蔽。
+func (s *State) applyBeam(lit []byte, radius2 int) {
+	if radius2 >= u5data.BeamOffDaylight {
+		return // 白天不畫
+	}
+	bx, by, ok := s.beamSource()
+	if !ok {
+		return
+	}
+	for i := 0; i < u5data.BeamWidth; i++ {
+		for _, d := range u5data.BeamCells(s.BeamFrame + i) {
+			x, y := bx+d[0], by+d[1]
+			if x < 0 || x >= u5data.SightSceneSide || y < 0 || y >= u5data.SightSceneSide {
+				continue
+			}
+			lit[y*u5data.SightStride+x] = 0xFF
+		}
+	}
+}
+
+// AdvanceBeam 把光束往前掃一格(原版 `sub_2E944` 每幀做一次)。
+func (s *State) AdvanceBeam() {
+	s.BeamFrame = (s.BeamFrame + 1) % u5data.BeamSectorCount
 }

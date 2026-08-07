@@ -302,6 +302,8 @@ type State struct {
 	Input string
 	// pending 是正在等玩家回答的提問區塊。
 	pending *u5data.Question
+	// BeamFrame 是燈塔光束轉到第幾個扇區(0..15,原版 `byte_41414`)。
+	BeamFrame int
 	// Introduced[地點] 的第 i 位是「這座城的第 i 個 NPC 認得汝了」
 	//(原版 `dword_3E3E8[地點]`,由對話 opcode 0x88 的 `sub_1C1AC` 設)。
 	//
