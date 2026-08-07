@@ -42,7 +42,7 @@ func TestEndingMessageOffsetsMatchTheOriginal(t *testing.T) {
 		{0x128, u5data.MsgEndOurWorld},
 		{0x167, u5data.MsgEndFreeUs},
 		{0x1C9, u5data.MsgEndOlder},
-		{0x211, u5data.MsgEndOrb},
+		{0x211, u5data.MsgEndAmulet},
 		{0x24B, u5data.MsgEndFollow},
 		{0x2D5, u5data.MsgEndPullUpAChair},
 	}
@@ -109,7 +109,7 @@ func TestSayingYesWithoutTheBoxIsTheBadEnding(t *testing.T) {
 	if !strings.Contains(s.log(), s.endText(u5data.MsgEndPullUpAChair)) {
 		t.Errorf("沒有印「搬張椅子坐下吧」:\n%s", s.log())
 	}
-	if strings.Contains(s.log(), s.endText(u5data.MsgEndOrb)) {
+	if strings.Contains(s.log(), s.endText(u5data.MsgEndAmulet)) {
 		t.Error("壞結局卻唸出了月之球那一段")
 	}
 }

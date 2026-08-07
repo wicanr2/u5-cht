@@ -25,7 +25,7 @@ const (
 	MsgEndOurWorld  = 5
 	MsgEndFreeUs    = 6
 	MsgEndOlder     = 7
-	MsgEndOrb       = 8
+	MsgEndAmulet       = 8
 	MsgEndFollow    = 9
 	MsgEndPullUpAChair = 10 // 沒帶盒子的結局
 )
@@ -33,7 +33,7 @@ const (
 // EndingFinale 是打開盒子之後不列顛王說的那幾句(記錄 3..9)。
 var EndingFinale = []int{
 	MsgEndOpensBox, MsgEndArtifact, MsgEndOurWorld,
-	MsgEndFreeUs, MsgEndOlder, MsgEndOrb, MsgEndFollow,
+	MsgEndFreeUs, MsgEndOlder, MsgEndAmulet, MsgEndFollow,
 }
 
 // SaveSandalwoodBoxOffset 是「有沒有那只檀香木盒」(`byte_3DFCD`)。

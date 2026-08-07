@@ -8,7 +8,7 @@ import (
 
 // Get 指令(原版 `sub_15A94` → `sub_154BC`)
 //
-// 這是三塊寶石碎片、檀香木盒、王冠、權杖、寶珠、月石、魔毯的**唯一**入口。
+// 這是三塊寶石碎片、檀香木盒、王冠、權杖、護符、月石、魔毯的**唯一**入口。
 // 引擎在此之前完全沒有這個指令 —— 所以真結局那條路是走不到的,
 // 只能用 `u5dump` 的腳本直接播。
 //
@@ -163,9 +163,9 @@ func (s *State) pickUp(kind byte, quality, slot int) {
 	case u5data.ItemSceptre:
 		s.Regalia.Sceptre = true
 		s.Log(MsgGotSceptre)
-	case u5data.ItemOrb:
-		s.Regalia.Orb = true
-		s.Log(MsgGotOrb)
+	case u5data.ItemAmulet:
+		s.Regalia.Amulet = true
+		s.Log(MsgGotAmulet)
 	case u5data.ItemShard:
 		i := u5data.ShardIndex(quality)
 		s.Shards[i] = true
@@ -330,7 +330,7 @@ func (s *State) rollDungeonLoot(floor int) {
 	}
 }
 
-// placeUnderworldItems 進地下世界時把寶珠與碎片放進物件槽(原版 `sub_10B3C`)。
+// placeUnderworldItems 進地下世界時把護符與碎片放進物件槽(原版 `sub_10B3C`)。
 //
 // 每次載入地下世界都跑一次,而且是**冪等**的:已經拿到的不再放,
 // 已經用掉的(暗影君主被消滅)也不再放。
@@ -347,8 +347,8 @@ func (s *State) placeUnderworldItems() {
 		o.Raw[4] = 0xFF
 		o.Raw[5] = byte(quality)
 	}
-	if !s.Regalia.Orb {
-		set(u5data.UnderworldOrbSlot, u5data.ItemOrb,
+	if !s.Regalia.Amulet {
+		set(u5data.UnderworldAmuletSlot, u5data.ItemAmulet,
 			u5data.UnderworldOrb.X, u5data.UnderworldOrb.Y, u5data.UnderworldOrb.Quality)
 	}
 	for i := 0; i < u5data.ShadowlordCount; i++ {

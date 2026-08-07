@@ -121,7 +121,7 @@ const (
 	MsgGotPlans       = "那份圖紙!"
 	MsgGotCrown       = "不列顛王的王冠!"
 	MsgGotSceptre     = "不列顛王的權杖!"
-	MsgGotOrb         = "不列顛王的寶珠!"
+	MsgGotAmulet         = "不列顛王的護符!"
 	MsgGotShard       = "%s之碎片!"
 	MsgGotMoonstone   = "一顆月石!"
 	MsgChestEmpty     = "箱子是空的!"
@@ -223,6 +223,29 @@ const (
 	MsgSwapped    = "%s 與 %s 換了位置。"
 	// "You have none!" —— 沒有寶石可看。
 	MsgYouHaveNone = "汝一顆也沒有!"
+
+	// Use(U)—— 原版 `sub_1A5E8`。
+	MsgNoUsableItems    = "沒有可用的道具。"
+	MsgUseAmulet        = "戴上不列顛王的護符……"
+	MsgUseCrown         = "汝戴上了不列顛王的王冠……"
+	MsgUseSceptre       = "舉起不列顛王的權杖……"
+	MsgRemoved          = "取下了。"
+	MsgBoarded          = "上去了!"
+	MsgXitShipFirst     = "得先下船!"
+	MsgOnlyOnFoot       = "只有步行時才行。"
+	MsgSkullKey         = "骷髏鑰匙 ——"
+	MsgFieldDissolved   = "力場消散了!"
+	MsgLooking          = "凝視著……"
+	MsgNoStars          = "看不見星星。"
+	MsgShipRigged       = "船已改裝,航速加倍!"
+	MsgOnlyOnShipboard  = "只有在船上才用得著。"
+	MsgOnlyOutdoors     = "只有在戶外才行。"
+	MsgOnlyAtNight      = "只有夜裡才行。"
+	MsgPosition         = "位置:"
+	MsgPocketWatch      = "懷錶顯示:"
+	MsgBadgeWorn        = "徽章戴上了!"
+	MsgShardOnlyAtFlame = "碎片只能投入聖火。"
+	MsgBoxHow           = "(木盒的用法尚未實作)"
 
 	// Search(S)—— 原版的地點語以 "t" 結尾,接上 "hou dost find" 成句。
 	MsgThouDostFind = "汝翻到了 ——"

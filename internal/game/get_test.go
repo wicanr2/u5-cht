@@ -74,7 +74,7 @@ func TestPickingUpTheSandalwoodBox(t *testing.T) {
 	}
 }
 
-// 王冠 / 權杖 / 寶珠 / 圖紙各有各的旗標。
+// 王冠 / 權杖 / 護符 / 圖紙各有各的旗標。
 func TestPickingUpTheRegalia(t *testing.T) {
 	cases := []struct {
 		kind    byte
@@ -84,7 +84,7 @@ func TestPickingUpTheRegalia(t *testing.T) {
 	}{
 		{u5data.ItemCrown, 0, func(s *State) bool { return s.Regalia.Crown }, "王冠"},
 		{u5data.ItemSceptre, 0, func(s *State) bool { return s.Regalia.Sceptre }, "權杖"},
-		{u5data.ItemOrb, 0, func(s *State) bool { return s.Regalia.Orb }, "寶珠"},
+		{u5data.ItemAmulet, 0, func(s *State) bool { return s.Regalia.Amulet }, "護符"},
 		// ⚠ 圖紙是**卷軸裡品質 0xFF 的那一筆**,不是自己的種類碼。
 		{u5data.ItemScroll, u5data.ItemPlansQuality,
 			func(s *State) bool { return s.Regalia.Plans }, "圖紙"},
@@ -294,18 +294,18 @@ func underworldState(t *testing.T) *State {
 	return s
 }
 
-// ★ 碎片與寶珠不在任何資料檔裡 —— 進地下世界時由程式當場擺進物件槽。
+// ★ 碎片與護符不在任何資料檔裡 —— 進地下世界時由程式當場擺進物件槽。
 func TestUnderworldItemsArePlacedOnEntry(t *testing.T) {
 	s := underworldState(t)
 	s.placeUnderworldItems()
 
-	orb := &s.UnderObjects.Objects[u5data.UnderworldOrbSlot]
-	if orb.Kind != u5data.ItemOrb {
-		t.Errorf("槽 %d 是 %02X,應該是寶珠 %02X",
-			u5data.UnderworldOrbSlot, orb.Kind, byte(u5data.ItemOrb))
+	orb := &s.UnderObjects.Objects[u5data.UnderworldAmuletSlot]
+	if orb.Kind != u5data.ItemAmulet {
+		t.Errorf("槽 %d 是 %02X,應該是護符 %02X",
+			u5data.UnderworldAmuletSlot, orb.Kind, byte(u5data.ItemAmulet))
 	}
 	if orb.X != 105 || orb.Y != 225 || orb.Floor != -1 {
-		t.Errorf("寶珠在 (%d,%d) 樓層 %d,應該是 (105,225) 樓層 −1",
+		t.Errorf("護符在 (%d,%d) 樓層 %d,應該是 (105,225) 樓層 −1",
 			orb.X, orb.Y, orb.Floor)
 	}
 	for i := 0; i < u5data.ShadowlordCount; i++ {
@@ -333,10 +333,10 @@ func TestUnderworldItemsArePlacedOnEntry(t *testing.T) {
 func TestTakenItemsAreNotPlacedAgain(t *testing.T) {
 	s := underworldState(t)
 	s.Shards[1] = true
-	s.Regalia.Orb = true
+	s.Regalia.Amulet = true
 	s.placeUnderworldItems()
-	if s.UnderObjects.Objects[u5data.UnderworldOrbSlot].Present() {
-		t.Error("已經拿到寶珠了,不該再擺一個")
+	if s.UnderObjects.Objects[u5data.UnderworldAmuletSlot].Present() {
+		t.Error("已經拿到護符了,不該再擺一個")
 	}
 	if s.UnderObjects.Objects[u5data.UnderworldShardSlot+1].Present() {
 		t.Error("已經拿到第 1 塊碎片了,不該再擺一個")
@@ -374,7 +374,7 @@ func TestNothingIsPlacedOnTheSurface(t *testing.T) {
 	s := underworldState(t)
 	s.Floor = 0
 	s.placeUnderworldItems()
-	for i := u5data.UnderworldOrbSlot; i < u5data.ObjectSlots; i++ {
+	for i := u5data.UnderworldAmuletSlot; i < u5data.ObjectSlots; i++ {
 		if s.UnderObjects.Objects[i].Present() {
 			t.Fatalf("在地表卻擺了槽 %d", i)
 		}
@@ -393,7 +393,7 @@ func TestPlacingIsIdempotent(t *testing.T) {
 		}
 	}
 	if n != 4 {
-		t.Errorf("擺了 %d 個東西,應該是 4(寶珠 + 三塊碎片)", n)
+		t.Errorf("擺了 %d 個東西,應該是 4(護符 + 三塊碎片)", n)
 	}
 }
 

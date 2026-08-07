@@ -53,7 +53,16 @@ const (
 	// SaveOddKeysOffset 是「怪鑰匙」(byte_3DFBD)—— `sub_154BC` 的鑰匙分支
 	// 有兩條:品質 ≥ 0x80 進這一格,其餘進一般鑰匙(0x0206)。
 	SaveOddKeysOffset = 0x020B
-	SaveOrbOffset     = 0x020D // byte_3DFBF 寶珠
+	// SaveAmuletOffset 是**不列顛王的護符**(byte_3DFBF)。
+	//
+	// ⚠⚠ 這一格此前叫「寶珠(Orb)」——**錯的**。`sub_154BC` 的撿取分支
+	// 寫得很明白:`mov byte_3DFBF, 0FFh` 後面接的字串是
+	// "The Amulet of Lord British!"。而 `sub_1E8D4` 建可用道具清單時,
+	// 它落在特殊道具表第 2 筆(`Amulet`)的位置,兩處一致。
+	//
+	// U5 的三件信物是**王冠 / 權杖 / 護符**,沒有寶珠 —— 那是 U6 的東西。
+	// 這個錯名一路影響到結局判定的變數名(`Regalia.Orb`),已全部更正。
+	SaveAmuletOffset = 0x020D // byte_3DFBF
 	SaveCrownOffset   = 0x020E // byte_3DFC0 王冠
 	SaveSceptreOffset = 0x020F // byte_3DFC1 權杖
 	// 0x0214..0x0219 是 `byte_3DFC8`..`byte_3DFCD` 六個單位元組,
@@ -277,7 +286,7 @@ type Inventory struct {
 // 四個都由 Get 指令撿到(`sub_154BC` 的 0xB5 / 0xB6 / 0xB7 / 0x04 分支),
 // 撿到時各印一句 "The crown of Lord British" 之類。
 type Regalia struct {
-	Crown, Sceptre, Orb bool
+	Crown, Sceptre, Amulet bool
 	// Plans 是圖紙(`byte_3DFC9`)。
 	Plans bool
 }
@@ -314,7 +323,7 @@ type Save struct {
 
 	// Shards[i] 是有沒有第 i 塊寶石碎片(存檔 0x0210 起 4 B,第 4 B 未用)。
 	Shards [ShardCount]byte
-	// Regalia 是王冠 / 權杖 / 寶珠 / 圖紙。
+	// Regalia 是王冠 / 權杖 / 護符 / 圖紙。
 	Regalia Regalia
 	// SandalwoodBox 是有沒有那只檀香木盒(byte_3DFCD)—— 真結局的條件。
 	SandalwoodBox byte
@@ -377,7 +386,7 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.Inventory.Torches = int(raw[SaveTorchesOffset])
 	s.Inventory.Carpets = int(raw[SaveCarpetsOffset])
 	s.Inventory.OddKeys = int(raw[SaveOddKeysOffset])
-	s.Regalia.Orb = raw[SaveOrbOffset] != 0
+	s.Regalia.Amulet = raw[SaveAmuletOffset] != 0
 	s.Regalia.Crown = raw[SaveCrownOffset] != 0
 	s.Regalia.Sceptre = raw[SaveSceptreOffset] != 0
 	s.Regalia.Plans = raw[SavePlansOffset] != 0
@@ -544,7 +553,7 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveTorchesOffset] = byte(s.Inventory.Torches)
 	out[SaveCarpetsOffset] = byte(s.Inventory.Carpets)
 	out[SaveOddKeysOffset] = byte(s.Inventory.OddKeys)
-	putFlag(out, SaveOrbOffset, s.Regalia.Orb)
+	putFlag(out, SaveAmuletOffset, s.Regalia.Amulet)
 	putFlag(out, SaveCrownOffset, s.Regalia.Crown)
 	putFlag(out, SaveSceptreOffset, s.Regalia.Sceptre)
 	putFlag(out, SavePlansOffset, s.Regalia.Plans)

@@ -310,6 +310,15 @@ type State struct {
 	Menu *MainMenu
 	// Zstats 是進行中的角色數值畫面(Prompt == PromptZtats 時有效)。
 	Zstats *Ztats
+	// ShipRigged 是那份 HMS Cape 圖紙的效果:船速加倍(原版 Use case 33)。
+	ShipRigged bool
+	// HasBadge 是有沒有黑棘的黑徽章(原版 `byte_3DFCC`)。
+	//
+	// ⚠ 這一格的存檔位移**還沒釘死**:`sub_1E8D4` 的道具清單讀的是
+	// `byte_3DFCC`,而 0x0216..0x0218 三格對三個變數還沒逐一分派完
+	// (見 `u5data/save.go` 那一段的說明)。所以它目前只在記憶體裡,
+	// 存讀檔不保留 —— 留白比對錯位移好。
+	HasBadge bool
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
 	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。

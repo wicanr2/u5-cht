@@ -2,7 +2,7 @@ package u5data
 
 // Get 指令:撿東西(原版 `sub_15A94` → `sub_154BC`,地牢走 `sub_15930`)
 //
-// 這是三塊寶石碎片、檀香木盒、王冠、權杖、寶珠、月石、魔毯的**唯一**入口 ——
+// 這是三塊寶石碎片、檀香木盒、王冠、權杖、護符、月石、魔毯的**唯一**入口 ——
 // 少了它,真結局那條路根本走不到,而引擎在此之前完全沒有這個指令。
 //
 // 兩條路:那一格上**有物件**就撿物件,沒有就看**地形**能不能拿(牆上的火把、
@@ -31,11 +31,11 @@ const (
 	ItemFood         = 0x0F
 	ItemMoonstone    = 0x19
 	ItemMagicCarpet  = 0x1B
-	ItemShardBase    = 0xB4 // 0xB4..0xB7:碎片 / 王冠 / 權杖 / 寶珠
+	ItemShardBase    = 0xB4 // 0xB4..0xB7:碎片 / 王冠 / 權杖 / 護符
 	ItemShard        = 0xB4
 	ItemCrown        = 0xB5
 	ItemSceptre      = 0xB6
-	ItemOrb          = 0xB7
+	ItemAmulet          = 0xB7
 )
 
 // GetPickable 回報那一格的物件撿不撿得起來(`sub_15A94` 的四個條件)。
@@ -45,7 +45,7 @@ const (
 //	種類 < 0x10          撿(一般物品:錢、藥水、鑰匙、寶石、火把、盒子、食物…)
 //	種類 == 0x19         月石
 //	種類 == 0x1B         魔毯
-//	(種類 & 0xFC) == 0xB4 碎片 / 王冠 / 權杖 / 寶珠
+//	(種類 & 0xFC) == 0xB4 碎片 / 王冠 / 權杖 / 護符
 //	其餘                 跳過,繼續找下一個槽
 //
 // ⚠ 「其餘」包含**怪物與坐騎**(種類 ≥ 0x40)—— 站在馬旁邊按 Get 不會把馬
@@ -187,12 +187,12 @@ func DungeonEmptiedChest(tile byte) byte { return tile & DungeonHoleAbove }
 
 // 地下世界的固定寶物(原版 `sub_10B3C`,由地圖載入 `sub_2CBEC` 呼叫)
 //
-// ★ 「碎片與盒子擺在哪裡」這一題,碎片與寶珠的部分在這裡結掉了 ——
+// ★ 「碎片與盒子擺在哪裡」這一題,碎片與護符的部分在這裡結掉了 ——
 // 它們**不在**任何資料檔裡(`.OOL` 沒有、`DUNGEON.CBT` 也沒有),
 // 是進地下世界時由程式**當場塞進物件槽**的:
 //
 //	if (樓層 == 0) return;                        // 只在地下世界
-//	if (還沒拿到寶珠) 槽 28 = 寶珠 @ (105, 225)
+//	if (還沒拿到護符) 槽 28 = 護符 @ (105, 225)
 //	for (i = 0; i < 3; i++) {
 //	    if (已經拿到第 i 塊碎片) continue;
 //	    if (第 i 位暗影君主已被消滅) continue;      // 用掉的碎片不會重生
@@ -207,11 +207,11 @@ func DungeonEmptiedChest(tile byte) byte { return tile & DungeonHoleAbove }
 // 由位址算出來:`dword_3E54C` 與 `3E554h[i*8]` 相對於物件表起點 `dword_3E46C`
 // 分別是 +0xE0 與 +0xE8,除以 8 就是槽 28 與 29..31。
 const (
-	UnderworldOrbSlot   = 28
+	UnderworldAmuletSlot   = 28
 	UnderworldShardSlot = 29
 )
 
-// UnderworldOrb 是寶珠固定擺放的位置與品質。
+// UnderworldOrb 是護符固定擺放的位置與品質。
 var UnderworldOrb = struct {
 	X, Y, Quality int
 }{X: 105, Y: 225, Quality: 0xF3}
