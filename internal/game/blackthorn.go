@@ -58,6 +58,7 @@ func (s *State) BeginInterrogation() bool {
 		return false
 	}
 	s.enterChamber(u5data.MiscMapIndexCell)
+	s.FinishChamberWalk()
 	s.Log(MsgSubdued)
 	s.Log(MsgDraggedAway)
 	s.Log("黑棘說道:「啊," + s.AvatarName() + "!能與汝相見,實為榮幸。」")

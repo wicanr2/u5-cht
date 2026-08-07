@@ -41,6 +41,7 @@ func (s *State) BeginEnding() bool {
 		return false
 	}
 	s.enterChamber(u5data.MiscMapIndexThrone)
+	s.FinishChamberWalk()
 	s.revivePartyForEnding()
 	s.Ending = &Ending{}
 	s.Prompt = PromptEnding

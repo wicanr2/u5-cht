@@ -90,6 +90,7 @@ func (s *State) ReadCodex() bool {
 // beginCodex 進入閱讀模式並唸出第一頁。
 func (s *State) beginCodex(pages []string) bool {
 	s.enterChamber(u5data.MiscMapIndexCodex)
+	s.FinishChamberWalk()
 	s.Codex = &Codex{Pages: pages}
 	s.Prompt = PromptCodex
 	s.Log(s.Codex.Text())

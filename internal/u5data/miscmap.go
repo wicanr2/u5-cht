@@ -139,3 +139,58 @@ const (
 // ⚠ 用 0xFF 而不是 0 —— 有很多判斷是 `地點 > 0x7F` 才成立的
 //(例如魔法的「戰鬥中才能施」),進石室時那些判斷要跟原版一樣。
 const MiscMapLocation = 0xFF
+
+// WalkStep 把一個物件朝目標走一格(原版 `sub_134CC`)。
+//
+// 回傳走完之後的座標,以及「還在走嗎」。到了目標(或起點就是目標)回 false。
+//
+// 原版每呼叫一次走一格、重畫一幀,呼叫端用 `while (WalkStep(...))` 把它走完 ——
+// 石室的進場與退場、結局那一幕的走位都是這一支。
+//
+// ⚠ **平手時走橫向。** 原版是 `cmp dy, dx; jle 走橫向` —— 距離相等
+// (正斜角)時往橫的走,不是縱的。抄反了路徑會不一樣:
+// 石室進場是從 (5,10) 往上走,一路 dx = 0,不受影響;
+// 但結局那一幕是斜著走的,差別看得出來。
+func WalkStep(x, y, targetX, targetY int) (int, int, bool) {
+	if x == targetX && y == targetY {
+		return x, y, false
+	}
+	dx, dy := abs(x-targetX), abs(y-targetY)
+	if dy > dx {
+		if targetY < y {
+			y--
+		} else {
+			y++
+		}
+		return x, y, true
+	}
+	if x > targetX {
+		x--
+	} else {
+		x++
+	}
+	return x, y, true
+}
+
+func abs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+// WalkPath 是把 `WalkStep` 走到底得到的整條路徑(不含起點)。
+//
+// 上限只是防呆:11×11 的石室走不了那麼多步,真的爆掉代表 WalkStep 有問題。
+func WalkPath(x, y, targetX, targetY int) [][2]int {
+	var out [][2]int
+	for i := 0; i < MiscMapSide*MiscMapSide; i++ {
+		nx, ny, moving := WalkStep(x, y, targetX, targetY)
+		if !moving {
+			break
+		}
+		x, y = nx, ny
+		out = append(out, [2]int{x, y})
+	}
+	return out
+}

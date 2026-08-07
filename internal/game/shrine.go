@@ -88,6 +88,7 @@ func (s *State) Meditate() bool {
 	}
 	v := s.ShrineHere()
 	s.enterChamber(u5data.MiscMapIndexShrine)
+	s.FinishChamberWalk()
 	s.Shrine = &Shrine{Virtue: v, OK: true, Stage: ShrineAskVirtue}
 	s.Prompt = PromptShrine
 	s.logMisc(u5data.MsgShrineApproach)
