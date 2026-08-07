@@ -22,7 +22,7 @@ const (
 	MenuJourneyOnward MenuItem = iota
 	// MenuCreateCharacter 是「建立新角色」。
 	MenuCreateCharacter
-	// MenuTransferU4 是「從創世紀 IV 轉入」。**尚未實作** —— 轉換規則未逆。
+	// MenuTransferU4 是「從創世紀 IV 轉入」(`docs/re/55`)。
 	MenuTransferU4
 	// MenuIntroduction 是「重播開場」。
 	MenuIntroduction
@@ -79,10 +79,18 @@ func (s *State) MenuChoose() bool {
 		s.BeginCreation()
 		return true
 	case MenuTransferU4:
-		// ⚠ 沒實作就說沒實作。做一個「假裝轉入」的分支比缺這一項更糟 ——
-		// 玩家會以為角色轉進來了(CLAUDE.md §3.0)。
-		s.Log(MsgTransferNotImplemented)
-		return false
+		// 原版寫死讀 `a:party.sav`;現代環境沒有 A 磁碟,所以路徑由
+		// `-u4save` 指定(見 `cmd/u5cht`)。沒給路徑就照實說,
+		// **不要**假裝轉入(CLAUDE.md §3.0)。
+		if s.U4SavePath == "" {
+			s.Log(MsgTransferNeedsPath)
+			return false
+		}
+		if !s.TransferFromUltimaIV(s.U4SavePath) {
+			return false
+		}
+		s.closeMenu()
+		return true
 	case MenuIntroduction:
 		s.closeMenu()
 		s.BeginIntro()

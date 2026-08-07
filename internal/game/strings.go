@@ -308,7 +308,7 @@ const (
 	MsgUnequipped   = "%s 卸下了%s。"
 
 	// 主選單裡還沒實作的兩項 —— 照實說,不要做一個假裝有用的分支。
-	MsgTransferNotImplemented        = "(從創世紀 IV 轉入尚未實作 —— 轉換規則未逆)"
+	MsgTransferNeedsPath = "請以 -u4save 指定《創世紀 IV》的 PARTY.SAV。"
 	MsgAcknowledgementsNotImplemented = "(製作群畫面尚未實作 —— 原版是一張圖,素材未對到)"
 
 	// 建立新角色(原版主選單的 `Create New Character`)。

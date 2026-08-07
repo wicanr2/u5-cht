@@ -667,6 +667,10 @@ func main() {
 	newChar := flag.Bool("create", false,
 		"直接走建角流程(吉普賽的七題八德),覆寫載入的那名聖者")
 	showMenu := flag.Bool("menu", false, "開機先進主選單(原版的六個項目)")
+	// 原版的「Transfer from Ultima IV」寫死讀 `a:party.sav`。現代環境沒有
+	// A 磁碟,所以路徑用旗標給;不給就在選單裡照實說,不假裝轉入。
+	u4save := flag.String("u4save", "",
+		"《創世紀 IV》的 PARTY.SAV 路徑(主選單「從創世紀 IV 轉入」要用)")
 	flag.Parse()
 
 	if *showVersion {
@@ -757,6 +761,8 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	if *playIntro || !loaded {
 		st.BeginIntro()
 	}
+	// 「從創世紀 IV 轉入」要用的存檔路徑(原版寫死 `a:party.sav`)。
+	st.U4SavePath = *u4save
 	// 建角。原版是主選單的「Create New Character」;引擎還沒有主選單,
 	// 先用旗標接上 —— 沒有它玩家只能扮演存檔裡做好的聖者。
 	// ⚠ 開場動畫還在播的時候不能同時建角,兩者都吃「任意鍵」。

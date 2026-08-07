@@ -235,6 +235,10 @@ type State struct {
 	HasShip      bool
 	DockX, DockY int
 
+	// U4SavePath 是《創世紀 IV》`PARTY.SAV` 的路徑(原版寫死 `a:party.sav`)。
+	// 空字串代表沒指定,主選單那一項會照實說而不是假裝轉入。
+	U4SavePath string
+
 	// TransferredAvatar 是原版的 `dword_54498`:Ztats 上要印「乃聖者」還是
 	// 「並非聖者」。
 	//

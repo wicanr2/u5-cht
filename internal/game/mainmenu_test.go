@@ -1,6 +1,8 @@
 package game
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -47,14 +49,13 @@ func TestMenuCursorWraps(t *testing.T) {
 
 // TestUnimplementedMenuItemsSaySo:沒做的項目要照實說,不能假裝有用。
 //
-// 「從創世紀 IV 轉入」做一個什麼都不做卻關掉選單的分支,玩家會以為
-// 角色轉進來了 —— 那比缺這一項更糟(CLAUDE.md §3.0)。
+// ⚠ 「從創世紀 IV 轉入」**已經實作了**(`docs/re/55`),所以從這張表裡移除;
+// 但它在**沒給存檔路徑**時仍然要照實說,那一條移到下面單獨測。
 func TestUnimplementedMenuItemsSaySo(t *testing.T) {
 	for _, c := range []struct {
 		item MenuItem
 		want string
 	}{
-		{MenuTransferU4, MsgTransferNotImplemented},
 		{MenuAcknowledgements, MsgAcknowledgementsNotImplemented},
 	} {
 		s := &State{MaxMessages: 8}
@@ -81,5 +82,39 @@ func TestJourneyOnwardClosesTheMenu(t *testing.T) {
 	}
 	if s.InMainMenu() || s.Prompt != PromptNone {
 		t.Errorf("選單沒關乾淨:Prompt=%v Menu=%v", s.Prompt, s.Menu)
+	}
+}
+
+// 「從創世紀 IV 轉入」在沒給存檔路徑時要照實說,不能假裝轉入。
+//
+// 原版寫死讀 `a:party.sav`;引擎讓 `-u4save` 指定。沒指定就沒東西可讀 ——
+// 這時做一個「什麼都不做卻關掉選單」的分支,玩家會以為角色轉進來了。
+func TestTransferWithoutAPathSaysSo(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	s.BeginMainMenu()
+	s.Menu.Cursor = MenuTransferU4
+	if s.MenuChoose() {
+		t.Error("沒給路徑卻關掉了選單")
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgTransferNeedsPath) {
+		t.Errorf("沒有提示要給路徑:%q", s.Messages)
+	}
+}
+
+// 給了一份壞掉的存檔,要照原版印同一句「無法完成轉入」,而且不關選單。
+func TestTransferOnABadSaveKeepsTheMenu(t *testing.T) {
+	dir := t.TempDir()
+	bad := filepath.Join(dir, "PARTY.SAV")
+	if err := os.WriteFile(bad, []byte{1, 2, 3}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := &State{MaxMessages: 8, U4SavePath: bad}
+	s.BeginMainMenu()
+	s.Menu.Cursor = MenuTransferU4
+	if s.MenuChoose() {
+		t.Error("壞存檔卻關掉了選單")
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), "無法完成轉入") {
+		t.Errorf("沒有印「無法完成轉入」:%q", s.Messages)
 	}
 }
