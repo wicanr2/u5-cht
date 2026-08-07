@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -53,17 +54,23 @@ func TestTalkFlowWithRealData(t *testing.T) {
 	name := s.Conv.Name
 
 	// 問 job —— 這是引擎內建的關鍵字,不在記錄的關鍵字表裡。
+	//
+	// ⚠ **不要拿英文原文當預期值。** 這一條原本比對 `s.Conv.Job` 的英文,
+	// 對白中譯之後就整批紅了 —— 而紅的原因是「翻對了」。
+	// 測的是**流程**(問了有回應、回應不是「聽不懂」),不是文字內容。
+	before := len(s.Messages)
 	typeWord(s, "job")
-	if !anyContains(s.Messages, firstWords(s.Conv.Job)) {
-		t.Errorf("問 job 沒有得到職業回答(%q):%v", s.Conv.Job, s.Messages)
+	if got := s.Messages[before:]; len(got) < 2 || anyContains(got, MsgDoesNotUnderstand) {
+		t.Errorf("問 job 沒有得到職業回答:%v", got)
 	}
 
 	// 問一個他自己列出的關鍵字。
 	if kws := s.Conv.Keywords(); len(kws) > 0 {
 		want, _, _ := s.Conv.Respond(kws[0])
+		before = len(s.Messages)
 		typeWord(s, kws[0])
-		if want != "" && !anyContains(s.Messages, firstWords(want)) {
-			t.Errorf("問 %q 沒有得到對應回答(%q):%v", kws[0], want, s.Messages)
+		if got := s.Messages[before:]; want != "" && anyContains(got, MsgDoesNotUnderstand) {
+			t.Errorf("問 %q(原文回應 %q)卻聽不懂:%v", kws[0], want, got)
 		}
 	}
 
@@ -175,10 +182,11 @@ func TestGwennoYesNoBranch(t *testing.T) {
 	if dir == "" {
 		t.Skip("未設 U5_GAMEDATA,跳過需要原版資料的測試")
 	}
-	for _, c := range []struct{ answer, want string }{
-		{"y", "Then perhaps"},
-		{"n", "I thought not"},
-	} {
+	// ⚠ 原本比對英文原文("Then perhaps" / "I thought not"),對白中譯之後
+	// 整批紅 —— 而紅的原因是**翻對了**。改成測「兩條分支的回應不一樣」,
+	// 那才是分支有沒有接對的本質,而且與譯到哪裡無關。
+	reply := map[string]string{}
+	for _, answer := range []string{"y", "n"} {
 		s := realState(t, dir)
 		if err := s.SetScene(britain, 0, 3, 28); err != nil {
 			t.Fatal(err)
@@ -189,10 +197,17 @@ func TestGwennoYesNoBranch(t *testing.T) {
 		if s.Prompt != PromptAnswer {
 			t.Fatalf("問 yew 之後沒有進入回答模式:%v", s.Messages)
 		}
-		typeWord(s, c.answer)
-		if !anyContains(s.Messages, c.want) {
-			t.Errorf("答 %q 沒有得到含 %q 的回應:%v", c.answer, c.want, s.Messages)
+		before := len(s.Messages)
+		typeWord(s, answer)
+		got := s.Messages[before:]
+		if len(got) < 2 {
+			t.Errorf("答 %q 沒有得到回應:%v", answer, got)
+			continue
 		}
+		reply[answer] = strings.Join(got, " ")
+	}
+	if reply["y"] == reply["n"] {
+		t.Errorf("答 y 與答 n 的回應一樣,分支沒接對:%q", reply["y"])
 	}
 }
 
@@ -294,14 +309,21 @@ func TestUntranslatedTalkStaysEnglish(t *testing.T) {
 	if err := s.SetScene(17, 0, 15, 15); err != nil {
 		t.Fatal(err)
 	}
-	s.beginConversation(3) // 還沒翻的一筆
-	if s.Conv == nil {
-		t.Skip("這一筆讀不到")
+	// 找一筆**確定還沒翻**的外觀敘述 —— 隨著翻譯推進,寫死號碼會失效。
+	for id := 1; id < 60; id++ {
+		s.EndConversation()
+		s.Messages = nil
+		s.beginConversation(byte(id))
+		if s.Conv == nil || strings.TrimSpace(s.Conv.Description) == "" {
+			continue
+		}
+		if i18n.TalkTranslated("CASTLE.TLK", s.Conv.ID, i18n.TalkFieldDesc) {
+			continue
+		}
+		if !strings.Contains(allLogs(s), s.Conv.Description) {
+			t.Errorf("沒翻的段落應該原樣出英文:%q", allLogs(s))
+		}
+		return
 	}
-	if strings.TrimSpace(s.Conv.Description) == "" {
-		t.Skip("這一筆沒有外觀敘述")
-	}
-	if !strings.Contains(allLogs(s), s.Conv.Description) {
-		t.Errorf("沒翻的段落應該原樣出英文:%q", allLogs(s))
-	}
+	t.Skip("這個地點的外觀敘述都翻完了 —— 這是好事")
 }
