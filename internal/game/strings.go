@@ -86,6 +86,11 @@ const (
 	MsgGuardPass     = "「過去吧,朋友!」"
 	MsgBegoneVermin  = "「滾開,害蟲!」"
 
+	// NPC 反問名字(原版 opcode 0x88 / `sub_1C2FC`)。
+	MsgWhatIsThyName = "「汝名為何?」"
+	MsgAPleasure     = "幸會!"
+	MsgIfYouSaySo    = "汝說是就是吧。"
+
 	// Get 指令(原版 `sub_15A94` / `sub_154BC`)。
 	MsgNothingToGet   = "這裡沒有東西可拿。"
 	MsgOpenItFirst    = "得先打開它!"

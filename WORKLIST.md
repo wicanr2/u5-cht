@@ -137,7 +137,7 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | NPC 定義 | `*.NPC` 各 4,608 B | ⬜ 未解碼 |
 | NPC 排程與路徑 | `BRITISH.PTH` 2,783 B;`NPC.OVL` 4,912 B | ⬜ U5 招牌機制(NPC 有作息) |
 | NPC 職業 | `DATA.OVL` 0x0342:`VILLAGER MERCHANT JESTER BARD PIRATES` | ⬜ |
-| 對話關鍵字系統 | `TALK.OVL` 4,880 B;`.TLK` 內含控制碼(`\x01` 疑為玩家名代入) | ⬜ |
+| 對話關鍵字系統 | `TALK.OVL` 4,880 B | ✅ 31 路指令集全解(`docs/re/06`),**含原本標「未定」的 0x88「汝名為何?」** |
 | 招牌 | `SIGNS.DAT` 8,364 B | ⬜ 格式為 offset 表 + 字元畫框 |
 | 觀察(look) | `LOOK2.DAT` 3,622 B + `LOOKOBJ.OVL` 4,560 B | ⬜ 格式含 0x01–0x1F 控制碼 |
 

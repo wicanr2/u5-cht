@@ -34,6 +34,20 @@ const (
 	OpJoinParty = 0x84
 	// OpSameAsNext 表示「這個關鍵字的回答與下一則相同」。
 	OpSameAsNext = 0x87
+	// OpAskName 是 NPC 反問「汝名為何?」(`sub_1C2FC`)。
+	//
+	// ★ 這一格原本在 `docs/re/06` 的指令表裡標「未定」。追出來是:
+	// NPC 問名字 → 玩家打字 → 拿去跟**隊伍每一名成員**的名字比
+	//(前 4 個字元的詞首比對,同關鍵字那一套 `sub_27C98`)。
+	//
+	//	對上了   → 記下「這個 NPC 認得汝了」,回「幸會!」
+	//	對不上   → 「汝說是就是吧。」
+	//	汝報的是這個 NPC 自己的名字 → 也是「汝說是就是吧。」
+	//
+	// 「認得了」存在 `dword_3E3E8[地點] |= 1 << NPC 槽`(`sub_1C1AC`)——
+	// **每個地點一個 32 位元遮罩**,所以是「這座城的這個人認得汝」,
+	// 不是全域的。
+	OpAskName = 0x88
 	// OpKarmaUp / OpKarmaDown 增減業報(byte_3E098,上限 99)。
 	OpKarmaUp   = 0x89
 	OpKarmaDown = 0x8A
@@ -66,6 +80,7 @@ type Effects struct {
 	KarmaDelta  int  // 業報增減
 	EndTalk     bool // 結束整段對話
 	AsksPlayer  bool // 中途向玩家提問(0x91–0x9F)
+	AsksName    bool // 反問「汝名為何?」(0x88)
 	AskCode     byte // 提問碼,用來找對應的提問區塊
 	SameAsNext  bool // 這一則只是「同下一則」的別名
 	WaitForKey  bool // 有停頓 / 等待按鍵
@@ -232,6 +247,9 @@ func (c *Conversation) render(raw []byte) (string, Effects) {
 		case ch == OpJoinParty:
 			fx.JoinParty = true
 			continue
+		case ch == OpAskName:
+			fx.AsksName = true
+			continue
 		case ch == OpCallGuards:
 			fx.CallGuards = true
 			continue
@@ -282,7 +300,8 @@ func (c *Conversation) render(raw []byte) (string, Effects) {
 	// 那是「NPC 反問你」而不是「同下一則」。把它當別名的話,
 	// 玩家問這個字會拿到下一個關鍵字的答案 —— 錯得很難察覺。
 	if onlyOps && !fx.SameAsNext && strings.TrimSpace(b.String()) == "" &&
-		!fx.AsksPlayer && !fx.JoinParty && !fx.CallGuards && !fx.EndTalk && fx.KarmaDelta == 0 {
+		!fx.AsksPlayer && !fx.AsksName && !fx.JoinParty && !fx.CallGuards &&
+		!fx.EndTalk && fx.KarmaDelta == 0 {
 		fx.SameAsNext = true
 	}
 	return strings.TrimSpace(b.String()), fx

@@ -154,6 +154,12 @@ func (s *State) Submit() {
 	word := strings.TrimSpace(s.Input)
 	s.Input = ""
 
+	// 正在報上名字(opcode 0x88)—— 與一般的提問分支不同,沒有問題區塊。
+	if s.askingName {
+		s.answerName(word)
+		return
+	}
+
 	// 正在回答 NPC 的提問。
 	if s.Prompt == PromptAnswer {
 		q := s.pending
@@ -251,6 +257,9 @@ func (s *State) applyEffects(fx u5data.Effects) {
 		s.Log(MsgGuardsCalled)
 		s.EndConversation()
 		s.CallGuards()
+	}
+	if fx.AsksName {
+		s.askName()
 	}
 	if fx.AsksPlayer {
 		s.ask(fx.AskCode)
@@ -421,4 +430,73 @@ func nonEmpty(s, fallback string) string {
 		return fallback
 	}
 	return s
+}
+
+// NPC 反問「汝名為何?」(原版 opcode 0x88 → `sub_1C2FC`)
+//
+// 這一格在 `docs/re/06` 的指令表裡原本標「未定」。追出來的流程:
+//
+//	1. 印「汝名為何?」,收一行輸入
+//	2. 拿去跟**隊伍每一名成員**的名字比 —— 前 4 個字元的詞首比對
+//	   (`sub_27C98`,與對話關鍵字同一支)
+//	3. 對上 → 記下「這座城的這個 NPC 認得汝了」,回「幸會!」
+//	   對不上 → 「汝說是就是吧。」
+//
+// ⚠ 兩個容易漏的細節:
+//
+//   - **空輸入直接「汝說是就是吧。」**(原版 `mov eax, edi`(此時 edi 還是 0)
+//     配 `cmp al, byte_55F38` —— 比的是輸入緩衝的第一個位元組是不是 0)。
+//     第一次讀這段時我把它讀成「報對方自己的名字」,那是錯的。
+//   - **比對長度是 4,不是 9。** 原版只把成員名字的前 4 個位元組複製進
+//     needle 緩衝。與對話關鍵字共用同一支比對函式,但截斷長度不同 ——
+//     用 9 的話「Elwo」報不進去。
+
+// askName 是 NPC 開口問名字。
+func (s *State) askName() {
+	s.Log(MsgWhatIsThyName)
+	s.askingName = true
+	s.Prompt = PromptAnswer
+}
+
+// answerName 處理玩家報上的名字。
+func (s *State) answerName(word string) {
+	s.askingName = false
+	s.Prompt = PromptTalk
+	s.Log(MsgYouRespond + word)
+
+	if word == "" {
+		s.Log("「" + MsgIfYouSaySo + "」")
+		return
+	}
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		if !u5data.NameSpoken(s.Roster[i].Name, word) {
+			continue
+		}
+		s.markIntroduced()
+		s.Log("「" + MsgAPleasure + "」")
+		return
+	}
+	s.Log("「" + MsgIfYouSaySo + "」")
+}
+
+// markIntroduced 記下「這座城的這個 NPC 認得汝了」(原版 `sub_1C1AC`)。
+//
+// ⚠ 遮罩是**每個地點一個 32 位元**(`dword_3E3E8[地點] |= 1 << 槽`)——
+// 同一個人在別的地點不算認得。做成全域的話,汝一報名字全世界都認識汝。
+func (s *State) markIntroduced() {
+	if s.talkingTo < 0 || s.talkingTo >= 32 {
+		return
+	}
+	if s.Location < 0 || s.Location >= len(s.Introduced) {
+		return
+	}
+	s.Introduced[s.Location] |= 1 << uint(s.talkingTo)
+}
+
+// KnowsThyName 回報這座城的第 slot 個 NPC 認不認得汝。
+func (s *State) KnowsThyName(slot int) bool {
+	if slot < 0 || slot >= 32 || s.Location < 0 || s.Location >= len(s.Introduced) {
+		return false
+	}
+	return s.Introduced[s.Location]&(1<<uint(slot)) != 0
 }

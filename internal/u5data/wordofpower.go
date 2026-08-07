@@ -208,3 +208,25 @@ func WordTargetTile(tile byte, i int) bool {
 	return tile == DungeonEntranceTile[i] ||
 		tile == TileDungeonSealed || tile == TileShrineDesecrated
 }
+
+// NameMatchLen 是報名字時比對的長度(原版 `sub_1C2FC` 只複製 4 個位元組)。
+//
+// ⚠ 與對話關鍵字的 9(`MatchNeedleMax`)不同 —— 同一支比對函式,
+// 不同的截斷長度。用 9 的話「Elwo」報不進去(名字是 Elwood 時);
+// 用 4 才對得上原版。
+const NameMatchLen = 4
+
+// NameSpoken 回報玩家報的名字對不對得上某個隊員(原版 `sub_1C2FC`)。
+//
+// 規則:把成員的名字截到 4 個字元當 needle,玩家的輸入要以它開頭
+// (不分大小寫)。所以隊裡有 Elwood 時,打「Elwo」「Elwood」「Elwoodx」都算,
+// 打「Elw」不算。
+func NameSpoken(member, typed string) bool {
+	if member == "" {
+		return false
+	}
+	if len(member) > NameMatchLen {
+		member = member[:NameMatchLen]
+	}
+	return MatchPrefix(member, typed)
+}

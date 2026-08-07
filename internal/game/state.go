@@ -302,6 +302,16 @@ type State struct {
 	Input string
 	// pending 是正在等玩家回答的提問區塊。
 	pending *u5data.Question
+	// Introduced[地點] 的第 i 位是「這座城的第 i 個 NPC 認得汝了」
+	//(原版 `dword_3E3E8[地點]`,由對話 opcode 0x88 的 `sub_1C1AC` 設)。
+	//
+	// ⚠ 是**每個地點一份**,不是全域 —— 同一個人在別的地點不算認得。
+	//
+	// ⚠ 存檔位移還沒對出來,所以**只在這一局有效,不寫回存檔**。
+	// 對得出來之前寧可少一個欄位,也不要把中文猜的位移寫進玩家的存檔。
+	Introduced [33]uint32
+	// askingName 為真時,玩家打的字是在回答 NPC 的「汝名為何?」。
+	askingName bool
 	// Karma 是業報(0..99)。對話裡的 opcode 0x89/0x8A 會動到它。
 	Karma int
 	// Roster 是全部 16 名可用角色;隊伍就是名冊的前 PartySize 名
