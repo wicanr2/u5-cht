@@ -184,16 +184,27 @@ type DungeonArena struct {
 // 回傳的 `CombatMap` 只缺 `EnemyKind` —— 那要由呼叫端依遭遇到的怪物與隻數填。
 func BuildDungeonArena(a DungeonArena) *CombatMap {
 	m := &CombatMap{}
-	// 緩衝的初值:整塊 0xFF(原版 `rep stosd` 填 0xFFFFFFFF)。
 	for i := range m.Raw {
 		m.Raw[i] = TileBlank
 	}
+	wall, floor := DungeonArenaTiles(a.Number)
+	// ⚠⚠ **更正(`docs/re/53`)**:底色是**地板**,不是空白。
+	// `sub_FE48` 的第一個迴圈把 11 列 × 11 格全部填成 `byte_418DD`(地板):
+	//
+	//	for (edi = 0; edi < 0x0B; edi++) {
+	//	    esi = &byte_3F8F4[edi*32]; eax = byte_418DD 重複四份
+	//	    stosd; stosd; stosw; stosb        ; 11 B
+	//	}
+	//
+	// 我第一版把整塊填成 0xFF,理由是別處有個 `rep stosd` 填 0xFFFFFFFF ——
+	// 但那是**畫面緩衝**的初始化,不在這條路徑上。跑錯了來源。
+	// 症狀會是「戰場除了牆之外全是空白」,而那在沒有畫面的測試裡看不出來。
 	for y := 0; y < CombatSide; y++ {
 		for x := 0; x < CombatSide; x++ {
-			m.Tiles[y][x] = TileBlank
+			m.Tiles[y][x] = floor
+			m.Raw[y*CombatRowStride+x] = floor
 		}
 	}
-	wall, floor := DungeonArenaTiles(a.Number)
 	set := func(x, y int, t byte) {
 		if x < 0 || x >= CombatSide || y < 0 || y >= CombatSide {
 			return

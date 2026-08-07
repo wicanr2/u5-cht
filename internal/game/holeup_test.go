@@ -461,3 +461,36 @@ func TestCombatKlimbNeedsAClimbableTile(t *testing.T) {
 		t.Errorf("0x4C 爬不上去:(%d,%d) → (%d,%d)", bx, by, u.X, u.Y)
 	}
 }
+
+// 隊員在戰場上的圖是 0x1D(站)/ 0x1E(躺),**不是** 0x4C。
+//
+// 0x4C 是 `sub_16058` 判「爬得過去」用的那一格 —— 一個 tile 不會同時是
+// 「隊伍自己」與「戰場上爬得過去的東西」。先前的 0x4C 是猜的(`docs/re/53`)。
+func TestPartyBattlefieldTileIsNotTheClimbable(t *testing.T) {
+	if PartyTileStanding == CombatClimbable || PartyTileLying == CombatClimbable {
+		t.Fatalf("隊伍的圖(0x%02X / 0x%02X)撞上了爬得過去的 tile 0x%02X",
+			PartyTileStanding, PartyTileLying, CombatClimbable)
+	}
+	// 站著與躺著要是相鄰的兩格 —— 原版一支寫 0x1E、另一支寫 0x1D。
+	if PartyTileLying != PartyTileStanding+1 {
+		t.Errorf("0x%02X 與 0x%02X 不相鄰", PartyTileStanding, PartyTileLying)
+	}
+	// 而且要與世界地圖上步行的隊伍同一族(`sub_16DA4` 收 0x1C 與 0x1D)。
+	if PartyTileStanding != int(u5data.VehicleWalk)+1 {
+		t.Errorf("站著的 0x%02X 不緊接在步行的 0x%02X 之後",
+			PartyTileStanding, u5data.VehicleWalk)
+	}
+
+	ch := &u5data.Character{Status: u5data.StatusGood}
+	if got := partyTileFor(ch); got != PartyTileStanding {
+		t.Errorf("站著的隊員畫成 0x%02X", got)
+	}
+	ch.Status = u5data.StatusAsleep
+	if got := partyTileFor(ch); got != PartyTileLying {
+		t.Errorf("睡著的隊員畫成 0x%02X", got)
+	}
+	ch.Status = u5data.StatusDead
+	if got := partyTileFor(ch); got != PartyTileLying {
+		t.Errorf("倒下的隊員畫成 0x%02X", got)
+	}
+}

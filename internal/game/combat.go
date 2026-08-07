@@ -264,7 +264,9 @@ func (s *State) placeParty(c *Combat, m *u5data.CombatMap) {
 		*u = Combatant{
 			Roster:   i,
 			Creature: -1,
-			Tile:     u5data.NPCTileBase + int(partyTileFor(ch)),
+			// ⚠ **不加 `NPCTileBase`**:0x1D / 0x1E 是前 256 格(地形與物件那一頁)
+			// 裡的直接 tile 號,不是生物編號。加了 256 會畫成某隻怪物。
+			Tile: int(partyTileFor(ch)),
 			X:        int(m.PartyX[i]),
 			Y:        int(m.PartyY[i]),
 			Dex:      int(ch.Dex),
@@ -540,11 +542,37 @@ func (s *State) checkCombatOver() bool {
 	return true
 }
 
+// 隊員在戰場上的兩個 tile(原版直接寫進物件記錄的 byte +1)。
+//
+// ★ **2026-08-08 定案,有直接證據**(`docs/re/53`):
+//
+//	sub_2EDF8(躺下):mov byte ptr dword_3E46C+1[eax*8], 1Eh
+//	sub_2ED50(起身):mov byte ptr dword_3E46C+1[eax*8], 1Dh
+//
+// 兩支都是「把這個戰場單位對應的物件記錄的圖換掉」,而且成對出現 ——
+// 站著 0x1D、躺著 0x1E。0x1C 是世界地圖上步行的隊伍,而 `sub_16DA4` 判
+// 「在步行嗎」收的是 **0x1C 或 0x1D 兩個值**,獨立佐證 0x1D 屬於同一族。
+//
+// ⚠⚠ 先前寫的 0x4C 是**猜的**,而且撞到了別的語意:`sub_16058`(戰鬥中的
+// Klimb)判「爬得過去」用的就是 tile 0x4C。一格不會同時是「隊伍自己」與
+// 「戰場上爬得過去的東西」—— 那個矛盾是我自己造出來的。
+const (
+	// PartyTileStanding 是站著的隊員。
+	PartyTileStanding = 0x1D
+	// PartyTileLying 是睡著 / 倒下的隊員。
+	PartyTileLying = 0x1E
+)
+
 // partyTileFor 挑隊員在戰場上的圖。
 //
-// 原版用角色的職業決定 sprite;職業碼與生物編號的對應還沒追到,
-// 先一律用聖者那一組 —— 這是**顯示**的近似,不影響規則。
-func partyTileFor(_ *u5data.Character) byte { return 0x4C }
+// ⚠ **與職業無關。** 原版就只有站著與躺著兩個值 —— 我原本以為是照職業選
+// sprite,那是把「城鎮 NPC 依生物編號選圖」的規則套過來的。
+func partyTileFor(ch *u5data.Character) byte {
+	if ch != nil && (ch.Status == u5data.StatusAsleep || ch.Status == u5data.StatusDead) {
+		return PartyTileLying
+	}
+	return PartyTileStanding
+}
 
 // CombatTileAt 回傳戰場上 (x, y) 該顯示什麼。
 func (s *State) CombatTileAt(x, y int) byte {

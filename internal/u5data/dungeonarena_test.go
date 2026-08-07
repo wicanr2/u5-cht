@@ -64,19 +64,32 @@ func TestArenaNarrowGapForRoomsAndDoors(t *testing.T) {
 
 // 腳下的地形會擺在戰場正中央:梯子、寶箱、噴泉各有對應的 tile。
 func TestArenaCentreShowsWhatYouStandOn(t *testing.T) {
+	// ⚠ 「什麼都不擺」的結果是**地板**,不是空白 —— 底色由 `sub_FE48` 先填成
+	// `byte_418DD`(地板),`sub_FD54` 只在有擺設時覆蓋中央那一格。
+	// 我第一版預期空白,那是因為把底色也寫成了 0xFF(見 `docs/re/53`)。
+	_, floor := DungeonArenaTiles(2)
 	cases := map[byte]byte{
-		DungeonPassage:    TileBlank, // 什麼都不擺 → 留白
+		DungeonPassage:    floor, // 什麼都不擺 → 留著地板
 		DungeonLadderUp:   0xC8,
 		DungeonLadderDown: 0xC9,
 		DungeonLadderBoth: 0xC8, // 兩向梯畫成上行
 		DungeonChest:      0xDC,
 		DungeonFountain:   0xD8,
-		DungeonTrap:       TileBlank, // 陷阱不擺
+		DungeonTrap:       floor, // 陷阱不擺
 	}
 	for here, want := range cases {
 		m := BuildDungeonArena(DungeonArena{Number: 2, Here: here, Facing: 0})
 		if got := m.At(dungeonArenaCentre, dungeonArenaCentre); got != want {
 			t.Errorf("腳下 0x%02X:中央是 0x%02X,預期 0x%02X", here, got, want)
+		}
+	}
+	// 而且戰場中間**站得住人** —— 底色是地板不是空白。
+	m := BuildDungeonArena(DungeonArena{Number: 2, Here: DungeonPassage, Facing: 0})
+	for y := 2; y <= 8; y++ {
+		for x := 2; x <= 8; x++ {
+			if m.At(x, y) == TileBlank {
+				t.Fatalf("框內 (%d,%d) 是空白,底色應該是地板 0x%02X", x, y, floor)
+			}
 		}
 	}
 }
