@@ -167,6 +167,7 @@ func main() {
 		NPCs:        bundle.NPCs,
 		Talks:       bundle.Talks,
 		Shops:       bundle.Shops,
+		Items:       bundle.Items,
 		MaxMessages: maxMessages,
 	}
 	if bundle.Save != nil {

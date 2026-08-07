@@ -400,7 +400,7 @@ func cmdScene(args []string) error {
 
 	st := &game.State{
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
-		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Clock: game.NewClock(), MaxMessages: 8,
+		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Items: bundle.Items, Clock: game.NewClock(), MaxMessages: 8,
 	}
 	if bundle.Save != nil {
 		st.LoadFrom(bundle.Save)
@@ -468,6 +468,7 @@ func cmdSave(args []string) error {
 	if err != nil {
 		return err
 	}
+	items, _ := u5data.LoadItemTable(filepath.Dir(args[0]))
 	where := fmt.Sprintf("大地圖 (%d,%d)", sv.X, sv.Y)
 	if sv.Location > 0 {
 		if loc, e := u5data.LocationByNumber(sv.Location); e == nil {
@@ -493,6 +494,17 @@ func cmdSave(args []string) error {
 		fmt.Printf("   %s%2d %-10s %-8s Lv%-2d  HP %3d/%-3d  MP %2d  力%2d 敏%2d 智%2d  經驗 %d\n",
 			mark, i, c.Name, c.ClassName(), c.Level, c.HP, c.MaxHP, c.MP,
 			c.Strength, c.Dex, c.Intel, c.Exp)
+		if items != nil {
+			var eq []string
+			for j, id := range c.Equipment().Slots() {
+				if n := items.Name(id); n != "" {
+					eq = append(eq, u5data.EquipmentSlotNames[j]+" "+n)
+				}
+			}
+			if len(eq) > 0 {
+				fmt.Printf("        %s\n", strings.Join(eq, "、"))
+			}
+		}
 	}
 	return nil
 }
@@ -583,6 +595,7 @@ func cmdNPC(args []string) error {
 	if err != nil {
 		return err
 	}
+	creatures, _ := u5data.LoadCreatureTable(args[0])
 	loc, ok := findLocation(args[1])
 	if !ok {
 		return fmt.Errorf("地點表裡沒有 %q", args[1])
@@ -608,7 +621,7 @@ func cmdNPC(args []string) error {
 		case n.Dialogue >= u5data.DialogueFrightened:
 			kind = fmt.Sprintf("特殊 %02X", n.Dialogue)
 		}
-		fmt.Printf("  #%2d tile %3d  %-10s", i, n.TileIndex(), kind)
+		fmt.Printf("  #%2d %-12s %-10s", i, nonEmptyStr(creatures.Name(n.Creature), fmt.Sprintf("tile %d", n.TileIndex())), kind)
 		if hour >= 0 {
 			x, y, f := n.At(hour)
 			fmt.Printf("  %02d:00 在 (%2d,%2d) 第 %d 層", hour, x, y, f+1)
@@ -628,6 +641,13 @@ func cmdNPC(args []string) error {
 		fmt.Println()
 	}
 	return nil
+}
+
+func nonEmptyStr(s, fallback string) string {
+	if s == "" {
+		return fallback
+	}
+	return s
 }
 
 // findLocation 依英文名找地點(不分大小寫)。

@@ -29,16 +29,18 @@ type Options struct {
 
 // Bundle 是載好的素材。任一欄位都可能是 nil —— 呼叫端要能在缺件時繼續跑。
 type Bundle struct {
-	Tiles   []u5data.Tile
-	World   *u5data.WorldMap   // 地表(BRIT.DAT,chunk 組裝)
-	Under   *u5data.WorldMap   // 地下世界(UNDER.DAT,256×256 直接存,不分 chunk)
-	Scenes  *u5data.SceneSet   // 城鎮 / 民居 / 城堡 / 要塞
-	NPCs    *u5data.NPCSet     // 各地點的居民與排程
-	Talks   *u5data.TalkSet    // 對話文字 + 展開詞典
-	Save    *u5data.Save       // 存檔:名冊、隊伍、時間、位置
-	Shops   *u5data.ShopSet    // 商店目錄與商店對白
-	Charset *u5data.Charset
-	CJK     *cjk.Font
+	Tiles     []u5data.Tile
+	World     *u5data.WorldMap      // 地表(BRIT.DAT,chunk 組裝)
+	Under     *u5data.WorldMap      // 地下世界(UNDER.DAT,256×256 直接存,不分 chunk)
+	Scenes    *u5data.SceneSet      // 城鎮 / 民居 / 城堡 / 要塞
+	NPCs      *u5data.NPCSet        // 各地點的居民與排程
+	Talks     *u5data.TalkSet       // 對話文字 + 展開詞典
+	Save      *u5data.Save          // 存檔:名冊、隊伍、時間、位置
+	Shops     *u5data.ShopSet       // 商店目錄與商店對白
+	Items     *u5data.ItemTable     // 48 件裝備的名字
+	Creatures *u5data.CreatureTable // 生物名
+	Charset   *u5data.Charset
+	CJK       *cjk.Font
 }
 
 // Load 依 opts 載入素材,回傳 bundle 與「哪些沒載到」的警告。
@@ -95,6 +97,18 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("對話:%v", err))
 	} else {
 		b.Talks = t
+	}
+
+	if it, err := u5data.LoadItemTable(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("裝備表:%v", err))
+	} else {
+		b.Items = it
+	}
+
+	if ct, err := u5data.LoadCreatureTable(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("生物名表:%v", err))
+	} else {
+		b.Creatures = ct
 	}
 
 	if b.Talks != nil {
