@@ -1,6 +1,12 @@
 package i18n
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+)
 
 // key 的形狀:檔名#對話id#欄位。
 func TestTalkKeyShape(t *testing.T) {
@@ -70,4 +76,45 @@ func containsRune(s string, r rune) bool {
 		}
 	}
 	return false
+}
+
+// ⚠ 跨檔重複的 key 會**靜默覆蓋**。
+//
+// 譯文分成十幾個 `talk_b*.go`,每個檔一個 `init()` 呼叫 `addTalk` ——
+// 同一個 key 出現在兩個檔裡時,後載入的那個贏,而 Go 的 init 順序是
+// **檔名字母序**,看起來很穩其實只是碰巧。兩份譯文並存本身就是錯,
+// 要在這裡擋下來,不是靠 init 順序決定誰贏。
+func TestNoDuplicateTalkKeys(t *testing.T) {
+	// talks 是併好的結果,看不出重複 —— 所以直接掃原始檔。
+	files, err := filepath.Glob("talk_*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) < 2 {
+		t.Skip("譯文檔還不夠多")
+	}
+	key := regexp.MustCompile(`^\s*"([^"]+#\d+#[a-z0-9]+)":`)
+	where := map[string]string{}
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			m := key.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+			if prev, dup := where[m[1]]; dup {
+				t.Errorf("%s 同時出現在 %s 與 %s —— 後載入的會靜默蓋掉前面的",
+					m[1], prev, f)
+				continue
+			}
+			where[m[1]] = f
+		}
+	}
+	t.Logf("%d 個譯文檔,%d 個 key,無重複", len(files), len(where))
 }
