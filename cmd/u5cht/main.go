@@ -63,6 +63,19 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 在店裡:每一步都是等一個字母鍵(選單的 a/b/c… 或 Y/N),ESC 走人。
+	if st.Prompt == gamestate.PromptShop {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			st.LeaveShop()
+		} else {
+			for _, r := range ebiten.AppendInputChars(nil) {
+				st.ShopChoose(r)
+			}
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 有提問待答時只收 Y / N / ESC —— 原版 sub_86C 的 do-while 就是這個行為,
 	// ESC 等同於 N。
 	if st.Prompt != gamestate.PromptNone {

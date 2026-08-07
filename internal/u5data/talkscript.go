@@ -289,7 +289,7 @@ func (c *Conversation) render(raw []byte) (string, Effects) {
 }
 
 // AvatarNamePlaceholder 是還不知道聖者名字時的佔位符
-//(例如單獨解析對話、沒載存檔的工具用途)。
+// (例如單獨解析對話、沒載存檔的工具用途)。
 const AvatarNamePlaceholder = "汝"
 
 // BuiltinKeywords 是引擎內建的關鍵字表(原版 `off_55E88`,34 個)。

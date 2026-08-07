@@ -131,11 +131,11 @@ func TestSceneMapsFullyPartitioned(t *testing.T) {
 // TestKnownSceneTargets 固定幾個已用畫面驗收過的對應。
 func TestKnownSceneTargets(t *testing.T) {
 	cases := []struct {
-		name     string
-		file     int
-		index    int
-		lo, hi   int
-		why      string
+		name   string
+		file   int
+		index  int
+		lo, hi int
+		why    string
 	}{
 		{"BRITAIN", 0, 2, 0, 1, "TOWNE.DAT 索引 2,兩層"},
 		{"MOONGLOW", 0, 0, 0, 1, "TOWNE.DAT 第一個"},

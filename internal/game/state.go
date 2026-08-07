@@ -87,16 +87,18 @@ const (
 	PromptTalk
 	// PromptAnswer 是 NPC 反問之後:輸入的是對那個問題的回答。
 	PromptAnswer
+	// PromptShop 是在店裡:按鍵是選單字母或 Y/N,不是指令鍵。
+	PromptShop
 )
 
 // State 是一局遊戲的位置狀態。
 type State struct {
-	World  *u5data.WorldMap // 地表(BRIT.DAT)
-	Under  *u5data.WorldMap // 地下世界(UNDER.DAT);可為 nil
-	Scenes *u5data.SceneSet // 城鎮 / 城堡 / 民居 / 要塞;可為 nil
-	NPCs   *u5data.NPCSet   // 各地點的居民與排程;可為 nil
-	Talks  *u5data.TalkSet  // 對話文字;可為 nil
-	Shops  *u5data.ShopSet  // 商店目錄與對白;可為 nil
+	World  *u5data.WorldMap  // 地表(BRIT.DAT)
+	Under  *u5data.WorldMap  // 地下世界(UNDER.DAT);可為 nil
+	Scenes *u5data.SceneSet  // 城鎮 / 城堡 / 民居 / 要塞;可為 nil
+	NPCs   *u5data.NPCSet    // 各地點的居民與排程;可為 nil
+	Talks  *u5data.TalkSet   // 對話文字;可為 nil
+	Shops  *u5data.ShopSet   // 商店目錄與對白;可為 nil
 	Items  *u5data.ItemTable // 裝備名字;可為 nil
 
 	// Clock 是遊戲內時間。NPC 站在哪裡完全由它決定(排程以小時為單位)。
@@ -118,6 +120,10 @@ type State struct {
 	Prompt Prompt
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
+	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。
+	Shop *ShopSession
+	// Inventory 是隊伍共用的背包(金幣、鑰匙、寶石、火把、裝備、藥草)。
+	Inventory u5data.Inventory
 	// Input 是對話中已經打進去的關鍵字。
 	Input string
 	// pending 是正在等玩家回答的提問區塊。
@@ -140,7 +146,7 @@ type State struct {
 	// key 是 地點編號<<8 | 槽號 —— 換地點回來時他不該又站在原地。
 	removed map[int]bool
 
-	scene *u5data.SceneMap                  // 目前這一層的場景地圖快取
+	scene *u5data.SceneMap                    // 目前這一層的場景地圖快取
 	npcs  *[u5data.NPCsPerLocation]u5data.NPC // 目前地點的 NPC 槽
 }
 
@@ -457,6 +463,7 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.Floor = sv.Floor
 	s.Roster = append(s.Roster[:0], sv.Roster[:]...)
 	s.PartySize = sv.PartySize
+	s.Inventory = sv.Inventory
 	s.removed = nil
 	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
 	s.Location = 0

@@ -70,11 +70,11 @@ func Load(prefix string) (*Font, error) {
 	}
 
 	fnt := &Font{
-		Mask:    img,
-		glyphW:  meta.GlyphWidth,
-		glyphH:  meta.GlyphHeight,
-		cols:    meta.Cols,
-		index:   make(map[rune]int, meta.Count),
+		Mask:   img,
+		glyphW: meta.GlyphWidth,
+		glyphH: meta.GlyphHeight,
+		cols:   meta.Cols,
+		index:  make(map[rune]int, meta.Count),
 	}
 	for i, cp := range meta.Codepoints {
 		fnt.index[rune(cp)] = i

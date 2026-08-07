@@ -662,11 +662,19 @@ func findLocation(name string) (*u5data.Location, bool) {
 
 // playScript 把一串按鍵餵給狀態機,讓「走進城裡再走出來」這種劇本能 headless 重現。
 //
-//	n s e w 移動   E 進入   K 攀爬   T 交談   y / N 回答提問   "keyword" 對話輸入
+//	n s e w 移動   E 進入   K 攀爬   T 交談   y / N 回答提問
+//	"keyword" 對話輸入   [aby] 在店裡逐一按下的字母鍵
 func playScript(st *game.State, script string) error {
 	rs := []rune(script)
 	for i := 0; i < len(rs); i++ {
 		r := rs[i]
+		// 店裡的按鍵:`[…]` 裡的每個字母各按一次。
+		if r == '[' {
+			for i++; i < len(rs) && rs[i] != ']'; i++ {
+				st.ShopChoose(rs[i])
+			}
+			continue
+		}
 		// 對話中要打字:用 `"keyword"` 包起來,送出後自動按 Enter。
 		if r == '"' {
 			word := ""
@@ -700,7 +708,7 @@ func playScript(st *game.State, script string) error {
 			st.Answer(false)
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、y/N 回答)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、y/N 回答、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

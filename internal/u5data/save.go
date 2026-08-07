@@ -33,6 +33,20 @@ const (
 	CharRecordSize   = 32
 
 	// 以下位移由讀取序列累加得出,並以真實檔案交叉驗證。
+	//
+	// ⚠ 記憶體位址與檔案位移**不是固定差值**:讀取是逐欄位 fread/fgetc,
+	// 而全域變數之間有對齊留下的空隙(`byte_3DFB8` 讀完 10 B 到 0x3DFC2,
+	// 下一個欄位卻在 0x3DFC4)。整份存檔累積 4 B 的漂移,所以不能拿
+	// 「線性位址 − 某個常數」去推位移,一定要跟著讀取序列走。
+	SaveGoldOffset    = 0x0204 // word_3DFB6,u16
+	SaveKeysOffset    = 0x0206 // byte_3DFB8
+	SaveGemsOffset    = 0x0207 // byte_3DFB9
+	SaveTorchesOffset = 0x0208 // byte_3DFBA
+	// SaveItemsOffset 起 48 B,索引就是裝備編號(sub_11AF0 的 byte_3DFD0[裝備編號])。
+	SaveItemsOffset = 0x021A
+	// SaveReagentsOffset 起 8 B,順序同 ReagentNames(sub_11588 的 byte_3E060[藥草編號])。
+	SaveReagentsOffset = 0x02AA
+
 	SavePartySizeOffset = 0x02B5 // byte_3E06B
 	SaveYearOffset      = 0x02CE // word_3E084
 	SaveTimeStopOffset  = 0x02D4 // byte_3E08A('T' 停止時間、'Q' 速度加倍)
@@ -69,6 +83,16 @@ const (
 	CharLevel    = 22
 
 	CharNameLen = 9
+)
+
+// 角色狀態碼。都是可讀字母,原版直接拿 `cmp byte_3DDBF[32*i], 'P'` 這樣比
+// (治療所 sub_12838 的三個分支)。
+const (
+	StatusGood     = 'G'
+	StatusPoisoned = 'P'
+	StatusDead     = 'D'
+	StatusCharmed  = 'C'
+	StatusAsleep   = 'S'
 )
 
 // Character 是一名角色。
@@ -117,8 +141,21 @@ func (c *Character) ClassName() string {
 //
 // 只解出已經驗證過的欄位;其餘保留在 Raw 裡。與其對沒把握的位移硬取名字,
 // 不如讓呼叫端看得到「這一段還沒解」。
+// Inventory 是隊伍共用的背包(不隸屬個別角色)。
+type Inventory struct {
+	Gold    int
+	Keys    int
+	Gems    int
+	Torches int
+	// Items[裝備編號] 是持有數量,上限 CarryLimit。
+	Items [ItemCount]int
+	// Reagents[藥草編號] 是持有份數,順序同 ReagentNames。
+	Reagents [ReagentCount]int
+}
+
 type Save struct {
 	Roster    [RosterSize]Character
+	Inventory Inventory
 	PartySize int
 	Year      int
 	Month     int
@@ -167,6 +204,17 @@ func ParseSave(raw []byte) (*Save, error) {
 		c.Exp = binary.LittleEndian.Uint16(rec[CharExp:])
 		c.Level = rec[CharLevel]
 	}
+	s.Inventory.Gold = int(binary.LittleEndian.Uint16(raw[SaveGoldOffset:]))
+	s.Inventory.Keys = int(raw[SaveKeysOffset])
+	s.Inventory.Gems = int(raw[SaveGemsOffset])
+	s.Inventory.Torches = int(raw[SaveTorchesOffset])
+	for i := 0; i < ItemCount; i++ {
+		s.Inventory.Items[i] = int(raw[SaveItemsOffset+i])
+	}
+	for i := 0; i < ReagentCount; i++ {
+		s.Inventory.Reagents[i] = int(raw[SaveReagentsOffset+i])
+	}
+
 	s.PartySize = int(raw[SavePartySizeOffset])
 	s.Year = int(binary.LittleEndian.Uint16(raw[SaveYearOffset:]))
 	s.Month = int(raw[SaveMonthOffset])
@@ -206,6 +254,18 @@ func (s *Save) validate() error {
 		return fmt.Errorf("隊伍 %d 人(上限 %d)", s.PartySize, MaxPartySize)
 	case s.Location > len(Locations):
 		return fmt.Errorf("地點編號 %d 超出 0..%d", s.Location, len(Locations))
+	}
+	// 背包欄位與角色紀錄之間隔著會漂移的那 4 B(見上方位移註解),
+	// 所以另外撞一次牆:持有數量的上限是 99,超過就是位移偏了。
+	for i, n := range s.Inventory.Items {
+		if n > CarryLimit {
+			return fmt.Errorf("裝備 %d 持有 %d 個(上限 %d)—— 背包位移大概算錯了", i, n, CarryLimit)
+		}
+	}
+	for i, n := range s.Inventory.Reagents {
+		if n > CarryLimit {
+			return fmt.Errorf("藥草 %d 持有 %d 份(上限 %d)", i, n, CarryLimit)
+		}
 	}
 	return nil
 }

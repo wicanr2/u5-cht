@@ -70,6 +70,18 @@ type ShopEntry struct {
 	NameIdx  int
 }
 
+// TypeCounts 是每種店的家數,依 shopEntries 數出來。
+//
+// 這組數字同時是各張價目表的列數 —— `price.go` 的 TestPriceTableRows 拿它當閘門,
+// 任何一邊算錯都會對不上。
+func TypeCounts() [ShopTypeCount]int {
+	var n [ShopTypeCount]int
+	for _, e := range shopEntries {
+		n[e.Type]++
+	}
+	return n
+}
+
 // shopEntries 出自執行檔的三張平行表(off_4145C / off_4165C / byte_4185C)。
 // 順序就是店主表在 DATA.OVL 裡的順序 —— 兩邊已逐筆比對相符。
 var shopEntries = [...]ShopEntry{
@@ -122,21 +134,6 @@ var shopEntries = [...]ShopEntry{
 	{Type: 7, Location: 24, NameIdx: 45},
 }
 
-// shopGreetOffsets 是每種店的四句問候語在 SHOPPE.DAT 裡的位元組位移
-// (原版 dword_553CC,`sub_111CC` 用 `random(0,3)` 挑一句)。
-//
-// 類型 0(武具店)四個位移都是 0 —— 它走另一條流程,不是這張表。
-var shopGreetOffsets = [ShopTypeCount][4]int{
-	{0, 0, 0, 0},
-	{3436, 3494, 3545, 3604},
-	{5265, 5345, 5395, 5463},
-	{5783, 5848, 5904, 5965},
-	{6759, 6826, 6885, 6949},
-	{8034, 8082, 8145, 8230},
-	{8764, 8819, 8875, 8927},
-	{9188, 9242, 9308, 9365},
-}
-
 // DATA.OVL 裡兩張名單的位移。
 const (
 	shopNamesOffset  = 0x0BFE
@@ -151,11 +148,17 @@ type Shop struct {
 	Location int
 	Name     string // 可能是空的(全遊戲有一家沒名字)
 	Owner    string
+	// TypeIndex 是「同種店裡的第幾家」,也就是原版的 word_3EF34
+	// (`sub_1B294` 在 byte_4185C[店種] 這一列裡找當前地點的位置)。
+	// 所有價目表都用它當列索引。
+	TypeIndex int
 }
 
 // ShopSet 是全遊戲的商店目錄與商店對白。
 type ShopSet struct {
 	Shops []Shop
+	// Prices 是價目表(讀自 DATA.OVL)。
+	Prices *PriceTable
 	// text 是 SHOPPE.DAT 的原始內容,依位元組位移取用。
 	text []byte
 	dict *Dictionary
@@ -182,9 +185,15 @@ func LoadShops(dir string, dict *Dictionary) (*ShopSet, error) {
 	if len(shopEntries) != len(owners) {
 		return nil, fmt.Errorf("目錄有 %d 家店,店主表有 %d 筆", len(shopEntries), len(owners))
 	}
-	s := &ShopSet{text: text, dict: dict}
+	prices, err := ParsePrices(ovl)
+	if err != nil {
+		return nil, fmt.Errorf("價目表:%w", err)
+	}
+	s := &ShopSet{text: text, dict: dict, Prices: prices}
+	var seen [ShopTypeCount]int
 	for i, e := range shopEntries {
-		sh := Shop{Type: e.Type, Location: e.Location, Owner: owners[i]}
+		sh := Shop{Type: e.Type, Location: e.Location, Owner: owners[i], TypeIndex: seen[e.Type]}
+		seen[e.Type]++
 		if e.NameIdx >= 0 {
 			if e.NameIdx >= len(names) {
 				return nil, fmt.Errorf("第 %d 家店的店名序號 %d 超出 %d", i, e.NameIdx, len(names))
@@ -223,11 +232,23 @@ func (s *ShopSet) Greeting(sh *Shop, variant, hour int) string {
 	if variant < 0 || variant > 3 {
 		variant = 0
 	}
-	off := shopGreetOffsets[sh.Type][variant]
-	if off <= 0 || off >= len(s.text) {
+	return s.Say(s.Prices.Greet[sh.Type][variant], sh, hour, 0)
+}
+
+// Say 取 SHOPPE.DAT 位移 off 起的一段文字,展開詞典並代換佔位符。
+//
+// 原版 `sub_11168` 就做這件事:讀 SHOPPE.DAT 的第 off 個位元組起到 NUL,
+// 丟給 `sub_10FEC` 展開。位移 0 或超出檔案代表「這條沒有文字」。
+func (s *ShopSet) Say(off int, sh *Shop, hour, number int) string {
+	return s.SayWith(off, sh, Placeholders{Hour: hour, Number: number})
+}
+
+// SayWith 同 Say,但可以指定全部六個佔位符。
+func (s *ShopSet) SayWith(off int, sh *Shop, ph Placeholders) string {
+	if s == nil || off <= 0 || off >= len(s.text) {
 		return ""
 	}
-	return s.Format(s.readRecord(off), sh, hour, 0)
+	return s.FormatWith(s.readRecord(off), sh, ph)
 }
 
 // readRecord 取 off 起到下一個 NUL 為止的原始位元組。
@@ -240,25 +261,52 @@ func (s *ShopSet) readRecord(off int) []byte {
 	return s.text[off:]
 }
 
-// Format 展開一段商店文字並代換佔位符。
+// Placeholders 是商店文字裡七個佔位符要填的東西。
 //
-// 原版 `sub_10FEC` 的佔位符:
+// 全部出自原版 `sub_10FEC` 的跳表(`jpt_11093`),一個不多一個不少:
 //
-//	#  店名        $  店主
-//	@  時段:hour < 12 morning、< 18 afternoon、其餘 evening
-//	%  數字(價格 / 數量)
+//	#  0x23  店名          dword_3EF24
+//	$  0x24  店主          dword_3EF28
+//	%  0x25  價格          word_3EF38
+//	&  0x26  物品名        dword_3EF2C(賣出對白用;有別稱就用別稱)
+//	*  0x2A  地名          dword_3EF30(酒館八卦用)
+//	@  0x40  時段          由當前小時決定,不是參數
+//	^  0x5E  數量          word_3EF3A(藥草一次幾份)
 //
-// 另外 `^` 與 `*` 也是佔位符,但要等物品表與交易流程才知道該填什麼 ——
-// 先原樣留著,而不是猜一個值填進去。
+// 之前把 `^` 與 `*` 原樣留著,是因為還不知道它們填什麼;現在兩者都追到了
+// 設定處,所以照原版填。
+type Placeholders struct {
+	Hour   int
+	Number int    // %  價格
+	Count  int    // ^  數量;0 時不代換,避免把「沒給值」印成 0
+	Item   string // &  物品名
+	Place  string // *  地名
+}
+
+// Format 展開一段商店文字,只代換店名 / 店主 / 時段 / 價格。
 func (s *ShopSet) Format(raw []byte, sh *Shop, hour, number int) string {
+	return s.FormatWith(raw, sh, Placeholders{Hour: hour, Number: number})
+}
+
+// FormatWith 展開一段商店文字並代換全部佔位符。
+func (s *ShopSet) FormatWith(raw []byte, sh *Shop, ph Placeholders) string {
 	expanded := s.dict.ExpandDAT(raw)
-	r := strings.NewReplacer(
+	pairs := []string{
 		"#", sh.Name,
 		"$", sh.Owner,
-		"@", TimeOfDay(hour),
-		"%", strconv.Itoa(number),
-	)
-	return r.Replace(expanded)
+		"@", TimeOfDay(ph.Hour),
+		"%", strconv.Itoa(ph.Number),
+	}
+	if ph.Count > 0 {
+		pairs = append(pairs, "^", strconv.Itoa(ph.Count))
+	}
+	if ph.Item != "" {
+		pairs = append(pairs, "&", ph.Item)
+	}
+	if ph.Place != "" {
+		pairs = append(pairs, "*", ph.Place)
+	}
+	return strings.NewReplacer(pairs...).Replace(expanded)
 }
 
 // TimeOfDay 回傳原版用的時段字(sub_10FEC 的 `@`)。

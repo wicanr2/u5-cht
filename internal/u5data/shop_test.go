@@ -56,9 +56,9 @@ func TestShopDirectory(t *testing.T) {
 func TestKnownShops(t *testing.T) {
 	s := loadShops(t)
 	cases := []struct {
-		loc          int
-		typ          ShopType
-		name, owner  string
+		loc         int
+		typ         ShopType
+		name, owner string
 	}{
 		{2, ShopArmoury, "Iolo's Bows", "Gwenneth"},
 		{2, ShopTavern, "The Wayfarer Tavern", "Tika"},

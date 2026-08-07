@@ -247,8 +247,10 @@ func (s *State) enterShop(n *u5data.NPC) {
 	if g := s.Shops.Greeting(shop, s.greetVariant(), s.Clock.Hour); g != "" {
 		s.Log("「" + oneLine(g) + "」")
 	}
-	// 交易流程(買賣、療傷、住宿、買馬買船)要物品表與價格表,還沒解。
-	s.Log(MsgShopNotImplemented)
+	if !s.openShop(shop) {
+		// 酒館 / 造船廠 / 旅店的流程還沒逆完 —— 誠實說明,不要假裝談成了。
+		s.Log(MsgShopNotImplemented)
+	}
 }
 
 // greetVariant 挑一句問候語。原版是亂數;這裡用時鐘當種子,

@@ -64,7 +64,7 @@ var Locations = [32]Location{
 	{X: 232, Y: 135, SceneFile: 0, SceneIndex: 0, FloorMin: 0, FloorMax: 1, Name: "MOONGLOW", NameZH: "月光城"},        // 1
 	{X: 81, Y: 106, SceneFile: 0, SceneIndex: 2, FloorMin: 0, FloorMax: 1, Name: "BRITAIN", NameZH: "不列顛城"},         // 2
 	{X: 36, Y: 222, SceneFile: 0, SceneIndex: 4, FloorMin: 0, FloorMax: 1, Name: "JHELOM", NameZH: "哲倫"},            // 3
-	{X: 58, Y: 43, SceneFile: 0, SceneIndex: 7, FloorMin: -1, FloorMax: 0, Name: "YEW", NameZH: "紫衫城"},               // 4
+	{X: 58, Y: 43, SceneFile: 0, SceneIndex: 7, FloorMin: -1, FloorMax: 0, Name: "YEW", NameZH: "紫衫城"},              // 4
 	{X: 159, Y: 20, SceneFile: 0, SceneIndex: 8, FloorMin: 0, FloorMax: 1, Name: "MINOC", NameZH: "米諾克"},            // 5
 	{X: 106, Y: 184, SceneFile: 0, SceneIndex: 10, FloorMin: 0, FloorMax: 1, Name: "TRINSIC", NameZH: "特林希克"},       // 6
 	{X: 22, Y: 128, SceneFile: 0, SceneIndex: 12, FloorMin: 0, FloorMax: 1, Name: "SKARA BRAE", NameZH: "史卡拉布雷"},    // 7
@@ -77,8 +77,8 @@ var Locations = [32]Location{
 	{X: 176, Y: 208, SceneFile: 1, SceneIndex: 13, FloorMin: 0, FloorMax: 0, Name: "", NameZH: ""},                  // 14
 	{X: 201, Y: 59, SceneFile: 1, SceneIndex: 14, FloorMin: 0, FloorMax: 0, Name: "", NameZH: ""},                   // 15
 	{X: 153, Y: 91, SceneFile: 1, SceneIndex: 15, FloorMin: 0, FloorMax: 0, Name: "", NameZH: ""},                   // 16
-	{X: 86, Y: 107, SceneFile: 2, SceneIndex: 1, FloorMin: -1, FloorMax: 3, Name: "", NameZH: ""},                    // 17
-	{X: 196, Y: 245, SceneFile: 2, SceneIndex: 6, FloorMin: -1, FloorMax: 3, Name: "", NameZH: ""},                   // 18
+	{X: 86, Y: 107, SceneFile: 2, SceneIndex: 1, FloorMin: -1, FloorMax: 3, Name: "", NameZH: ""},                   // 17
+	{X: 196, Y: 245, SceneFile: 2, SceneIndex: 6, FloorMin: -1, FloorMax: 3, Name: "", NameZH: ""},                  // 18
 	{X: 84, Y: 106, SceneFile: 2, SceneIndex: 10, FloorMin: 0, FloorMax: 0, Name: "WEST BRITANNY", NameZH: ""},      // 19
 	{X: 86, Y: 105, SceneFile: 2, SceneIndex: 11, FloorMin: 0, FloorMax: 0, Name: "NORTH BRITANNY", NameZH: ""},     // 20
 	{X: 88, Y: 106, SceneFile: 2, SceneIndex: 12, FloorMin: 0, FloorMax: 0, Name: "EAST BRITANNY", NameZH: ""},      // 21
@@ -92,7 +92,7 @@ var Locations = [32]Location{
 	{X: 148, Y: 74, SceneFile: 3, SceneIndex: 6, FloorMin: 0, FloorMax: 0, Name: "STONEGATE", NameZH: ""},           // 29
 	{X: 218, Y: 107, SceneFile: 3, SceneIndex: 7, FloorMin: 0, FloorMax: 2, Name: "THE LYCAEUM", NameZH: ""},        // 30
 	{X: 28, Y: 50, SceneFile: 3, SceneIndex: 10, FloorMin: 0, FloorMax: 2, Name: "EMPATH ABBEY", NameZH: ""},        // 31
-	{X: 146, Y: 241, SceneFile: 3, SceneIndex: 14, FloorMin: -1, FloorMax: 1, Name: "SERPENT'S HOLD", NameZH: ""},    // 32
+	{X: 146, Y: 241, SceneFile: 3, SceneIndex: 14, FloorMin: -1, FloorMax: 1, Name: "SERPENT'S HOLD", NameZH: ""},   // 32
 }
 
 // LocationAt 回報世界座標上有沒有地點。

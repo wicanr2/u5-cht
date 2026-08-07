@@ -64,14 +64,14 @@ func TestCharacterEquipment(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := []struct {
-		idx                            int
-		helm, armour, weapon, shield   string
+		idx                          int
+		helm, armour, weapon, shield string
 	}{
-		{0, "Chain Coif", "Chain Mail", "Long Sword", ""},           // 聖者
-		{1, "Leather Helm", "Ring Mail", "Short Sword", "Small Shield"}, // Shamino
+		{0, "Chain Coif", "Chain Mail", "Long Sword", ""},                   // 聖者
+		{1, "Leather Helm", "Ring Mail", "Short Sword", "Small Shield"},     // Shamino
 		{2, "Leather Helm", "Leather Armour", "Main Gauche", "Short Sword"}, // Iolo
-		{3, "", "Cloth Armour", "Dagger", ""},                       // Mariah(法師)
-		{4, "Spiked Helm", "Scale Mail", "Mace", "Spiked Shield"},   // Geoffrey
+		{3, "", "Cloth Armour", "Dagger", ""},                               // Mariah(法師)
+		{4, "Spiked Helm", "Scale Mail", "Mace", "Spiked Shield"},           // Geoffrey
 	}
 	for _, c := range cases {
 		eq := sv.Roster[c.idx].Equipment()

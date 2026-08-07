@@ -28,6 +28,12 @@ const (
 	ItemCount = 48
 	// ItemNone 是「這個欄位沒有裝備」。
 	ItemNone = 0xFF
+
+	// 箭矢與弩矢:買的時候原版不是加一,而是**直接補滿 99**
+	// (`sub_11AF0` 的 `cmp edi, 1Bh` / `cmp edi, 1Dh`)。
+	// 這兩個編號同時也是「裝備表解對了」的旁證 —— 27 與 29 正好是 Arrows 與 Quarrels。
+	ItemArrows   = 27
+	ItemQuarrels = 29
 )
 
 // 裝備分類的邊界(依名字表的實際排列)。

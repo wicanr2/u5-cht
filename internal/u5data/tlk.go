@@ -1,11 +1,11 @@
 package u5data
 
 import (
-	"strings"
-	"path/filepath"
 	"encoding/binary"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 // TalkFile 是一份 NPC 對話檔(DOS 的 .TLK 或 FM Towns 日文版的 .JPN)。
