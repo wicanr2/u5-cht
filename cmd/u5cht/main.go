@@ -75,6 +75,24 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 聖壇冥想:打字回答(美德名、真言、獻金),Enter 送出、ESC 作罷。
+	if st.Prompt == gamestate.PromptShrine {
+		for _, r := range ebiten.AppendInputChars(nil) {
+			st.TypeRune(r)
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.SubmitShrine()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.Backspace()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.EndMeditate()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 開場動畫:任意鍵翻頁,ESC 跳過整段。
 	if st.Prompt == gamestate.PromptIntro {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
@@ -360,6 +378,7 @@ func main() {
 		Stats:        bundle.Stats,
 		Spells:       bundle.Spells,
 		Story:        bundle.Story,
+		Misc:         bundle.Misc,
 		Dungeons:     bundle.Dungeons,
 		Moons:        bundle.Moons,
 		WindDelay:    bundle.WindDelay,

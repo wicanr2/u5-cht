@@ -106,6 +106,8 @@ const (
 	PromptDirection
 	// PromptIntro 是開場動畫:按任意鍵翻頁,ESC 跳過。
 	PromptIntro
+	// PromptShrine 是聖壇冥想:打美德名、真言、獻金。
+	PromptShrine
 	// PromptPeer 是 In Quas Wis 攤開的 32×32 全景 —— 按任意鍵收起來。
 	//
 	// 原版 `sub_EDD4` 畫完之後就卡在 `while (sub_27034() == 0xFFFF)`
@@ -214,6 +216,18 @@ type State struct {
 
 	// Prompt 是目前的輸入模式;非 PromptNone 時,移動輸入無效。
 	Prompt Prompt
+	// Shrine 是進行中的冥想(Prompt == PromptShrine 時有效)。
+	Shrine *Shrine
+	// ShrineQuestGiven / ShrineQuestActive 是八德的兩組位元
+	//(原版 byte_3E0DE / byte_3E0DC)。
+	//
+	// ⚠ 兩個都要有才判斷得出玩家在哪一階段:**沒領過** → 給試煉;
+	// **領過而且進行中** → 給獎;**領過但不在進行中** → 只能捐錢。
+	// 只留一個旗標會讓玩家可以無限重領獎賞。
+	ShrineQuestGiven  byte
+	ShrineQuestActive byte
+	// Misc 是 MISCMSG.DAT —— 聖壇與黑棘審問的文字。
+	Misc *u5data.TextFile
 	// Intro 是進行中的開場動畫(Prompt == PromptIntro 時有效)。
 	Intro *Intro
 	// Story 是 STORY.DAT —— 開場的二十段文字。
@@ -590,6 +604,16 @@ func (s *State) Klimb() {
 func (s *State) Enter() {
 	if s.InScene() {
 		s.Log(MsgNothingToEnter)
+		return
+	}
+	// 聖壇不在那張 32 筆的地點表裡,它有自己的座標表(`u5data.Shrines`)——
+	// 所以要先查,不然會被下面的「此處無可進入之地」擋掉。
+	//
+	// ⚠ 只認**表上真的有的那七座**。靈性聖壇的座標是 (0,0),
+	// 那是 `ShrineAt` 的 fallback 值,不能拿來當「站在這裡就是聖壇」的依據 ——
+	// 否則玩家在任何一格按 E 都會開始冥想。
+	if s.OnShrineTile() {
+		s.Meditate()
 		return
 	}
 	// 地牢入口與城鎮共用同一張地點表(索引 0x20..0x27),先查地牢。

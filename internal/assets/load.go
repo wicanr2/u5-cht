@@ -55,6 +55,7 @@ type Bundle struct {
 	DungeonItems u5data.PictureSet
 	// Story 是 STORY.DAT,IntroArt 是六個 STORY*.16。
 	Story    *u5data.TextFile
+	Misc     *u5data.TextFile
 	IntroArt []u5data.PictureSet
 	CJK      *cjk.Font
 }
@@ -110,6 +111,11 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("STORY.DAT:%v", err))
 	} else {
 		b.Story = tf
+	}
+	if tf, err := u5data.LoadText(filepath.Join(opts.GameData, "MISCMSG.DAT")); err != nil {
+		warn = append(warn, fmt.Sprintf("MISCMSG.DAT:%v", err))
+	} else {
+		b.Misc = tf
 	}
 	for _, name := range u5data.IntroStoryFiles {
 		set, err := u5data.LoadPictures(filepath.Join(opts.GameData, name))

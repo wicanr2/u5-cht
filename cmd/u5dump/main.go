@@ -409,7 +409,7 @@ func cmdScene(args []string) error {
 		World: bundle.World, Under: bundle.Under, Scenes: bundle.Scenes,
 		NPCs: bundle.NPCs, Talks: bundle.Talks, Shops: bundle.Shops, Items: bundle.Items,
 		CombatMaps: bundle.Combat, Creatures: bundle.Creatures, Stats: bundle.Stats,
-		Spells: bundle.Spells, Story: bundle.Story, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
+		Spells: bundle.Spells, Story: bundle.Story, Misc: bundle.Misc, Dungeons: bundle.Dungeons, DungeonRooms: bundle.DngRooms, Moons: bundle.Moons, WindDelay: bundle.WindDelay,
 		Objects: bundle.Objects, UnderObjects: bundle.UnderObjs,
 		Clock: game.NewClock(), MaxMessages: 8,
 	}
@@ -700,7 +700,15 @@ func playScript(st *game.State, script string) error {
 			for _, c := range word {
 				st.TypeRune(c)
 			}
-			st.Submit()
+			// 送出的對象看目前在哪個輸入模式 —— 對話、咒語名、聖壇各有各的。
+			switch st.Prompt {
+			case game.PromptShrine:
+				st.SubmitShrine()
+			case game.PromptSpell:
+				st.SubmitSpell()
+			default:
+				st.Submit()
+			}
 			continue
 		}
 		switch r {
