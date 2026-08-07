@@ -136,6 +136,10 @@ const (
 	// PromptGuard 是衛兵的盤查:多數地方是 Y / N(要不要繳),
 	// 黑棘的宮殿是打字答密語。
 	PromptGuard
+	// PromptNumber 是原版的「(1-9)」:等一個數字鍵,空白或 0 等於放棄。
+	PromptNumber
+	// PromptYesNo 是通用的 Y / N 提問(紮營的「欲派人守夜否?」之類)。
+	PromptYesNo
 )
 
 // State 是一局遊戲的位置狀態。
@@ -230,6 +234,16 @@ type State struct {
 	// 與 byte_3E165 / byte_3E166 的座標)。船不佔物件槽。
 	HasShip      bool
 	DockX, DockY int
+
+	// Watch 是紮營時守夜的隊員索引;−1 = 無人守夜。
+	Watch int
+
+	// numThen / numMax / yesNoThen 是通用提問的回呼(見 holeup.go 的用法)。
+	numThen   func(int)
+	numMax    int
+	numReturn Prompt
+	yesNoThen func(bool)
+	ynReturn  Prompt
 
 	// ShipHull / ShipSkiffs 是**目前搭乘中**那艘船的耐久與載著的小艇數。
 	// 原版把它們暫存在物件槽 0(隊伍那一槽)的 +5 / +7,下船時再搬回船物件。

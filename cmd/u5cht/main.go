@@ -389,6 +389,32 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 「(1-9)」—— 只收數字鍵;空白與 0 是放棄,其餘按鍵原版會繼續等。
+	if st.AwaitingNumber() {
+		for n := 0; n <= 9; n++ {
+			if inpututil.IsKeyJustPressed(ebiten.Key0 + ebiten.Key(n)) {
+				st.AnswerNumber(n)
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			st.AnswerNumber(0)
+		}
+		g.dirty = true
+		return nil
+	}
+
+	// 通用 Y / N 提問(紮營的守夜之類)。ESC 等同 N,與原版一致。
+	if st.AwaitingYesNo() {
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyY):
+			st.AnswerYesNo(true)
+		case inpututil.IsKeyJustPressed(ebiten.KeyN), inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.AnswerYesNo(false)
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 「汝束手就擒否?」—— 只收 Y / N。**ESC 不是取消**:原版沒有第三條路。
 	if st.Prompt == gamestate.PromptArrest {
 		switch {
@@ -535,6 +561,9 @@ func (g *game) commandKeys(st *gamestate.State, ctrl bool) {
 		st.BeginCastPrompt()
 	case inpututil.IsKeyJustPressed(ebiten.KeyI):
 		st.LightTorch()
+	// H 是原版的 Hole up:在船上修船、在城裡要站床上、其餘紮營。
+	case inpututil.IsKeyJustPressed(ebiten.KeyH):
+		st.HoleUp()
 	// Y 是原版的 Yell:船上收放帆,城裡喊暗影君主的名字,野外說力量之言。
 	case inpututil.IsKeyJustPressed(ebiten.KeyY):
 		st.Yell()
