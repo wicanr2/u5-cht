@@ -235,6 +235,14 @@ type State struct {
 	HasShip      bool
 	DockX, DockY int
 
+	// TransferredAvatar 是原版的 `dword_54498`:Ztats 上要印「乃聖者」還是
+	// 「並非聖者」。
+	//
+	// ★ 唯一的來源是**從 Ultima IV 轉入角色**(`sub_71D0`):U4 存檔裡那八個
+	// word 全為 0 才設起來。沒轉入過就是 false —— 新建的角色一律「並非聖者」,
+	// 那是原版行為,不是缺預設值。
+	TransferredAvatar bool
+
 	// Watch 是紮營時守夜的隊員索引;−1 = 無人守夜。
 	Watch int
 	// RestCooldown 是休息後的冷卻(原版 `byte_3E09C`,紮營成功後設 14)。
@@ -674,10 +682,13 @@ func (s *State) moveInWorld(d Direction) {
 	s.payTerrainCost(int(s.TileAt(nx, ny)))
 	// 踏上月門就被捲走(原版 `sub_E084`)。
 	s.EnterMoongateHere()
+	// 載具的動詞與朝向(原版 `sub_7C0`)。⚠ 朝向位元同時是開砲判舷側
+	// (`isBroadside`)與通行判定(`ModeOf`)讀的東西,不更新就會算錯。
+	verb := s.faceVehicle(d)
 	if loc, ok := u5data.LocationAt(nx, ny); ok {
-		s.Log("往" + d.Name() + "方前行 —— 此處是" + loc.DisplayName() + "。")
+		s.Log(verb + "往" + d.Name() + "方前行 —— 此處是" + loc.DisplayName() + "。")
 	} else {
-		s.Log("往" + d.Name() + "方前行。")
+		s.Log(verb + "往" + d.Name() + "方前行。")
 	}
 }
 

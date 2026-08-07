@@ -172,5 +172,25 @@ func (s *State) ZtatsLines() []string {
 		fmt.Sprintf("力量 %3d   敏捷 %3d   智力 %3d", c.Strength, c.Dex, c.Intel),
 		fmt.Sprintf("生命 %3d / %-3d      魔力 %3d", c.HP, c.MaxHP, c.MP),
 		fmt.Sprintf("等級 %3d   經驗 %5d", c.Level, c.Exp),
+		s.avatarLine(c),
 	}
+}
+
+// avatarLine 是 Ztats 最後那一句「某某**是**聖者 / **不是**聖者」。
+//
+// 原版 `sub_7594`(Ztats 畫面)在名字後面接 " is " 再依 `dword_54498` 選
+// `an Avatar.` 或 `not an Avatar`。
+//
+// ★ 那個旗標**只有一個來源**:從 Ultima IV 轉入角色時(`sub_71D0`),
+// 若 U4 存檔裡那八個 word(`[+6]`..`[+0x14]`)全為 0 就設 1。
+// 沒有轉入過就一直是 0 —— 所以**新建的角色一律「不是聖者」**,
+// 這不是待補的預設值,是原版的行為。
+//
+// ⚠ 因此這一句不能寫成「主角一定是聖者」。U5 的開場正是「你回來了,
+// 但這一次不是以聖者的身分」——那句話有它的意義。
+func (s *State) avatarLine(c *u5data.Character) string {
+	if s.TransferredAvatar {
+		return c.Name + "乃聖者。"
+	}
+	return c.Name + "並非聖者。"
 }

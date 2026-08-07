@@ -601,6 +601,9 @@ func (g *game) commandKeys(st *gamestate.State, ctrl bool) {
 		st.BeginCastPrompt()
 	case inpututil.IsKeyJustPressed(ebiten.KeyI):
 		st.LightTorch()
+	// 空白鍵是原版的 Pass —— 而在海上揚著帆時它是**收帆**。
+	case inpututil.IsKeyJustPressed(ebiten.KeySpace):
+		st.Pass()
 	// H 是原版的 Hole up:在船上修船、在城裡要站床上、其餘紮營。
 	case inpututil.IsKeyJustPressed(ebiten.KeyH):
 		st.HoleUp()
