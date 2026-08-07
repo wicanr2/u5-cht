@@ -38,6 +38,12 @@ func (g *game) Update() error {
 	// 離開語意:F10 / Ctrl+Q 才離開,ESC 永遠是取消(P5 補確認框與自動存檔)。
 	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF10) || (ctrl && inpututil.IsKeyJustPressed(ebiten.KeyQ)) {
+		// 離開前自動存檔 —— 按錯鍵不該丟進度。
+		if dir, err := g.state.WriteSave(g.state.BaseSave); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠ 離開前存檔失敗:%v\n", err)
+		} else {
+			fmt.Printf("已存檔於 %s\n", dir)
+		}
 		return ebiten.Termination
 	}
 	st := g.state
@@ -100,6 +106,11 @@ func (g *game) Update() error {
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyX) {
 			st.Exit()
+		}
+		// Q 存檔(不離開)。原版 Q 是「存檔並離開」,這裡拆開:
+		// 離開走 F10 / Ctrl+Q 並自動存檔,見上面與 esc-cancel-f10-quit-autosave。
+		if inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ctrl {
+			st.Save()
 		}
 		for key, dir := range map[ebiten.Key]gamestate.Direction{
 			ebiten.KeyArrowUp:    gamestate.North,
@@ -191,9 +202,14 @@ func main() {
 		UnderObjects: bundle.UnderObjs,
 		MaxMessages:  maxMessages,
 	}
-	if bundle.Save != nil {
-		// 開局狀態一律取自原版存檔:時間、隊伍、位置都不是自己編的。
-		st.LoadFrom(bundle.Save)
+	if sv, from, err := gamestate.FindSave(*gamedata, *saveFile); err == nil {
+		// 開局狀態一律取自存檔:先找設定目錄的進度,再退回原版存檔。
+		st.LoadFrom(sv)
+		// 同一份進度的物件表(玩家買的馬、放下的船)也要一起讀回來。
+		if so, uo := gamestate.FindSaveObjects(); so != nil {
+			st.Objects, st.UnderObjects = so, uo
+		}
+		fmt.Printf("讀取進度:%s\n", from)
 		st.Log(fmt.Sprintf("汝已抵達不列顛尼亞 —— %d 年 %d 月 %d 日。",
 			st.Clock.Year, st.Clock.Month, st.Clock.Day))
 	} else {

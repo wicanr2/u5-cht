@@ -307,3 +307,84 @@ func cstring(b []byte) string {
 	}
 	return string(b)
 }
+
+// 存檔寫回
+//
+// 寫入函式 `sub_284CC` 與讀取 `sub_27D24` **逐欄位對稱**(同樣的順序、
+// 同樣的大小),所以寫回不需要另一套位移表 —— 讀得回來就寫得出去。
+//
+// 作法是**以讀進來的 4,192 B 為底**,只把已經解出來的欄位覆蓋回去。
+// 還沒解的欄位(魔法、任務旗標、地牢狀態…)原樣保留,不會因為引擎還沒
+// 實作那些系統就把它們清成 0 —— 那會讓存檔在原版裡壞掉。
+
+// Encode 把 Save 序列化回 4,192 B。
+func (s *Save) Encode() ([]byte, error) {
+	if len(s.Raw) != SaveFileSize {
+		return nil, fmt.Errorf("底稿 %d B,預期 %d B —— Encode 需要一份讀進來的存檔當底",
+			len(s.Raw), SaveFileSize)
+	}
+	out := make([]byte, SaveFileSize)
+	copy(out, s.Raw)
+
+	for i := range s.Roster {
+		off := SaveRosterOffset + i*CharRecordSize
+		c := &s.Roster[i]
+		rec := out[off : off+CharRecordSize]
+		copy(rec, c.Raw[:])
+		// 結構化欄位蓋過 Raw —— 遊戲中改到的是它們(療傷、入隊、狀態變化)。
+		copy(rec[CharName:CharName+CharNameLen], padName(c.Name))
+		rec[CharGender] = c.Gender
+		rec[CharClass] = c.Class
+		rec[CharStatus] = c.Status
+		rec[CharStrength] = c.Strength
+		rec[CharDex] = c.Dex
+		rec[CharIntel] = c.Intel
+		rec[CharMP] = c.MP
+		binary.LittleEndian.PutUint16(rec[CharHP:], c.HP)
+		binary.LittleEndian.PutUint16(rec[CharMaxHP:], c.MaxHP)
+		binary.LittleEndian.PutUint16(rec[CharExp:], c.Exp)
+		rec[CharLevel] = c.Level
+	}
+
+	binary.LittleEndian.PutUint16(out[SaveFoodOffset:], clampU16(s.Inventory.Food))
+	binary.LittleEndian.PutUint16(out[SaveGoldOffset:], clampU16(s.Inventory.Gold))
+	out[SaveKeysOffset] = byte(s.Inventory.Keys)
+	out[SaveGemsOffset] = byte(s.Inventory.Gems)
+	out[SaveTorchesOffset] = byte(s.Inventory.Torches)
+	for i := 0; i < ItemCount; i++ {
+		out[SaveItemsOffset+i] = byte(s.Inventory.Items[i])
+	}
+	for i := 0; i < ReagentCount; i++ {
+		out[SaveReagentsOffset+i] = byte(s.Inventory.Reagents[i])
+	}
+
+	out[SavePartySizeOffset] = byte(s.PartySize)
+	binary.LittleEndian.PutUint16(out[SaveYearOffset:], uint16(s.Year))
+	out[SaveMonthOffset] = byte(s.Month)
+	out[SaveDayOffset] = byte(s.Day)
+	out[SaveHourOffset] = byte(s.Hour)
+	out[SaveMinuteOffset] = byte(s.Minute)
+	out[SaveKarmaOffset] = byte(s.Karma)
+	out[SaveTransportOffset] = s.Transport
+	out[SaveLocationOffset] = byte(s.Location)
+	out[SaveFloorOffset] = byte(int8(s.Floor))
+	out[SaveXOffset] = byte(s.X)
+	out[SaveYOffset] = byte(s.Y)
+	return out, nil
+}
+
+func padName(name string) []byte {
+	b := make([]byte, CharNameLen)
+	copy(b, name) // 超過 9 B 自動截斷,不足補 NUL
+	return b
+}
+
+func clampU16(v int) uint16 {
+	switch {
+	case v < 0:
+		return 0
+	case v > 0xFFFF:
+		return 0xFFFF
+	}
+	return uint16(v)
+}

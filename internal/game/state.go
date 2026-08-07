@@ -104,6 +104,10 @@ type State struct {
 	// (原版 dword_3E46C,來自 BRIT.OOL / UNDER.OOL)。地表與地下各一份。
 	Objects, UnderObjects *u5data.ObjectSet
 
+	// BaseSave 是讀進來的那份存檔,存檔時當底稿用 —— 引擎還沒解出來的欄位
+	// (魔法、任務旗標、地牢狀態…)靠它原樣保留。見 savegame.go。
+	BaseSave *u5data.Save
+
 	// Clock 是遊戲內時間。NPC 站在哪裡完全由它決定(排程以小時為單位)。
 	Clock Clock
 
@@ -561,6 +565,7 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	if sv == nil {
 		return
 	}
+	s.BaseSave = sv
 	s.Clock = Clock{Minute: sv.Minute, Hour: sv.Hour, Day: sv.Day, Month: sv.Month, Year: sv.Year}
 	s.Karma = sv.Karma
 	s.Transport = sv.Transport

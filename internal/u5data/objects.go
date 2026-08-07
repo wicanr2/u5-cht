@@ -232,3 +232,30 @@ func (o *MapObject) Skiffs() int { return int(o.Raw[ObjShipSkiffs]) }
 // SetHull / SetSkiffs 設定船的兩個屬性。
 func (o *MapObject) SetHull(v int)   { o.Raw[ObjShipHull] = byte(v) }
 func (o *MapObject) SetSkiffs(v int) { o.Raw[ObjShipSkiffs] = byte(v) }
+
+// EncodeSaveObjects 把地表與地下兩份物件表串成 512 B 的 `SAVED.OOL`。
+//
+// 版面見 LoadSaveObjects 的說明:前 256 B 地表、後 256 B 地下。
+func EncodeSaveObjects(surface, under *ObjectSet) []byte {
+	out := make([]byte, ObjectFileSize*2)
+	writeSet(out[:ObjectFileSize], surface)
+	writeSet(out[ObjectFileSize:], under)
+	return out
+}
+
+func writeSet(dst []byte, s *ObjectSet) {
+	if s == nil {
+		return
+	}
+	for i := range s.Objects {
+		o := &s.Objects[i]
+		rec := dst[i*ObjectRecordSize : (i+1)*ObjectRecordSize]
+		copy(rec, o.Raw[:])
+		// 結構化欄位蓋過 Raw;+5..+7 只在 Raw 裡(船的耐久與小艇數就存在那)。
+		rec[ObjKind] = o.Kind
+		rec[ObjTile] = o.Tile
+		rec[ObjX] = byte(o.X)
+		rec[ObjY] = byte(o.Y)
+		rec[ObjFloor] = byte(int8(o.Floor))
+	}
+}
