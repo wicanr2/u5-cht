@@ -243,14 +243,7 @@ func (s *State) hauntTownsfolk(which int) {
 		if i == u5data.PartySlot || !s.npcs[i].Present() {
 			continue
 		}
-		scheduled := false
-		for _, tm := range s.npcs[i].Schedule.Times {
-			if tm != 0 {
-				scheduled = true
-				break
-			}
-		}
-		if !u5data.ShadowlordAffectsNPC(scheduled, slot4, s.Roll(0, 1)) {
+		if !u5data.ShadowlordAffectsNPC(s.npcs[i].Schedule.Scheduled(), slot4, s.Roll(0, 1)) {
 			continue
 		}
 		if which == 1 {

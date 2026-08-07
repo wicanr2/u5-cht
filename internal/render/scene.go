@@ -246,6 +246,11 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "回答黑棘後按 Enter —— 說出真言就是招了"
 	case game.PromptArrest:
 		hint = "Y 束手就擒 / N 反抗"
+	case game.PromptGuard:
+		hint = "Y 付 / N 不付"
+		if s.State.Guard != nil && s.State.Guard.Password {
+			hint = "打密語後按 Enter,ESC 作罷"
+		}
 	case game.PromptEnding:
 		hint = "Y 是 / N 否,之後按任意鍵繼續"
 	}
@@ -272,6 +277,11 @@ func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
 		label = "汝喊:"
 	case game.PromptBlackthorn:
 		label = "汝答:"
+	case game.PromptGuard:
+		if s.State.Guard == nil || !s.State.Guard.Password {
+			return y
+		}
+		label = "汝答:"
 	default:
 		return y
 	}
@@ -296,6 +306,10 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	switch s.State.Prompt {
 	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell, game.PromptBlackthorn:
 		avail-- // 留一行給輸入列
+	case game.PromptGuard:
+		if s.State.Guard != nil && s.State.Guard.Password {
+			avail--
+		}
 	}
 	if avail < 1 {
 		avail = 1

@@ -69,6 +69,20 @@ type NPCSchedule struct {
 	Times [4]byte // 四個時刻(見 Slot)
 }
 
+// Scheduled 回報這一筆有沒有作息 —— 四個時刻只要有一個非 0 就算。
+//
+// 原版在兩處用它區分「這座城的居民」與「路過的動物或怪物」:
+// `sub_B98`(叫人滾開時誰會逃走)與 `sub_1568`(暗影君主影響誰)。
+// 兩處讀的都是執行期記錄的位移 12..15,也就是這四個時刻。
+func (s *NPCSchedule) Scheduled() bool {
+	for _, t := range s.Times {
+		if t != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // Slot 回報 hour 這個時刻該用哪一個位置(0..2)。
 //
 // 原版 `sub_9C7C` 的算法很精簡:

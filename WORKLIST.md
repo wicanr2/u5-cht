@@ -179,7 +179,8 @@ FM Towns 版反編譯出 **61,364 行 C / 1,225 函式** —— 那就是要還�
 | 開場四章 | `DATA.OVL` 0xA020:`The Summoning / The Journey / The Arrival / The Welcoming`;`STORY.DAT` 20 筆 + `STORY1–6.16` | 🔶 文字已解 |
 | **三位暗影君主** | `sub_17A14`(召喚)/ `sub_29304`(遊走)/ `sub_1A38C`(消滅);`off_55DEC` | ✅ **已實作**(`docs/re/28`):召喚、午夜換城(避開玩家且不重複)、聖火前用碎片消滅(三個條件與兩種沉默) |
 | **三個邪惡碎片** | `sub_1A38C`;存檔 0x0210;`DATA.OVL` 0x47C3:`evil Shard of **Falsehood… / Hatred… / Cowardice…**` | 🔶 使用已實作(含存讀檔);**怎麼取得**(三座地牢深處)未接 |
-| Blackthorn | `sub_C414` → `sub_C318`;`BLCKTHRN.OVL` 3,184 B | ✅ **審問已實作**(`docs/re/28` §2):四輪問答、招供玷污聖壇 −5 業報、拒絕到底同伴被斬、骨灰罈標記、丟進宮殿地牢;**逮捕的觸發**(`sub_1884`)未接 |
+| Blackthorn | `sub_C414` → `sub_C318`;`BLCKTHRN.OVL` 3,184 B | ✅ **已實作**(`docs/re/28` §2 + **32**):四輪問答、招供玷污聖壇 −5 業報、拒絕到底同伴被斬、骨灰罈標記、丟進宮殿地牢;**逮捕的觸發**(對話號碼 0xFF 的攔路盤查)已接 |
+| **衛兵盤查** | `sub_1B3D0`;密語 `IMPE`(FM Towns `aImpe` = DOS `DATA.OVL` 0x4AAA) | ✅ **已實作**(`docs/re/32`):三種盤查(人頭貢金 / 米諾克半數家財 / 黑棘宮殿徽章+密語)、付不出來一樣抓、徽章與戰鬥模式咒語共用位元組。⬜ `sub_195C` 的 `arg_0 != 0` 第三入口未追 |
 | Lord British 歸來 | `sub_135FC`;`ENDMSG.DAT` 11 筆;`ENDGAME.OVL` | ✅ **已實作**(`docs/re/30`):無條件復活隊伍、問盒子(答 N 追問一次)、**兩個結局**(帶盒子才是真結局) |
 | 結局畫面 | `END.DAT` / `END1–2.16` / `ENDSC.16`;製作名單 `sub_13258` | ⬜ 文字流程已接,畫面與名單未做 |
 

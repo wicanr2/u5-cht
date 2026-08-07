@@ -711,6 +711,8 @@ func playScript(st *game.State, script string) error {
 				st.SubmitYell()
 			case game.PromptBlackthorn:
 				st.SubmitBlackthorn()
+			case game.PromptGuard:
+				st.SubmitGuard()
 			default:
 				st.Submit()
 			}
@@ -739,6 +741,8 @@ func playScript(st *game.State, script string) error {
 			switch st.Prompt {
 			case game.PromptArrest:
 				st.AnswerArrest(true)
+			case game.PromptGuard:
+				st.AnswerGuard(true)
 			case game.PromptEnding:
 				st.AnswerEnding(true)
 			default:
@@ -748,6 +752,8 @@ func playScript(st *game.State, script string) error {
 			switch st.Prompt {
 			case game.PromptArrest:
 				st.AnswerArrest(false)
+			case game.PromptGuard:
+				st.AnswerGuard(false)
 			case game.PromptEnding:
 				st.AnswerEnding(false)
 			default:

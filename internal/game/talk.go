@@ -60,8 +60,14 @@ func (s *State) talkToNPC(idx int) {
 		s.enterShop(n)
 	case n.Dialogue == u5data.DialogueFrightened:
 		s.Log(MsgFrightened)
-	case n.Dialogue >= u5data.DialogueSpecialFE:
-		s.Log(MsgNoResponse)
+	case n.Dialogue == u5data.DialogueSpecialFE:
+		// 「滾開,害蟲!」說完那個人就跑掉(原版 `sub_154C`)。
+		s.shooNPC(idx)
+	case n.Dialogue == u5data.DialogueGuardChallenge:
+		// 攔人盤查(原版 `sub_1B3D0`)。答不出來就當場逮捕。
+		if !s.guardChallenge() {
+			s.Arrest()
+		}
 	default:
 		s.talkingTo = found.Index
 		s.beginConversation(n.Dialogue)
@@ -98,7 +104,8 @@ func (s *State) beginConversation(dialogue byte) {
 func (s *State) TypeRune(r rune) {
 	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer &&
 		s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
-		s.Prompt != PromptYell && s.Prompt != PromptBlackthorn {
+		s.Prompt != PromptYell && s.Prompt != PromptBlackthorn &&
+		s.Prompt != PromptGuard {
 		return
 	}
 	switch {
@@ -107,7 +114,8 @@ func (s *State) TypeRune(r rune) {
 		// 咒語名、真言與力量之言保留大小寫原樣(比對本來就不分大小寫),
 		// 關鍵字一律小寫。
 		if s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
-			s.Prompt != PromptYell && s.Prompt != PromptBlackthorn {
+			s.Prompt != PromptYell && s.Prompt != PromptBlackthorn &&
+			s.Prompt != PromptGuard {
 			r = r - 'A' + 'a'
 		}
 	case r == ' ' && (s.Prompt == PromptSpell || s.Prompt == PromptBlackthorn):
@@ -119,8 +127,11 @@ func (s *State) TypeRune(r rune) {
 	}
 	// Yell 原版只讀 12 個字元(`sub_17E74` 的 `push 0Ch`);其餘輸入列到 16。
 	limit := 16
-	if s.Prompt == PromptYell {
+	switch s.Prompt {
+	case PromptYell:
 		limit = u5data.YellInputMax
+	case PromptGuard:
+		limit = u5data.BlackthornPasswordMax
 	}
 	if len(s.Input) >= limit {
 		return

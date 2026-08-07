@@ -270,6 +270,34 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 衛兵的盤查:黑棘宮殿要打密語,其餘地方只收 Y / N。
+	if st.Prompt == gamestate.PromptGuard {
+		if st.Guard != nil && st.Guard.Password {
+			for _, r := range ebiten.AppendInputChars(nil) {
+				st.TypeRune(r)
+			}
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+				inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+				st.SubmitGuard()
+			case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+				st.Backspace()
+			case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+				st.CancelGuard()
+			}
+		} else {
+			switch {
+			case inpututil.IsKeyJustPressed(ebiten.KeyY):
+				st.AnswerGuard(true)
+			case inpututil.IsKeyJustPressed(ebiten.KeyN),
+				inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+				st.AnswerGuard(false)
+			}
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 「汝束手就擒否?」—— 只收 Y / N。**ESC 不是取消**:原版沒有第三條路。
 	if st.Prompt == gamestate.PromptArrest {
 		switch {

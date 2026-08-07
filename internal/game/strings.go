@@ -69,6 +69,22 @@ const (
 	MsgAttacked = "遭到攻擊!"
 	// "Don't hurt me!\nPlease go away!"
 	MsgFrightened = "「別傷害我!請走開!」"
+
+	// 衛兵的盤查(原版 `sub_1B3D0`)。**密語本身維持英文**,提示可以譯。
+	//
+	//	aGiveNowThePass  "Give now the password, bearer of the Badge!"
+	//	aThouWiltGiveHa  "Thou wilt give half thy gold to charity!"
+	//	aAGuardDemandsA  "A guard demands a %d gp tribute to Blackthorn!"
+	//	aDostThouPay     "Dost thou pay?"
+	//	aPassFriend      "Pass, friend!"
+	//	aBegoneVermin    "Begone, vermin!"
+	MsgGuardPassword = "「拿出通行密語來,佩徽章者!」\n汝之回答?"
+	MsgGuardHalfGold = "「汝須捐出半數家財行善!」汝可願付?(Y/N)"
+	MsgGuardTribute  = "衛兵索取 %d gp,\n說是給黑棘的貢金!汝可願付?(Y/N)"
+	MsgGuardYes      = "願"
+	MsgGuardNo       = "不願"
+	MsgGuardPass     = "「過去吧,朋友!」"
+	MsgBegoneVermin  = "「滾開,害蟲!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
 	MsgMerchantClosed = "「營業時再來吧。」"
 	// "A merchant says:\n\"GET THAT HORSE OUT …" —— 騎馬進店(馬廄除外)。

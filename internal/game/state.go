@@ -125,6 +125,9 @@ const (
 	//
 	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
 	PromptYell
+	// PromptGuard 是衛兵的盤查:多數地方是 Y / N(要不要繳),
+	// 黑棘的宮殿是打字答密語。
+	PromptGuard
 )
 
 // State 是一局遊戲的位置狀態。
@@ -230,6 +233,8 @@ type State struct {
 	Shrine *Shrine
 	// Codex 是進行中的寶典閱讀(Prompt == PromptCodex 時有效)。
 	Codex *Codex
+	// Guard 是進行中的衛兵盤查(原版 `sub_1B3D0`);nil 代表沒在盤查。
+	Guard *GuardChallenge
 	// Blackthorn 是進行中的審問(Prompt == PromptBlackthorn 時有效)。
 	Blackthorn *Blackthorn
 	// Ending 是進行中的結局(Prompt == PromptEnding 時有效)。

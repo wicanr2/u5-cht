@@ -32,4 +32,6 @@ run "$OUT/14-shrine-room.png" --at 128 92 --script 'E'
 # 夜晚:視野縮成身邊九格,火把再撐開一圈(docs/re/31)
 run "$OUT/15-night.png"       --at 81 108 --hour 1
 run "$OUT/16-night-torch.png" --at 81 108 --hour 1 --script "L"
+# 衛兵盤查:特林希克 7 號槽是對話號碼 0xFF 的攔路衛兵,12 時站在 (15,22)
+run "$OUT/17-guard.png"       --scene TRINSIC 0 15 23 --hour 12 --script 'T'
 echo "→ $OUT"
