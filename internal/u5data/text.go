@@ -43,6 +43,11 @@ type TextFile struct {
 type TextRecord struct {
 	// Index 是這筆訊息在檔案中的序號(翻譯表的 key 就用它)。
 	Index int
+	// Offset 是這筆訊息在檔案裡的起始位移。
+	//
+	// 原版有幾處是**直接拿位移取字**的(例如寶典的 `dword_5604C` 加上
+	// `MISCMSG.DAT` 的載入起點 0x3AB),留著這個欄位才驗得了那些對應。
+	Offset int
 	// Raw 是原始位元組(保留 token 與所有標記)。
 	Raw []byte
 	// Page 表示這筆訊息以 '{' 開頭。
@@ -102,16 +107,20 @@ func ParseText(raw []byte) (*TextFile, error) {
 		return nil, fmt.Errorf("找不到 NUL 分隔 —— 這可能不是明文訊息檔")
 	}
 	tf := &TextFile{}
+	off := 0
 	for i, part := range bytes.Split(raw, []byte{textRecordSep}) {
+		start := off
+		off += len(part) + 1 // +1 是被切掉的那個 NUL
 		if len(part) == 0 {
 			continue
 		}
 		rec := make([]byte, len(part))
 		copy(rec, part)
 		tf.Records = append(tf.Records, TextRecord{
-			Index: i,
-			Raw:   rec,
-			Page:  rec[0] == textPageMark,
+			Index:  i,
+			Offset: start,
+			Raw:    rec,
+			Page:   rec[0] == textPageMark,
 		})
 	}
 	if len(tf.Records) == 0 {

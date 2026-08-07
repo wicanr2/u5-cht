@@ -47,6 +47,20 @@ func answer(s *State, v int) {
 	}
 }
 
+// readCodex 走一趟寶典把該美德的「已讀」位元設起來。
+//
+// ⚠ 這一步**不能跳過**:聖壇只設「試煉進行中」(`byte_3E0DC`),
+// 「已在寶典讀到」(`byte_3E0DE`)是寶典設的。跳過的話第二次拜壇會被
+// 當成「第一次來」而重新發試煉,永遠拿不到獎賞 —— 原版就是這樣設計的。
+func readCodex(t *testing.T, s *State) {
+	t.Helper()
+	if !s.ReadCodex() {
+		t.Fatalf("讀不了寶典:\n%s", s.log())
+	}
+	for s.AdvanceCodex() {
+	}
+}
+
 // TestShrineCoordinatesAreDistinct:八座聖壇不能撞在同一格。
 //
 // ⚠ **靈性那座的座標是 (0,0)**,那不是資料缺漏 —— 原版就沒把它放進表裡,
@@ -120,9 +134,17 @@ func TestShrineFirstVisitGivesQuest(t *testing.T) {
 	before := s.Roster[0].Strength
 	answer(s, u5data.VirtueValor)
 	bit := byte(1) << u5data.VirtueValor
-	if s.ShrineQuestGiven&bit == 0 || s.ShrineQuestActive&bit == 0 {
-		t.Errorf("領完試煉之後旗標是 given=%02X active=%02X",
-			s.ShrineQuestGiven, s.ShrineQuestActive)
+	// ⚠ 聖壇只設「進行中」。「已在寶典讀到」要真的去一趟寶典。
+	if s.ShrineQuestActive&bit == 0 {
+		t.Errorf("領完試煉之後 active=%02X", s.ShrineQuestActive)
+	}
+	if s.ShrineQuestGiven&bit != 0 {
+		t.Errorf("聖壇順手把寶典那一位也設了(given=%02X)—— 那是 sub_1D850 的事",
+			s.ShrineQuestGiven)
+	}
+	readCodex(t, s)
+	if s.ShrineQuestGiven&bit == 0 {
+		t.Errorf("讀完寶典之後 given=%02X", s.ShrineQuestGiven)
 	}
 	if s.Roster[0].Strength != before {
 		t.Error("第一次拜就加了力量 —— 獎賞應該要完成試煉才給")
@@ -141,6 +163,7 @@ func TestShrineRewardNeedsTheQuest(t *testing.T) {
 		return
 	}
 	answer(s, u5data.VirtueValor) // 第一次:領試煉
+	readCodex(t, s)               // 去寶典學答案 —— 原版的必經一步
 	s.Roster[0].Strength = 10
 	s.Karma = 50
 
@@ -217,6 +240,7 @@ func TestOfferConvertsGoldToKarma(t *testing.T) {
 		return
 	}
 	answer(s, u5data.VirtueValor)
+	readCodex(t, s)
 	s.Meditate()
 	answer(s, u5data.VirtueValor) // 領獎
 	s.Meditate()
@@ -262,6 +286,7 @@ func TestHumilityGivesDoubleKarma(t *testing.T) {
 		return
 	}
 	answer(s, u5data.VirtueHumility)
+	readCodex(t, s)
 	s.Meditate()
 	s.Karma = 10
 	answer(s, u5data.VirtueHumility)

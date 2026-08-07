@@ -123,6 +123,18 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 讀寶典:任意鍵翻頁,ESC 直接闔上。
+	if st.Prompt == gamestate.PromptCodex {
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			st.EndCodex()
+			g.dirty = true
+		} else if len(inpututil.AppendJustPressedKeys(nil)) > 0 {
+			st.AdvanceCodex()
+			g.dirty = true
+		}
+		return nil
+	}
+
 	// In Quas Wis 的全景:原版畫完就卡著等一個按鍵,按什麼都收起來。
 	if st.Prompt == gamestate.PromptPeer {
 		if len(inpututil.AppendPressedKeys(nil)) > 0 {

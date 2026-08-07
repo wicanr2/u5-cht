@@ -157,12 +157,9 @@ func (s *State) shrineResolve() bool {
 	case s.ShrineQuestGiven&bit == 0:
 		// 第一次來:領試煉。
 		//
-		// ⚠ **這裡與原版有一處簡化。** 原版只設「試煉進行中」
-		//(`byte_3E0DC`),「領過試煉」(`byte_3E0DE`)是**讀寶典時**才設的 ——
-		// 也就是「去寶典」是必經的一步。寶典那一段還沒逆,所以引擎把兩個
-		// 位元一起設,效果變成「拜兩次就拿得到獎」。
-		// 寶典做出來之後要把這一行拿掉(`docs/re/25` §2.2)。
-		s.ShrineQuestGiven |= bit
+		// ⚠ **只設「試煉進行中」(`byte_3E0DC`)。** 「已在寶典讀到」
+		//(`byte_3E0DE`)是**寶典**設的(`sub_1D850`,見 codex.go)——
+		// 所以「去寶典」是拿獎賞前必經的一步,聖壇這裡不能順手一起設。
 		s.ShrineQuestActive |= bit
 		s.logMisc(u5data.MsgShrineQuestOn)
 		s.Log(i18n.Text("MISCMSG.DAT", u5data.MsgShrineQuestIs, "") +
@@ -246,11 +243,15 @@ func (s *State) shrineOffer(text string) bool {
 }
 
 // EndMeditate 收掉冥想。
+//
+// ⚠ **離開時要走掉十六分鐘**(原版 `sub_1DA10` 尾端的 `sub_29304(0x10)`)——
+// 進出聖壇與寶典共用同一支,所以兩邊一樣。少了它,拜壇是不花時間的。
 func (s *State) EndMeditate() {
 	s.Shrine = nil
 	if s.Prompt == PromptShrine {
 		s.Prompt = PromptNone
 	}
+	s.AdvanceTime(u5data.ShrineChamberMinutes)
 }
 
 // AddKarma 加業報,上限 99(原版 `cmp byte_3E098, 63h`)。
@@ -262,12 +263,7 @@ func (s *State) AddKarma(n int) {
 
 // logMisc 印一筆 `MISCMSG.DAT` 的訊息(已經是譯文)。
 func (s *State) logMisc(record int) {
-	en := ""
-	if s.Misc != nil && record < len(s.Misc.Records) {
-		en = s.Misc.Records[record].Text()
-	}
-	txt := strings.TrimSpace(i18n.Text("MISCMSG.DAT", record, en))
-	if txt != "" {
+	if txt := s.miscText(record); txt != "" {
 		s.Log(txt)
 	}
 }
@@ -277,27 +273,4 @@ func (s *State) SubmitShrine() {
 	text := s.Input
 	s.Input = ""
 	s.ShrineAnswer(text)
-}
-
-// OnShrineTile 回報玩家是不是站在**座標表上真的有的**那七座聖壇上。
-//
-// ⚠ 與 `ShrineHere` 不同:那一支永遠會回一個美德(掃不到就回靈性),
-// 是原版 `sub_1D394` 進來之後才用的。這一支是**入口判斷**,
-// 不能用那個 fallback —— 否則玩家在任何一格按 E 都會開始冥想。
-//
-// 靈性聖壇在幽冥界,座標不在表上;它要靠另一條路觸發,還沒接。
-func (s *State) OnShrineTile() bool {
-	if s.InScene() || s.InDungeon() || s.InCombat() {
-		return false
-	}
-	for i := range u5data.Shrines {
-		sh := &u5data.Shrines[i]
-		if sh.X == 0 && sh.Y == 0 {
-			continue // 靈性:不在表上
-		}
-		if sh.X == s.X && sh.Y == s.Y {
-			return true
-		}
-	}
-	return false
 }

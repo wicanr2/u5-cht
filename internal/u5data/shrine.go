@@ -94,10 +94,40 @@ const (
 	ShrineGoldPerUnit = 100
 	// ShrineMaxOffer 是一次最多獻幾重 —— 原版只讀**一個** '0'..'9' 的按鍵。
 	ShrineMaxOffer = 9
+	// ShrineChamberMinutes 是進出聖壇 / 寶典那間石室要走掉的時間。
+	//
+	// 原版 `sub_1DA10` 尾端的 `sub_29304(0x10)` —— 聖壇與寶典共用同一支進場函式,
+	// 所以兩者一樣。少了它,拜壇與讀寶典都不花時間。
+	ShrineChamberMinutes = 16
 )
 
 // ShrineQuestRecord 是「去寶典學什麼」那句話在 `MISCMSG.DAT` 裡的記錄序號。
 func ShrineQuestRecord(virtue int) int { return 12 + virtue }
+
+// CodexAnswerRecord 是寶典上那一句箴言在 `MISCMSG.DAT` 裡的記錄序號。
+//
+// ★ 依據不是猜的:`sub_1D850` 取的是 `byte_54700 + dword_5604C[美德]`,
+// 而 `byte_54700` 是 `sub_1DA10` 用 `sub_2C740("MISCMSG.DAT", byte_54700, 0x7D0, 0x3AB)`
+// 從**檔案位移 0x3AB** 讀進來的緩衝區。0x3AB 正好是第 12 筆記錄的開頭,
+// 而 `dword_5604C = [256, 334, 393, 468, 555, 639, 704, 784]` 加上 0x3AB
+// 之後**八個位移全部落在第 20..27 筆記錄的開頭**。
+//
+// 同一個緩衝區也解釋了聖壇那邊看似寫死的 `byte_54A6D` / `dword_54A98` /
+// `byte_54AE1` / `byte_54BB9` —— 它們是第 28 / 29 / 31 / 36 筆。
+func CodexAnswerRecord(virtue int) int { return 20 + virtue }
+
+// 寶典的訊息(`MISCMSG.DAT` 記錄序號)
+const (
+	MsgCodexOpen     = 37 // 「書已翻至汝所尋的那一頁!」
+	MsgCodexPage     = 38 // 「汝在那神聖的一頁上讀到:」
+	MsgCodexNoQuest  = 39 // 「汝是怎麼來到這裡的?」——沒有進行中的試煉
+	MsgCodexWind     = 40 // 「一陣異風翻動了書頁!」——八德全部讀完才會有
+	MsgCodexRuneOne  = 41 // 通往末日之路的四段符文
+	MsgCodexApproach = 46 // 「終極智慧之寶典就在汝眼前……」
+)
+
+// CodexRunePages 是八德全讀完之後翻出來的四段符文(記錄 41..44)。
+const CodexRunePages = 4
 
 // MISCMSG 裡與聖壇有關的幾筆(序號,不是位移)。
 const (

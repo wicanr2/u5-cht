@@ -23,9 +23,11 @@ import "fmt"
 //  2. **有些記錄是句子的前半**,後面由程式接上變數。例如
 //     `MISCMSG#0` 結尾是「…the Mystic Shrine of 」後面接美德名。
 //     這種**譯文結尾也要留成可接的形狀**,不要自己補句號。
-//  3. **`MISCMSG#41..44` 是符文字母**(`[`=TH、`^`=EA、`]`=NG、`@`=空白),
-//     原版用 `RUNES.CH` 畫成符文。這裡照語意翻成中文;符文字型那條路
-//     還沒做,做了之後這幾筆要重新決定(見 `docs/localization-notes.md`)。
+//  3. **`MISCMSG#41..44` 是符文字母**(`[`=TH、`^`=EA、`]`=NG、`_`=ST、
+//     `@`=空白、`o`=句號),原版用 `RUNES.CH` 畫成符文。這裡照語意翻成中文,
+//     連句號一起還原成「。」—— 留著 `o` 在中文裡只會被當成錯字。
+//     符文字型那條路還沒做,做了之後這幾筆要重新決定
+//     (見 `docs/localization-notes.md`)。
 var texts = map[string]string{}
 
 // TextKey 組出譯文表的 key。
@@ -143,10 +145,10 @@ var miscText = map[string]string{
 	"MISCMSG.DAT#38": "汝在那神聖的一頁上讀到:\n\n",
 	"MISCMSG.DAT#39": "汝是怎麼來到這裡的?\n",
 	"MISCMSG.DAT#40": "一陣異風翻動了書頁!\n\n",
-	"MISCMSG.DAT#41": "越過羞恥之出口,\n在幽冥界的\n正中央,\n有一處\n黑暗之地o\n\n",
-	"MISCMSG.DAT#42": "越過那片黑暗,\n便是通往\n世界核心的\n門o\n\n",
-	"MISCMSG.DAT#43": "待汝準備妥當,\n須高喊\nVERAMOCOR\n以開此門,\n並闖過那些\n看守與統御\n魂魄的\n以太守衛o\n\n",
-	"MISCMSG.DAT#44": "世人早已遺忘之物,\n正候著汝的到來o\n\n",
+	"MISCMSG.DAT#41": "越過羞恥之出口,\n在幽冥界的\n正中央,\n有一處\n黑暗之地。\n\n",
+	"MISCMSG.DAT#42": "越過那片黑暗,\n便是通往\n世界核心的\n門。\n\n",
+	"MISCMSG.DAT#43": "待汝準備妥當,\n須高喊\nVERAMOCOR\n以開此門,\n並闖過那些\n看守與統御\n魂魄的\n以太守衛。\n\n",
+	"MISCMSG.DAT#44": "世人早已遺忘之物,\n正候著汝的到來。\n\n",
 	"MISCMSG.DAT#45": "\n汝走近那座靜謐的聖壇……\n\n",
 	"MISCMSG.DAT#46": "\n終極智慧之寶典就在汝眼前……",
 }

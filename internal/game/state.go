@@ -113,6 +113,8 @@ const (
 	// 原版 `sub_EDD4` 畫完之後就卡在 `while (sub_27034() == 0xFFFF)`
 	// 等一個按鍵,期間畫面不動。所以它是一個**阻塞的畫面**,不是持續狀態。
 	PromptPeer
+	// PromptCodex 是在讀寶典:按任意鍵翻頁(與開場動畫同樣的節奏)。
+	PromptCodex
 	// PromptYell 是 Yell 指令的「what?」:打一個力量之言或暗影君主的名字。
 	//
 	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
@@ -222,6 +224,8 @@ type State struct {
 	Prompt Prompt
 	// Shrine 是進行中的冥想(Prompt == PromptShrine 時有效)。
 	Shrine *Shrine
+	// Codex 是進行中的寶典閱讀(Prompt == PromptCodex 時有效)。
+	Codex *Codex
 	// ShrineQuestGiven / ShrineQuestActive 是八德的兩組位元
 	//(原版 byte_3E0DE / byte_3E0DC)。
 	//
@@ -230,7 +234,7 @@ type State struct {
 	// 只留一個旗標會讓玩家可以無限重領獎賞。
 	//
 	// ⚠ `ShrineQuestGiven` 對到的 `byte_3E0DE` **是寶典設的,不是聖壇設的**
-	//(`sub_1D850`)。目前寶典還沒接,冥想時暫時一起設 —— 見 shrine.go 的說明。
+	//(`sub_1D850`,見 codex.go)。聖壇只讀它,不寫。
 	ShrineQuestGiven  byte
 	ShrineQuestActive byte
 	// ShrineFlag[i] 的 bit 0x80 = 第 i 座聖壇已被玷污(原版 byte_3E0E8)。
@@ -631,14 +635,18 @@ func (s *State) Enter() {
 		s.Log(MsgNothingToEnter)
 		return
 	}
-	// 聖壇不在那張 32 筆的地點表裡,它有自己的座標表(`u5data.Shrines`)——
-	// 所以要先查,不然會被下面的「此處無可進入之地」擋掉。
+	// 聖壇與寶典不在那張 32 筆的地點表裡 —— 原版是**看腳下的地形**分派的
+	//(`sub_2D72C`:17 = 法典聖壇、25 = 八德聖壇,兩者都進 `sub_1DA10`),
+	// 所以這裡也照地形判,不查座標表。
 	//
-	// ⚠ 只認**表上真的有的那七座**。靈性聖壇的座標是 (0,0),
-	// 那是 `ShrineAt` 的 fallback 值,不能拿來當「站在這裡就是聖壇」的依據 ——
-	// 否則玩家在任何一格按 E 都會開始冥想。
-	if s.OnShrineTile() {
+	// ⚠ 用地形而不是座標,靈性聖壇才會動 —— 它在幽冥界、座標不在
+	// `u5data.Shrines` 表上,`ShrineAt` 的 (0,0) 是 fallback 不是位置。
+	switch s.TileAt(s.X, s.Y) {
+	case u5data.TileShrine:
 		s.Meditate()
+		return
+	case u5data.TileCodex:
+		s.ReadCodex()
 		return
 	}
 	// 地牢入口與城鎮共用同一張地點表(索引 0x20..0x27),先查地牢。

@@ -47,6 +47,10 @@ const (
 	//
 	// `sub_17CFC` 在鄰格看到 0x1A 時走「復原聖壇」那條路。
 	TileShrineDesecrated = 0x1A
+	// TileCodex 是終極智慧之寶典所在的那一格(`sub_2D72C` 的 17 = 法典聖壇)。
+	//
+	// 與八德聖壇共用同一支進場函式 `sub_1DA10`,靠這個地形分辨進去要做什麼。
+	TileCodex = 0x11
 	// TileDungeonSealed 是被封印的地牢入口。
 	//
 	// 切換的算式是 `格子 ^= (DungeonEntranceTile[i] ^ 0xDF)` ——
