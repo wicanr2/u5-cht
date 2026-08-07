@@ -268,3 +268,95 @@ func TestAlwaysHitWeapons(t *testing.T) {
 		}
 	}
 }
+
+// TestWeaponDamageRoll:三把神器的特例,以及一般武器擲 random(1, 上限)。
+func TestWeaponDamageRoll(t *testing.T) {
+	s := combatState(t)
+	st, err := u5data.LoadCombatStats("../../gamedata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Stats = st
+	s.SeedRandom(3)
+
+	if d, sh := s.WeaponDamageRoll(u5data.ItemGlassSword); d != u5data.InstantKillDamage || !sh {
+		t.Errorf("玻璃劍 傷害 %d 碎裂 %v,預期 99 / true", d, sh)
+	}
+	if d, sh := s.WeaponDamageRoll(u5data.ItemJeweledSword); d != 0 || sh {
+		t.Errorf("寶石劍 傷害 %d,預期 0", d)
+	}
+	if d, _ := s.WeaponDamageRoll(u5data.ItemNone); d != u5data.BareHandDamage {
+		t.Errorf("空手傷害 %d,預期 %d", d, u5data.BareHandDamage)
+	}
+	if d, _ := s.WeaponDamageRoll(u5data.ItemSwordOfChaos); d != u5data.InstantKillDamage {
+		t.Errorf("混沌之劍傷害 %d,預期 99(不擲骰)", d)
+	}
+	// 長劍上限 15:擲很多次應該落在 1..15,而且兩端都碰得到。
+	lo, hi := 99, 0
+	for i := 0; i < 3000; i++ {
+		d, _ := s.WeaponDamageRoll(30)
+		if d < 1 || d > 15 {
+			t.Fatalf("長劍擲出 %d,超出 1..15", d)
+		}
+		if d < lo {
+			lo = d
+		}
+		if d > hi {
+			hi = d
+		}
+	}
+	if lo != 1 || hi != 15 {
+		t.Errorf("長劍的傷害範圍是 %d..%d,預期 1..15(閉區間)", lo, hi)
+	}
+	// 箭矢上限 1 → 不擲骰,固定 1。
+	for i := 0; i < 50; i++ {
+		if d, _ := s.WeaponDamageRoll(u5data.ItemArrows); d != 1 {
+			t.Fatalf("箭矢傷害 %d,預期固定 1", d)
+		}
+	}
+}
+
+// TestInstantKillIgnoresArmour:必殺(99)不扣防禦。
+func TestInstantKillIgnoresArmour(t *testing.T) {
+	s := combatState(t)
+	st, _ := u5data.LoadCombatStats("../../gamedata")
+	s.Stats = st
+	s.SeedRandom(11)
+	if got := s.DamageToCreature(u5data.InstantKillDamage, 0x48); got != u5data.InstantKillDamage {
+		t.Errorf("必殺被扣成 %d", got)
+	}
+	if got := s.DamageToCharacter(u5data.InstantKillDamage, &s.Roster[0]); got != u5data.InstantKillDamage {
+		t.Errorf("必殺被扣成 %d", got)
+	}
+}
+
+// TestDamageSubtractsResist:減傷擲 random(1, 減傷值),而且值為 0 時不擲。
+func TestDamageSubtractsResist(t *testing.T) {
+	s := combatState(t)
+	st, _ := u5data.LoadCombatStats("../../gamedata")
+	s.Stats = st
+	s.SeedRandom(5)
+	// 法師護甲 0(怪物編號 0x40)→ 傷害原封不動。
+	for i := 0; i < 50; i++ {
+		if got := s.DamageToCreature(10, 0x40); got != 10 {
+			t.Fatalf("打護甲 0 的法師,傷害變成 %d", got)
+		}
+	}
+	// 戰士護甲 8(怪物編號 0x48)→ 傷害落在 10−8 .. 10−1。
+	lo, hi := 99, -99
+	for i := 0; i < 3000; i++ {
+		got := s.DamageToCreature(10, 0x48)
+		if got < 2 || got > 9 {
+			t.Fatalf("打護甲 8 的戰士,傷害 %d 超出 2..9", got)
+		}
+		if got < lo {
+			lo = got
+		}
+		if got > hi {
+			hi = got
+		}
+	}
+	if lo != 2 || hi != 9 {
+		t.Errorf("傷害範圍 %d..%d,預期 2..9", lo, hi)
+	}
+}

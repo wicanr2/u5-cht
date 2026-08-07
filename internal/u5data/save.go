@@ -82,6 +82,13 @@ const (
 	CharMaxHP    = 18 // u16 LE
 	CharExp      = 20 // u16 LE
 	CharLevel    = 22
+	// CharDamageResist 是傷害計算時的減傷值(`sub_B274` 讀
+	// `byte_3DDCC[角色*32]`,而 0x3DDCC − 0x3DDB4 = 0x18)。
+	//
+	// ⚠ 名字刻意不叫 armour:它**不是**裝備防禦的加總(那是 CharArmour
+	// 那個裝備欄位加 ItemDefence 算的)。六名初始角色的這一欄全都是 7,
+	// 但聖者穿鎖甲、Mariah 只穿布甲 —— 是什麼算出來的還沒追到,先照原樣讀。
+	CharDamageResist = 24
 
 	CharNameLen = 9
 )

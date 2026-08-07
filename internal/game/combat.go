@@ -259,3 +259,78 @@ func (s *State) AttackerHits(c *u5data.Character, weapon byte, targetDefence int
 	}
 	return s.AttackRoll() >= HitThreshold(targetDefence, s.attackValueOf(c, weapon))
 }
+
+// 傷害計算
+//
+// 原版 `sub_B274(攻擊者, 目標)`:
+//
+//	攻擊者是怪物 → base = 怪物屬性的 +4(攻擊力)
+//	攻擊者是角色 → 依武器:
+//	    玻璃劍(0x27)  → 99,而且**劍會碎掉**(印「Thy sword hath shattered!」)
+//	    寶石劍(0x28)  → 0
+//	    空手(0xFF)    → 1
+//	    其餘           → base = 武器傷害表[武器]
+//	                     base > 1 且 != 99 時擲 random(1, base)
+//
+//	base == 99 → 傷害 99(必殺,不扣防禦)
+//	否則:
+//	    目標是怪物 → 減 random(1, 怪物屬性的 +3)
+//	    目標是角色 → 減 random(1, 角色紀錄的 0x18)
+//	    減值為 0 時不扣
+//
+// 注意兩處**閉區間**的 random(1, n) —— 與命中骰同一個 `sub_28E14`。
+
+// DamageResult 是一次傷害計算的結果。
+type DamageResult struct {
+	// Amount 是最後扣的血;可能是負數(防禦擲得比傷害高),原版不夾。
+	Amount int
+	// Shattered 為真時武器碎了(玻璃劍)。
+	Shattered bool
+}
+
+// WeaponDamageRoll 算攻擊者這一擊的基礎傷害(還沒扣目標的防禦)。
+func (s *State) WeaponDamageRoll(weapon byte) (base int, shattered bool) {
+	switch weapon {
+	case u5data.ItemGlassSword:
+		return u5data.InstantKillDamage, true
+	case u5data.ItemJeweledSword:
+		return 0, false
+	case u5data.ItemNone:
+		return u5data.BareHandDamage, false
+	}
+	if s.Stats == nil || int(weapon) >= u5data.ItemCount {
+		return 0, false
+	}
+	base = s.Stats.ItemDamage[weapon]
+	if base > 1 && base != u5data.InstantKillDamage {
+		base = s.Roll(1, base)
+	}
+	return base, false
+}
+
+// DamageToCharacter 算一名隊員被打時實際掉多少血。
+func (s *State) DamageToCharacter(base int, c *u5data.Character) int {
+	return s.applyResist(base, int(c.Raw[u5data.CharDamageResist]))
+}
+
+// DamageToCreature 算一隻怪物被打時實際掉多少血。
+func (s *State) DamageToCreature(base int, creature byte) int {
+	resist := 0
+	if s.Stats != nil {
+		if st, ok := s.Stats.StatsFor(creature); ok {
+			resist = int(st.Armour)
+		}
+	}
+	return s.applyResist(base, resist)
+}
+
+// applyResist 套用減傷。必殺(99)不扣;減傷值 0 也不擲骰。
+func (s *State) applyResist(base, resist int) int {
+	if base == u5data.InstantKillDamage {
+		return u5data.InstantKillDamage
+	}
+	if resist == 0 {
+		return base
+	}
+	return base - s.Roll(1, resist)
+}
