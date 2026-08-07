@@ -93,6 +93,24 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// Yell 的「喊什麼?」:打一個力量之言或暗影君主的名字,Enter 送出、ESC 作罷。
+	if st.Prompt == gamestate.PromptYell {
+		for _, r := range ebiten.AppendInputChars(nil) {
+			st.TypeRune(r)
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.SubmitYell()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.Backspace()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			st.CancelYell()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 開場動畫:任意鍵翻頁,ESC 跳過整段。
 	if st.Prompt == gamestate.PromptIntro {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
@@ -280,6 +298,10 @@ func (g *game) Update() error {
 		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyI) {
 			st.LightTorch()
+		}
+		// Y 是原版的 Yell:船上收放帆,城裡喊暗影君主的名字,野外說力量之言。
+		if inpututil.IsKeyJustPressed(ebiten.KeyY) {
+			st.Yell()
 		}
 		// Q 存檔(不離開)。原版 Q 是「存檔並離開」,這裡拆開:
 		// 離開走 F10 / Ctrl+Q 並自動存檔,見上面與 esc-cancel-f10-quit-autosave。

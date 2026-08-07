@@ -221,6 +221,12 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		hint = "輸入關鍵字後按 Enter,打 bye 或 ESC 結束"
 	case game.PromptAnswer:
 		hint = "回答對方的問題後按 Enter"
+	case game.PromptSpell:
+		hint = "打上古語咒語名後按 Enter,ESC 作罷"
+	case game.PromptShrine:
+		hint = "打英文的美德名 / 真言後按 Enter,ESC 作罷"
+	case game.PromptYell:
+		hint = "喊一個字後按 Enter,ESC 作罷"
 	}
 	s.Text.Draw(dst, MapOriginX, HintY, hint)
 }
@@ -236,6 +242,13 @@ func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
 	case game.PromptTalk:
 	case game.PromptAnswer:
 		label = "汝答:"
+	case game.PromptSpell:
+		label = "咒語:"
+	case game.PromptShrine:
+		// 美德名、真言、獻金三步共用一行 —— 問句本身已經在訊息欄裡。
+		label = "汝言:"
+	case game.PromptYell:
+		label = "汝喊:"
 	default:
 		return y
 	}
@@ -257,7 +270,8 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 		lines = append(lines, Wrap(m, PanelWidth)...)
 	}
 	avail := (CanvasHeight - 8 - PanelTextY) / LineHeight
-	if s.State.Prompt == game.PromptTalk || s.State.Prompt == game.PromptAnswer {
+	switch s.State.Prompt {
+	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell:
 		avail-- // 留一行給輸入列
 	}
 	if avail < 1 {

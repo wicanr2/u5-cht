@@ -62,6 +62,12 @@ func (s *State) ExportSave(base *u5data.Save) (*u5data.Save, error) {
 	out.Location = s.Location
 	out.Floor = s.Floor
 	out.X, out.Y = s.X, s.Y
+	out.ShrineQuest = s.ShrineQuestActive
+	out.CodexLearned = s.ShrineQuestGiven
+	out.ShrineFlag = s.ShrineFlag
+	out.DungeonSeal = s.DungeonSeal
+	out.ShadowlordAt = s.ShadowlordAt
+	out.ShadowlordHere = s.ShadowlordHere
 
 	// 在場景裡存檔時,X/Y 是**場景座標** —— 原版共用同一對變數,讀檔時
 	// 靠 Location 判斷該怎麼解讀,所以照原樣寫回就好(見 state.go 的 LoadFrom)。

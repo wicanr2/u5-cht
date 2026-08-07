@@ -679,6 +679,7 @@ func findLocation(name string) (*u5data.Location, bool) {
 // playScript 把一串按鍵餵給狀態機,讓「走進城裡再走出來」這種劇本能 headless 重現。
 //
 //	n s e w 移動   E 進入   K 攀爬   T 交談   B 上載具   X 下載具   y / N 回答提問
+//	Y 喊(力量之言 / 暗影君主 / 收放帆)
 //	"keyword" 對話輸入   [aby] 在店裡逐一按下的字母鍵
 func playScript(st *game.State, script string) error {
 	rs := []rune(script)
@@ -706,6 +707,8 @@ func playScript(st *game.State, script string) error {
 				st.SubmitShrine()
 			case game.PromptSpell:
 				st.SubmitSpell()
+			case game.PromptYell:
+				st.SubmitYell()
 			default:
 				st.Submit()
 			}
@@ -748,6 +751,8 @@ func playScript(st *game.State, script string) error {
 			}
 		case 'L':
 			st.LightTorch() // 點火把(地牢沒光是全黑的)
+		case 'Y':
+			st.Yell() // 喊(船上收放帆;其餘接著用 "…" 打字)
 		case 'f':
 			st.DungeonForward(false) // 地牢:前進
 		case 'b':
@@ -758,7 +763,7 @@ func playScript(st *game.State, script string) error {
 			st.DungeonTurn(false) // 地牢:右轉
 		case ' ':
 		default:
-			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
+			return fmt.Errorf("腳本裡看不懂的動作 %q(可用:n s e w 移動、E 進入、K 攀爬、T 交談、B/X 上下載具、y/N 回答、I 開場、. 翻頁、P 全景、! 開打(截圖用)、L 點火把、Y 喊、f/b 地牢前進後退、</> 地牢轉向、[abc] 店內按鍵)", r)
 		}
 	}
 	return nil

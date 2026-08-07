@@ -282,3 +282,150 @@ func TestKarmaCapsAt99(t *testing.T) {
 		t.Errorf("業報 %d,上限應該是 %d", s.Karma, u5data.KarmaMax)
 	}
 }
+
+// TestWordsOfPowerAreDistinct:八個力量之言互不相同,而且只認完整的字。
+func TestWordsOfPowerAreDistinct(t *testing.T) {
+	seen := map[string]bool{}
+	for i, w := range u5data.WordsOfPower {
+		if seen[strings.ToLower(w)] {
+			t.Errorf("%q 重複", w)
+		}
+		seen[strings.ToLower(w)] = true
+		if got := u5data.WordOfPowerIndex(w); got != i {
+			t.Errorf("%q 查出來是第 %d 個,應該是 %d", w, got, i)
+		}
+		// 大小寫不分(原版用不分大小寫的比對)。
+		if got := u5data.WordOfPowerIndex(strings.ToLower(w)); got != i {
+			t.Errorf("小寫的 %q 查不到", w)
+		}
+	}
+	if u5data.WordOfPowerIndex("banana") != -1 {
+		t.Error("不是力量之言的字卻查得到")
+	}
+}
+
+// TestDungeonEntranceCoordsMatchTwoSources:力量之言表與地牢表的座標要一致。
+//
+// `byte_41114` / `byte_4113C`(力量之言那一段)與 `sub_2D564` 讀出來的
+// 八座地牢入口是**兩個獨立來源**。對不上就代表有一邊抄錯了。
+func TestDungeonEntranceCoordsMatchTwoSources(t *testing.T) {
+	want := [8][2]int{
+		{240, 73}, {91, 67}, {72, 168}, {126, 20},
+		{156, 27}, {58, 102}, {239, 240}, {128, 128},
+	}
+	for i, w := range want {
+		e := u5data.DungeonEntrances[i]
+		if e.X != w[0] || e.Y != w[1] {
+			t.Errorf("第 %d 座地牢:地牢表 (%d,%d)、力量之言表 (%d,%d)",
+				i, e.X, e.Y, w[0], w[1])
+		}
+	}
+}
+
+// TestSealToggleIsItsOwnInverse:封印切換兩次要回到原點。
+//
+// 原版用一個 XOR 同時做開與關(`格子 ^= 原地形 ^ 0xDF`)。
+// 寫成兩個分支的話很容易某一邊漏掉,而症狀是「封起來就打不開了」。
+func TestSealToggleIsItsOwnInverse(t *testing.T) {
+	for i := 0; i < u5data.VirtueCount; i++ {
+		open := u5data.DungeonEntranceTile[i]
+		sealed := u5data.ToggleDungeonSeal(open, i)
+		if sealed != u5data.TileDungeonSealed {
+			t.Errorf("第 %d 座封起來變成 %02X,預期 %02X",
+				i, sealed, u5data.TileDungeonSealed)
+		}
+		if back := u5data.ToggleDungeonSeal(sealed, i); back != open {
+			t.Errorf("第 %d 座再切一次變成 %02X,預期回到 %02X", i, back, open)
+		}
+	}
+}
+
+// TestSpeakWordSealsTheRightDungeon:說出力量之言會切換旁邊那座地牢的封印。
+//
+// ⚠ 而且**只切換座標對得上的那一座** —— 光是「鄰格看起來像地牢入口」不夠。
+func TestSpeakWordSealsTheRightDungeon(t *testing.T) {
+	s := shrineState(t)
+	if s == nil {
+		return
+	}
+	e := u5data.DungeonEntrances[0] // 欺瞞 (240,73)
+	// 站在入口西邊一格,讓入口落在「東」那個方向。
+	s.X, s.Y = WrapWorld(e.X-1), e.Y
+	if got := s.TileAt(e.X, e.Y); got != u5data.DungeonEntranceTile[0] {
+		t.Skipf("欺瞞入口的地形是 %02X,表上是 %02X —— 這張存檔可能已經改過地圖",
+			got, u5data.DungeonEntranceTile[0])
+	}
+	if !s.SpeakWord("FALLAX") {
+		t.Fatalf("FALLAX 沒有效果:\n%s", s.log())
+	}
+	if s.DungeonSeal[0]&u5data.DungeonSealedBit == 0 {
+		t.Error("說完之後封印旗標沒有設起來")
+	}
+	if got := s.TileAt(e.X, e.Y); got != u5data.TileDungeonSealed {
+		t.Errorf("入口的地形是 %02X,封起來應該是 %02X", got, u5data.TileDungeonSealed)
+	}
+	// 再說一次要開回來。
+	s.SpeakWord("fallax")
+	if s.DungeonSeal[0]&u5data.DungeonSealedBit != 0 {
+		t.Error("再說一次沒有把封印解開")
+	}
+	if got := s.TileAt(e.X, e.Y); got != u5data.DungeonEntranceTile[0] {
+		t.Errorf("解開之後地形是 %02X,預期 %02X", got, u5data.DungeonEntranceTile[0])
+	}
+}
+
+// TestSpeakWordElsewhereDoesNothing:在不對的地方說力量之言不該有效果。
+func TestSpeakWordElsewhereDoesNothing(t *testing.T) {
+	s := shrineState(t)
+	if s == nil {
+		return
+	}
+	s.X, s.Y = 100, 100
+	if s.SpeakWord("FALLAX") {
+		t.Error("在空地說 FALLAX 卻有效果")
+	}
+	if s.DungeonSeal != ([u5data.VirtueCount]byte{}) {
+		t.Error("在空地說 FALLAX 卻動到了封印")
+	}
+	if s.SpeakWord("banana") {
+		t.Error("亂打一個字卻有效果")
+	}
+}
+
+// TestRestoreShrineNeedsTheRightPlace:在別的地方唸對真言不算數。
+//
+// 原版 `sub_17C2C` 在真言全對之後**還會再比一次聖壇座標**。
+// 少了這一步,玩家可以在任何一座被玷污的聖壇旁邊唸任何一組真言。
+func TestRestoreShrineNeedsTheRightPlace(t *testing.T) {
+	s := shrineState(t)
+	if s == nil {
+		return
+	}
+	v := u5data.VirtueCompassion
+	e := u5data.Shrines[v]
+	// 把聖壇那一格弄成「被玷污」,人站在西邊。
+	s.SetTileAt(e.X, e.Y, u5data.TileShrineDesecrated)
+	s.X, s.Y = WrapWorld(e.X-1), e.Y
+	if !s.SpeakWord(u5data.WordsOfPower[v]) {
+		t.Fatalf("力量之言沒有觸發復原:\n%s", s.log())
+	}
+	if s.Shrine == nil || !s.Shrine.Restoring {
+		t.Fatal("沒有進入復原流程")
+	}
+	answer(s, v)
+	if got := s.TileAt(e.X, e.Y); got != u5data.TileShrine {
+		t.Errorf("復原之後地形是 %02X,預期 %02X", got, u5data.TileShrine)
+	}
+
+	// 換個地方:把玷污的格子放在別處,座標對不上就不該復原。
+	s2 := shrineState(t)
+	s2.SetTileAt(100, 100, u5data.TileShrineDesecrated)
+	s2.X, s2.Y = 99, 100
+	s2.SpeakWord(u5data.WordsOfPower[v])
+	if s2.Shrine != nil {
+		answer(s2, v)
+	}
+	if got := s2.TileAt(100, 100); got == u5data.TileShrine {
+		t.Error("在不是聖壇的地方唸對真言也復原了")
+	}
+}

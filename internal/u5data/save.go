@@ -61,6 +61,31 @@ const (
 	SaveFloorOffset     = 0x02EF // byte_3E0A5
 	SaveXOffset         = 0x02F0 // byte_3E0A6
 	SaveYOffset         = 0x02F1 // byte_3E0A7
+
+	// 以下六個欄位是任務進度,位移一樣跟著 `sub_27D24` 的讀取序列累加:
+	// 0x02F1 之後是 byte_3E0A8..byte_3E0B7 十六個單位元組,接著 byte_3E0B8 的
+	// 32 B 區塊,然後才輪到這一段。
+	//
+	// ★ 位移對不對有一個現成的證據:`INIT.GAM` 與 `SAVED.GAM` 在 0x0322..0x0339
+	// 這 24 B 裡**只有 0x0325 是 0xFF,其餘全是 0**,而 0x0325 正是
+	// 「現在被召喚出來的是哪一個暗影君主」(0xFF = 沒有)。位移若偏一格,
+	// 那個 0xFF 就會落在別的欄位上。
+
+	// SaveShadowlordAtOffset 起 3 B(byte_3E0D8):三個暗影君主各自盤據哪個地點。
+	// 0 = 不在城裡,0xFF = 已被消滅。
+	SaveShadowlordAtOffset = 0x0322
+	// SaveShadowlordHereOffset 是現在被召喚出來的是哪一個(byte_3E0DB,0xFF = 沒有)。
+	SaveShadowlordHereOffset = 0x0325
+	// SaveShrineQuestOffset 起 2 B(byte_3E0DC):**進行中**的聖壇試煉,一德一位元。
+	SaveShrineQuestOffset = 0x0326
+	// SaveCodexLearnedOffset 起 2 B(byte_3E0DE):已在寶典上讀到的美德,一德一位元。
+	//
+	// ⚠ 這一個**不是**聖壇設的 —— 是寶典(`sub_1D850`)設的。
+	SaveCodexLearnedOffset = 0x0328
+	// SaveDungeonSealOffset 起 8 B(byte_3E0E0):八座地牢入口,bit 0x80 = 已封印。
+	SaveDungeonSealOffset = 0x032A
+	// SaveShrineFlagOffset 起 8 B(byte_3E0E8):八座聖壇,bit 0x80 = 已被玷污。
+	SaveShrineFlagOffset = 0x0332
 )
 
 // 角色紀錄的欄位位移。
@@ -185,6 +210,19 @@ type Save struct {
 	Floor     int // signed:負數是地下
 	X, Y      int
 
+	// ShadowlordAt[i] 是第 i 個暗影君主盤據的地點編號(0 = 不在城裡,0xFF = 已消滅)。
+	ShadowlordAt [ShadowlordCount]byte
+	// ShadowlordHere 是現在被召喚出來的那一個(0xFF = 沒有)。
+	ShadowlordHere byte
+	// ShrineQuest 是進行中的聖壇試煉,一德一位元。
+	ShrineQuest byte
+	// CodexLearned 是已在寶典上讀到的美德,一德一位元。
+	CodexLearned byte
+	// DungeonSeal[i] 的 bit 0x80 = 第 i 座地牢入口已被力量之言封印。
+	DungeonSeal [VirtueCount]byte
+	// ShrineFlag[i] 的 bit 0x80 = 第 i 座聖壇已被玷污。
+	ShrineFlag [VirtueCount]byte
+
 	Raw []byte
 }
 
@@ -249,6 +287,13 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.Floor = int(int8(raw[SaveFloorOffset]))
 	s.X = int(raw[SaveXOffset])
 	s.Y = int(raw[SaveYOffset])
+
+	copy(s.ShadowlordAt[:], raw[SaveShadowlordAtOffset:])
+	s.ShadowlordHere = raw[SaveShadowlordHereOffset]
+	s.ShrineQuest = raw[SaveShrineQuestOffset]
+	s.CodexLearned = raw[SaveCodexLearnedOffset]
+	copy(s.DungeonSeal[:], raw[SaveDungeonSealOffset:])
+	copy(s.ShrineFlag[:], raw[SaveShrineFlagOffset:])
 
 	if err := s.validate(); err != nil {
 		return nil, err
@@ -389,6 +434,13 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveFloorOffset] = byte(int8(s.Floor))
 	out[SaveXOffset] = byte(s.X)
 	out[SaveYOffset] = byte(s.Y)
+
+	copy(out[SaveShadowlordAtOffset:], s.ShadowlordAt[:])
+	out[SaveShadowlordHereOffset] = s.ShadowlordHere
+	out[SaveShrineQuestOffset] = s.ShrineQuest
+	out[SaveCodexLearnedOffset] = s.CodexLearned
+	copy(out[SaveDungeonSealOffset:], s.DungeonSeal[:])
+	copy(out[SaveShrineFlagOffset:], s.ShrineFlag[:])
 	return out, nil
 }
 

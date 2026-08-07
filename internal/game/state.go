@@ -113,6 +113,10 @@ const (
 	// 原版 `sub_EDD4` 畫完之後就卡在 `while (sub_27034() == 0xFFFF)`
 	// 等一個按鍵,期間畫面不動。所以它是一個**阻塞的畫面**,不是持續狀態。
 	PromptPeer
+	// PromptYell 是 Yell 指令的「what?」:打一個力量之言或暗影君主的名字。
+	//
+	// ⚠ 在有帆的船上按 Yell **不會**進到這個模式 —— 那時它直接收放帆。
+	PromptYell
 )
 
 // State 是一局遊戲的位置狀態。
@@ -224,8 +228,24 @@ type State struct {
 	// ⚠ 兩個都要有才判斷得出玩家在哪一階段:**沒領過** → 給試煉;
 	// **領過而且進行中** → 給獎;**領過但不在進行中** → 只能捐錢。
 	// 只留一個旗標會讓玩家可以無限重領獎賞。
+	//
+	// ⚠ `ShrineQuestGiven` 對到的 `byte_3E0DE` **是寶典設的,不是聖壇設的**
+	//(`sub_1D850`)。目前寶典還沒接,冥想時暫時一起設 —— 見 shrine.go 的說明。
 	ShrineQuestGiven  byte
 	ShrineQuestActive byte
+	// ShrineFlag[i] 的 bit 0x80 = 第 i 座聖壇已被玷污(原版 byte_3E0E8)。
+	//
+	// ⚠ 存成八個位元組而不是一個位元遮罩,是為了與存檔 1:1 ——
+	// 原版那八格除了 bit 7 還放別的東西(`sub_C318` 寫 0xFF,復原只清 bit 7
+	// 留下 0x7F),壓成遮罩就會在存回去時把低位元洗掉。
+	ShrineFlag [u5data.VirtueCount]byte
+	// DungeonSeal[i] 的 bit 0x80 = 第 i 座地牢入口已被力量之言封印(原版 byte_3E0E0)。
+	DungeonSeal [u5data.VirtueCount]byte
+	// ShadowlordAt[i] 是第 i 個暗影君主盤據的地點編號(原版 byte_3E0D8)。
+	// 0 = 不在城裡,0xFF = 已被消滅。
+	ShadowlordAt [u5data.ShadowlordCount]byte
+	// ShadowlordHere 是現在被召喚出來的那一個(原版 byte_3E0DB,0xFF = 沒有)。
+	ShadowlordHere byte
 	// Misc 是 MISCMSG.DAT —— 聖壇與黑棘審問的文字。
 	Misc *u5data.TextFile
 	// Intro 是進行中的開場動畫(Prompt == PromptIntro 時有效)。
@@ -398,7 +418,12 @@ func (s *State) loadNPCs() {
 		return
 	}
 	if n, err := s.NPCs.At(s.Location); err == nil {
-		s.npcs = n
+		// ⚠ **抄一份,不要直接指向 NPCSet 裡那一格。** 遊戲中會改到這張表
+		//(召喚暗影君主就是往空槽塞一筆),而原版那張表是「每次進場景重新從
+		// `.NPC` 檔載入」的暫存副本。共用同一份的話,離場再進來時召出來的東西
+		// 還在,而且會污染同一個檔裡別的地點。
+		cp := *n
+		s.npcs = &cp
 	}
 }
 
@@ -706,6 +731,12 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.Roster = append(s.Roster[:0], sv.Roster[:]...)
 	s.PartySize = sv.PartySize
 	s.Inventory = sv.Inventory
+	s.ShrineQuestActive = sv.ShrineQuest
+	s.ShrineQuestGiven = sv.CodexLearned
+	s.ShrineFlag = sv.ShrineFlag
+	s.DungeonSeal = sv.DungeonSeal
+	s.ShadowlordAt = sv.ShadowlordAt
+	s.ShadowlordHere = sv.ShadowlordHere
 	s.removed = nil
 	// 存檔可能是在城裡存的 —— 把場景與 NPC 一起載回來。
 	s.Location = 0

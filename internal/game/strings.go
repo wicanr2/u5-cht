@@ -31,6 +31,22 @@ const (
 	MsgNobodyHere = "此處無人。"
 	// "No response!\n" / "The guard offers\nno response!\n"
 	MsgNoResponse = "無人回應。"
+	// MsgNoEffect 是原版的「No effect!」—— 力量之言說錯地方、或說了不是那八個字。
+	MsgNoEffect = "毫無效果!"
+	// Yell 指令的四句(原版 `sub_17E74`)。
+	//
+	// ⚠ FURL / HOIST 的方向別搞反:載具碼 0x20..0x23 是**揚著帆**,
+	// 按下去是「收帆」(+4 變 0x24..0x27);反過來才是「揚帆」。
+	MsgFurl        = "收帆!"
+	MsgHoist       = "揚帆!"
+	MsgYellWhat    = "喊什麼?"
+	MsgYellNothing = "什麼也沒喊。"
+	// "\nA word of power is uttered\n"
+	MsgWordUttered = "一個力量之言被說了出來。"
+	// "\nA shadowlord appears\n"
+	MsgShadowlordAppears = "一位暗影君主現身了!"
+	// "\n\nThe Shrine is\nrestored!\n"
+	MsgShrineRestored = "聖壇復原了!"
 	// "Don't hurt me!\nPlease go away!"
 	MsgFrightened = "「別傷害我!請走開!」"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""

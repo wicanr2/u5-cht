@@ -85,14 +85,16 @@ func (s *State) beginConversation(dialogue byte) {
 // TypeRune 把一個字元加進輸入列(對話中用)。
 func (s *State) TypeRune(r rune) {
 	if s.Prompt != PromptTalk && s.Prompt != PromptAnswer &&
-		s.Prompt != PromptSpell && s.Prompt != PromptShrine {
+		s.Prompt != PromptSpell && s.Prompt != PromptShrine &&
+		s.Prompt != PromptYell {
 		return
 	}
 	switch {
 	case r >= 'a' && r <= 'z':
 	case r >= 'A' && r <= 'Z':
-		// 咒語名與真言保留大小寫原樣(比對本來就不分大小寫),關鍵字一律小寫。
-		if s.Prompt != PromptSpell && s.Prompt != PromptShrine {
+		// 咒語名、真言與力量之言保留大小寫原樣(比對本來就不分大小寫),
+		// 關鍵字一律小寫。
+		if s.Prompt != PromptSpell && s.Prompt != PromptShrine && s.Prompt != PromptYell {
 			r = r - 'A' + 'a'
 		}
 	case r == ' ' && s.Prompt == PromptSpell:
@@ -102,7 +104,12 @@ func (s *State) TypeRune(r rune) {
 	default:
 		return
 	}
-	if len(s.Input) >= 16 {
+	// Yell 原版只讀 12 個字元(`sub_17E74` 的 `push 0Ch`);其餘輸入列到 16。
+	limit := 16
+	if s.Prompt == PromptYell {
+		limit = u5data.YellInputMax
+	}
+	if len(s.Input) >= limit {
 		return
 	}
 	s.Input += string(r)

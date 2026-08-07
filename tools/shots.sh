@@ -22,4 +22,6 @@ run "$OUT/04-shop.png"    --scene BRITAIN 0 5 19 --script 'T[b]'
 run "$OUT/05-combat.png"  --at 81 108 --script '!'
 run "$OUT/06-dungeon.png" --at 240 73 --script "EL"
 run "$OUT/07-peer.png"    --at 81 108 --script 'P'
+run "$OUT/08-word.png"    --at 239 73 --script 'Y"FALLAX"'
+run "$OUT/09-shadowlord.png" --scene "EMPATH ABBEY" 0 15 15 --script 'Y"ASTAROTH"'
 echo "→ $OUT"

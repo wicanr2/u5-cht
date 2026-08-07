@@ -38,11 +38,27 @@ type Shrine struct {
 	Stage ShrineStage
 	// Tries 是真言已經問過幾次。
 	Tries int
+	// Restoring 為真時是**復原被玷污的聖壇**(力量之言那條路),
+	// 不是一般的冥想 —— 問法與結尾的判定都不同(見 wordofpower.go)。
+	Restoring bool
+	// TargetX / TargetY 是要復原的那一格。
+	TargetX, TargetY int
 	// OK 記錄到目前為止有沒有全對。
 	//
 	// ⚠ 原版**不會一錯就跳出** —— 它把三次真言問完才判。所以打錯之後
 	// 還是得把流程走完。這個旗標就是原版的 `var_4`。
 	OK bool
+}
+
+// virtueNeedle 是「汝欲冥想何種美德?」要比對的參考字。
+//
+// 冥想走四字母前綴表 `off_55FEC`(`hone`),復原聖壇走完整名表 `off_411BC`
+//(`Honesty`)—— 原版兩支各查各的表,不是同一個判斷。
+func (sh *Shrine) virtueNeedle() string {
+	if sh.Restoring {
+		return u5data.VirtueNames[sh.Virtue]
+	}
+	return u5data.Shrines[sh.Virtue].Prefix
 }
 
 // ShrineStage 是冥想的步驟。
@@ -92,10 +108,11 @@ func (s *State) ShrineAnswer(text string) bool {
 			s.EndMeditate() // 空字串 = 作罷(原版 `cmp byte_55FDC, 0; jz` 直接離開)
 			return false
 		}
-		// ⚠ 比的是**前四個字母**,而且大小寫不分。
-		// `hone`(誠實)與 `hono`(榮譽)只差第四個字母 —— 少比一個字母
+		// ⚠ 冥想比的是**前四個字母**(`off_55FEC`),而復原聖壇比的是
+		// **完整英文美德名**(`off_411BC`)—— 原版兩支用的是不同的表。
+		// `hone`(誠實)與 `hono`(榮譽)只差第四個字母,少比一個字母
 		// 兩座聖壇就分不出來。
-		if !strings.Contains(strings.ToLower(text), u5data.Shrines[sh.Virtue].Prefix) {
+		if !u5data.MatchPrefix(sh.virtueNeedle(), text) {
 			sh.OK = false
 		}
 		sh.Stage = ShrineAskMantra
@@ -107,13 +124,17 @@ func (s *State) ShrineAnswer(text string) bool {
 			s.EndMeditate()
 			return false
 		}
-		if !strings.EqualFold(text, u5data.Shrines[sh.Virtue].Mantra) {
+		// ⚠ 也是前綴比對 —— 原版打 `ahmxyz` 一樣過(見 u5data.MatchPrefix)。
+		if !u5data.MatchPrefix(u5data.Shrines[sh.Virtue].Mantra, text) {
 			sh.OK = false
 		}
 		sh.Tries++
 		if sh.Tries < ShrineMantraTries {
 			s.Log("真言(Mantra):")
 			return true
+		}
+		if sh.Restoring {
+			return s.shrineRestoreResolve()
 		}
 		return s.shrineResolve()
 
