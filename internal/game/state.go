@@ -14,6 +14,8 @@
 package game
 
 import (
+	"math/rand"
+
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -110,6 +112,11 @@ type State struct {
 	CombatMaps *u5data.CombatMapSet
 	// Creatures 是生物名表,戰鬥時報敵人名字用;可為 nil。
 	Creatures *u5data.CreatureTable
+	// Stats 是戰鬥數值(怪物三圍、裝備防禦 / 射程 / 類別);可為 nil。
+	Stats *u5data.CombatStats
+	// rng 是戰鬥骰子。留空時用固定種子 —— headless 與測試要可重現;
+	// 遊戲啟動時 cmd/u5cht 換成時間種子。
+	rng *rand.Rand
 	// Combat 是進行中的戰鬥(Prompt == PromptCombat 時有效)。
 	Combat *Combat
 
@@ -634,4 +641,21 @@ func (s *State) SetScene(num, floor, x, y int) error {
 	s.loadNPCs()
 	s.initRuntimeNPCs()
 	return nil
+}
+
+// SeedRandom 換掉戰鬥骰子的種子。遊戲啟動時用時間,測試不呼叫就是固定種子。
+func (s *State) SeedRandom(seed int64) { s.rng = rand.New(rand.NewSource(seed)) }
+
+// Roll 回傳 [lo, hi] 的亂數(原版 `sub_28E14(lo, hi)`)。
+//
+// ⚠ **閉區間**,兩端都取得到 —— 原版算範圍時是 `hi − lo` 之後 `inc ecx`。
+// 少了那個 +1,命中骰就永遠擲不到上界 30,最強的攻擊也會偶爾落空。
+func (s *State) Roll(lo, hi int) int {
+	if hi < lo {
+		return lo
+	}
+	if s.rng == nil {
+		s.rng = rand.New(rand.NewSource(1))
+	}
+	return lo + s.rng.Intn(hi-lo+1)
 }

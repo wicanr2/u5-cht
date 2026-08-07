@@ -37,6 +37,7 @@ type Bundle struct {
 	Talks     *u5data.TalkSet       // 對話文字 + 展開詞典
 	Save      *u5data.Save          // 存檔:名冊、隊伍、時間、位置
 	Combat    *u5data.CombatMapSet  // 地表的戰鬥地圖(BRIT.CBT)
+	Stats     *u5data.CombatStats   // 戰鬥數值(怪物三圍、裝備防禦/射程/類別)
 	Objects   *u5data.ObjectSet     // 地表的地圖物件(BRIT.OOL)
 	UnderObjs *u5data.ObjectSet     // 地下世界的地圖物件(UNDER.OOL)
 	Shops     *u5data.ShopSet       // 商店目錄與商店對白
@@ -112,6 +113,12 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("生物名表:%v", err))
 	} else {
 		b.Creatures = ct
+	}
+
+	if cs, err := u5data.LoadCombatStats(opts.GameData); err != nil {
+		warn = append(warn, fmt.Sprintf("戰鬥數值:%v", err))
+	} else {
+		b.Stats = cs
 	}
 
 	if cm, err := u5data.LoadCombatMaps(filepath.Join(opts.GameData, "BRIT.CBT")); err != nil {

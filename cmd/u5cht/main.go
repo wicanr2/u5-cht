@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -219,10 +220,12 @@ func main() {
 		Items:        bundle.Items,
 		Objects:      bundle.Objects,
 		CombatMaps:   bundle.Combat,
+		Stats:        bundle.Stats,
 		Creatures:    bundle.Creatures,
 		UnderObjects: bundle.UnderObjs,
 		MaxMessages:  maxMessages,
 	}
+	st.SeedRandom(time.Now().UnixNano())
 	if sv, from, err := gamestate.FindSave(*gamedata, *saveFile); err == nil {
 		// 開局狀態一律取自存檔:先找設定目錄的進度,再退回原版存檔。
 		st.LoadFrom(sv)

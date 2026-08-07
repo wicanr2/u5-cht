@@ -204,3 +204,58 @@ func (s *State) CombatFlee() {
 	s.Log("汝撤離了戰場。(逃跑判定尚未實作 —— 原版要走到戰場邊緣)")
 	s.EndCombat(false)
 }
+
+// 命中判定
+//
+// 原版 `sub_B484`:
+//
+//	threshold = (目標的防禦 + 30 − 攻擊者的攻擊) / 2
+//	roll      = max(1, random(0, 60) / 2)        ← sub_2B724,值域 1..30
+//	命中 ⟺ roll >= threshold
+//
+// 防禦高 → threshold 高 → 難命中;攻擊高 → threshold 低 → 易命中。
+//
+// 「攻擊」取哪一項由武器決定(`sub_B398`):**鈍器**(類別 8:釘盔、釘盾、
+// 棍、釘頭錘、雙手錘)看**力量**,其餘看裝備的防禦加總。
+// 幾種武器(0x23、0x27、0x28)則**必中**,不擲骰。
+
+// AlwaysHitWeapons 是不用擲骰的武器編號(原版 `sub_B484` 的三個 cmp)。
+var AlwaysHitWeapons = map[byte]bool{0x23: true, 0x27: true, 0x28: true}
+
+// AttackRoll 是命中骰,值域 1..30(原版 `sub_2B724`)。
+//
+//	r = random(0, 60) / 2      ← 閉區間,所以是 0..30
+//	if r == 0 { r = 1 }
+func (s *State) AttackRoll() int {
+	r := s.Roll(0, 60) / 2
+	if r == 0 {
+		r = 1
+	}
+	return r
+}
+
+// attackValueOf 取一名角色的「攻擊」那一項(原版 `sub_B398` 對角色的分支)。
+func (s *State) attackValueOf(c *u5data.Character, weapon byte) int {
+	if s.Stats == nil || c == nil {
+		return 0
+	}
+	if s.Stats.IsBlunt(weapon) {
+		return int(c.Strength)
+	}
+	return s.Stats.DefenceOf(c)
+}
+
+// HitChance 回報這一擊的門檻值(threshold)。roll >= 門檻就命中。
+//
+// 門檻 ≤ 1 代表必中(骰子最小是 1),≥ 31 代表必不中(骰子最大是 30)。
+func HitThreshold(defence, attack int) int {
+	return (defence + 30 - attack) / 2
+}
+
+// AttackerHits 判定一名隊員用某件武器打某個防禦值的目標會不會命中。
+func (s *State) AttackerHits(c *u5data.Character, weapon byte, targetDefence int) bool {
+	if AlwaysHitWeapons[weapon] {
+		return true
+	}
+	return s.AttackRoll() >= HitThreshold(targetDefence, s.attackValueOf(c, weapon))
+}

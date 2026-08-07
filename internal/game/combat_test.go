@@ -183,3 +183,88 @@ func TestFleeLeavesCombat(t *testing.T) {
 		t.Errorf("沒有撤離訊息:\n%s", s.log())
 	}
 }
+
+// TestHitThresholdFormula:命中門檻就是 `(防禦 + 30 − 攻擊) / 2`(原版 sub_B484)。
+//
+// 骰子值域 1..30,所以門檻 ≤ 1 必中、≥ 31 必不中。
+func TestHitThresholdFormula(t *testing.T) {
+	for _, c := range []struct{ def, atk, want int }{
+		{0, 0, 15},
+		{10, 10, 15},
+		{0, 30, 0},  // 攻擊拉滿 → 門檻 0 → 必中
+		{40, 0, 35}, // 防禦很高 → 門檻 35 > 30 → 必不中
+		{7, 5, 16},
+	} {
+		if got := HitThreshold(c.def, c.atk); got != c.want {
+			t.Errorf("HitThreshold(%d, %d) = %d,預期 %d", c.def, c.atk, got, c.want)
+		}
+	}
+}
+
+// TestAttackRollRange:命中骰的值域是 1..30,而且 0 會被抬成 1(原版 sub_2B724)。
+func TestAttackRollRange(t *testing.T) {
+	s := &State{}
+	s.SeedRandom(42)
+	seen := map[int]bool{}
+	for i := 0; i < 5000; i++ {
+		r := s.AttackRoll()
+		if r < 1 || r > 30 {
+			t.Fatalf("擲出 %d,超出 1..30", r)
+		}
+		seen[r] = true
+	}
+	if len(seen) < 25 {
+		t.Errorf("5000 次只擲出 %d 種值,分布不像 1..30", len(seen))
+	}
+	if !seen[1] || !seen[30] {
+		t.Error("沒擲出過 1 或 30 —— 值域的兩端要涵蓋得到")
+	}
+}
+
+// TestBluntWeaponUsesStrength:鈍器的命中看力量,其他武器看裝備防禦加總。
+//
+// 原版 sub_B398:武器類別 == 8 走一條分支(角色紀錄的 0x0C = 力量),
+// 否則走另一條(sub_2F2BC = 裝備防禦加總)。
+func TestBluntWeaponUsesStrength(t *testing.T) {
+	s := combatState(t)
+	st, err := u5data.LoadCombatStats("../../gamedata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Stats = st
+	c := &s.Roster[0]
+	c.Strength = 99                 // 力量拉到很高,裝備不變
+	blunt := s.attackValueOf(c, 24) // Mace,類別 8
+	edged := s.attackValueOf(c, 30) // Long Sword,類別 0
+	if blunt != 99 {
+		t.Errorf("鈍器的攻擊值是 %d,預期等於力量 99", blunt)
+	}
+	if edged == 99 {
+		t.Errorf("非鈍器不該用力量")
+	}
+	if edged != st.DefenceOf(c) {
+		t.Errorf("非鈍器的攻擊值是 %d,預期等於裝備防禦加總 %d", edged, st.DefenceOf(c))
+	}
+}
+
+// TestAlwaysHitWeapons:三種武器不用擲骰(原版 sub_B484 的三個 cmp)。
+func TestAlwaysHitWeapons(t *testing.T) {
+	s := combatState(t)
+	st, _ := u5data.LoadCombatStats("../../gamedata")
+	s.Stats = st
+	s.SeedRandom(7)
+	c := &s.Roster[0]
+	for w := range AlwaysHitWeapons {
+		for i := 0; i < 100; i++ {
+			if !s.AttackerHits(c, w, 999) {
+				t.Fatalf("武器 0x%02X 應該必中,卻沒中", w)
+			}
+		}
+	}
+	// 一般武器打防禦 999 的目標永遠不中。
+	for i := 0; i < 100; i++ {
+		if s.AttackerHits(c, 30, 999) {
+			t.Fatal("長劍打防禦 999 的目標不該命中")
+		}
+	}
+}
