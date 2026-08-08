@@ -50,6 +50,17 @@ const (
 	ItemRingLast    = 47
 )
 
+// 三只戒指的編號(從 `DATA.OVL` 0x1806 的指標表逐筆解出來的名字)。
+//
+// ★ 開戰時只有**隱形**與**再生**會消失(原版 `sub_2EE84` 只比 0x2A 與 0x2C
+// 兩個值),**防護戒指不會** —— 兩個會消失的正好是效果最強的那兩個,
+// 不是隨便挑的。見 `internal/game/upkeep.go`。
+const (
+	ItemRingInvisibility = 42 // 0x2A
+	ItemRingProtection   = 43 // 0x2B —— ★ 不會消失
+	ItemRingRegeneration = 44 // 0x2C
+)
+
 // ItemTable 是 48 件裝備的名字,索引就是裝備編號。
 type ItemTable struct {
 	Names [ItemCount]string

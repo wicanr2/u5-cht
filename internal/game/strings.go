@@ -271,6 +271,10 @@ const (
 	MsgFallingIntoUnderworld = "墜入幽冥界!"
 	// "Door destroyed!" —— 砲彈打掉門(原版 `sub_172C4`)。
 	MsgDoorDestroyed = "門被轟掉了!"
+	// "Starving!" —— 存糧見底,每回合掉一次血(原版 `sub_2A50C`)。
+	MsgStarving = "餓得發昏!"
+	// "A ring has vanished!" —— 開戰時戒指消失(原版 `sub_2EE84`)。
+	MsgRingVanished = "一只戒指消失了!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

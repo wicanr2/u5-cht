@@ -401,6 +401,9 @@ type State struct {
 	askingName bool
 	// Karma 是業報(0..99)。對話裡的 opcode 0x89/0x8A 會動到它。
 	Karma int
+	// mealHour 是上一次扣糧的那個小時(原版 `byte_3E090`)——
+	// 同一個小時內走幾百步也只扣一次糧。初值 −1 代表還沒結算過。
+	mealHour int
 	// Roster 是全部 16 名可用角色;隊伍就是名冊的前 PartySize 名
 	// (原版 sub_1BB5C 讓人入隊的方式是把名冊裡的那一筆與隊伍位置**對調**,
 	//  所以「隊伍」不是另一個清單,而是名冊的前綴)。
@@ -585,6 +588,8 @@ func (s *State) loadNPCs() {
 // `sub_9690` 讓 NPC 動。順序不能反 —— NPC 的模式判定要看新的小時。
 func (s *State) tick() {
 	s.AdvanceTime(MinutesPerTurn)
+	// 維生開銷:中毒扣血、三餐扣糧、沒糧就餓(原版 `sub_2A50C`,見 `upkeep.go`)。
+	s.upkeep()
 	s.advanceNPCs()
 	// NPC 走完才更新鏡射 —— 物件表要跟著新位置走(原版 sub_1E74 在同一個迴圈裡)。
 	s.syncNPCObjects()

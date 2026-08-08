@@ -265,7 +265,12 @@ func (s *State) beginRoomCombat(m *u5data.CombatMap, idx int) bool {
 }
 
 // placeParty 把隊員排到圖裡的入場位置。
+//
+// ⚠ 原版的佈陣函式 `sub_2EE84` 裡**夾了一段與佈陣無關的判定**:
+// 開戰時隱形戒指與再生戒指有 1/16 會消失。那一段在 `upkeep.go` 的
+// `vanishRings`,由這裡呼叫 —— 位置照原版(在排位置的同一趟)。
 func (s *State) placeParty(c *Combat, m *u5data.CombatMap) {
+	s.vanishRings()
 	for i, ch := range s.Party() {
 		if i >= u5data.CombatPartySlots {
 			break
