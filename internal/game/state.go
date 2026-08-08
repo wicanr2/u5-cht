@@ -202,6 +202,11 @@ type State struct {
 	Moongates [u5data.MoonPhaseCount]u5data.MoongateDest
 	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。
 	LightTurns int
+	// door 是「打開著、等著自己關上」的那一扇門(原版 `byte_3E161..164`)。
+	//
+	// ⚠ **只有一組** —— 原版開新門之前先把上一扇關掉,所以同時只能有一扇門
+	// 是開的。見 `chest.go` 的 `pendingDoor`。
+	door pendingDoor
 	// RevealFlash > 0 代表這一刻不做視線遮蔽 —— 白藥水(`potion.go`)。
 	//
 	// ⚠ 原版的白藥水是 `sub_1CE0C`:把視線罩填滿後**阻塞重畫 20 幀**再收尾,
@@ -607,6 +612,8 @@ func (s *State) tick() {
 	if s.RevealFlash > 0 {
 		s.RevealFlash--
 	}
+	// 打開的門每回合倒數,歸零就自己關上(原版 `sub_1A54` 的那一段)。
+	s.tickDoor()
 }
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。

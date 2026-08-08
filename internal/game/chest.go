@@ -32,16 +32,162 @@ func (s *State) dungeonFacingTile(wantKind byte) (x, y int, tile byte, ok bool) 
 //
 // 地牢裡看腳下 / 面前那一格是不是 0x4x;地表看腳下有沒有種類 1 的物件。
 func (s *State) OpenChest() {
+	// ★ 地牢那條**不問方向、也不看面前那一格** —— `sub_152B8` 讀的是
+	// `byte_3E0A6/A7`,玩家自己站的位置。引擎原本走 `dungeonFacingTile`
+	// (腳下或面前),而那條規則的出處是 `sub_18D18`(**施法**選目標用的)。
+	// 兩支的行為不同,而把施法的規則套到 Open 上會讓玩家隔一格就開得到箱子。
 	if s.InDungeon() {
-		x, y, tile, ok := s.dungeonFacingTile(u5data.DungeonChest)
-		if !ok {
-			s.Log("沒有東西可以打開。")
-			return
-		}
-		s.openDungeonChest(x, y, tile)
+		s.openDungeonChestUnderfoot()
 		return
 	}
-	s.Log("此處沒有寶箱。")
+	// 地表 / 場景:問方向,再看那一格(原版 `sub_15374` 的 `sub_2B2AC`)。
+	s.AskDirection(func(d Direction) { s.openToward(d) })
+}
+
+// openDungeonChestUnderfoot 是地牢的 Open(原版 `sub_152B8`)。
+//
+// ⚠ 陷阱的判準是 **`tile & 7`(低三位元全部)**,不是只有 bit 0。
+// `sub_18D18`(An Sanct)用的才是單一位元 —— 又是「同一件事兩支各做一半」
+// (`docs/re/74` §1 的形狀)。低三位元有值就中陷阱,照原樣實作。
+func (s *State) openDungeonChestUnderfoot() {
+	d := s.Dungeon
+	tile := s.DungeonTileHere()
+	switch {
+	case u5data.DungeonKind(tile) == u5data.DungeonChest:
+		if s.pickCharacter("") < 0 {
+			return
+		}
+		if tile&u5data.DungeonChestTrapMask != 0 {
+			s.Log(MsgTrapped)
+			s.chestTrapVictim()
+		}
+		s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonOpenedChest(tile))
+		s.Log(MsgChestOpened)
+	case u5data.DungeonKind(tile) == u5data.DungeonOpenedChestKind:
+		s.Log(MsgAlreadyOpen)
+	default:
+		s.Log(MsgWhat)
+	}
+}
+
+// openToward 是地表 / 場景的 Open(原版 `sub_15374` 問完方向之後那一段)。
+func (s *State) openToward(d Direction) {
+	// ★ 開新的門之前先把上一扇關掉 —— 原版在問方向**之前**就呼叫一次
+	// `sub_2B64C(byte_3E161, …)`,而那四個變數只有一組。
+	s.closePendingDoor()
+	dx, dy := d.Delta()
+	x, y := s.X+dx, s.Y+dy
+	tile := s.TileAt(x, y)
+	switch u5data.OpenActionFor(tile) {
+	case u5data.OpenAlreadyOpen:
+		s.Log(MsgItsOpen)
+	case u5data.OpenTooHeavy:
+		s.Log(MsgTooHeavy)
+	case u5data.OpenLocked:
+		s.Log(MsgLocked)
+	case u5data.OpenDoor:
+		// 那一格變成磚地,並排定 4 回合後把原本的 tile 寫回去。
+		s.SetTileAt(x, y, u5data.OpenedDoorTile)
+		s.door = pendingDoor{Tile: tile, X: x, Y: y, Turns: u5data.DoorAutoCloseTurns}
+		s.Log(MsgOpened)
+	default:
+		s.openObjectChest(x, y)
+	}
+}
+
+// openObjectChest 開那一格**物件層**上的箱子(原版 `sub_15108`)。
+//
+// ★ 四條容易漏的規則:
+//
+//  1. **從槽 1 開始掃**(槽 0 是隊伍自己)。
+//  2. **檀香木盒(種類 0x0E)打不開** —— 印 "Can't!",不是「沒東西可開」。
+//  3. **品質這一個位元組裝兩件事**:最高位 = 有陷阱、低七位 = 獎品等級。
+//     原版 `and var_5, 7Fh` 把陷阱位清掉之後才拿去擲獎品。
+//  4. ★★ **在場景裡開箱子扣 2 點業報**(下限 0)—— 只有地點 1..0x20 扣。
+//     那是「翻別人家的箱子」的代價;大地圖上的箱子無主,不扣。
+func (s *State) openObjectChest(x, y int) {
+	objs := s.currentObjects()
+	if objs == nil {
+		s.Log(MsgNothingToOpen)
+		return
+	}
+	slot := -1
+	for i := 1; i < len(objs.Objects); i++ {
+		o := &objs.Objects[i]
+		if !o.Present() || o.X != WrapWorld(x) || o.Y != WrapWorld(y) {
+			continue
+		}
+		if !s.InCombat() && o.Floor != s.Floor {
+			continue
+		}
+		if o.Kind == u5data.ObjSandalwoodBox {
+			s.Log(MsgCantOpenThat)
+			return
+		}
+		if o.Kind == u5data.ObjLockedChest {
+			slot = i
+			break
+		}
+	}
+	if slot < 0 {
+		s.Log(MsgNothingToOpen)
+		return
+	}
+	who := s.pickCharacter("")
+	if who < 0 {
+		return
+	}
+	quality := int(objs.Objects[slot].Raw[u5data.ObjQuality])
+	objs.Remove(slot)
+	// ★ 業報 −2,只在場景裡。
+	if s.Location >= 1 && s.Location <= u5data.LastSceneLocation {
+		s.Karma = subFloor(s.Karma, u5data.ChestOpenKarmaPenalty)
+	}
+	if quality&u5data.ChestTrapQualityBit != 0 {
+		quality &^= u5data.ChestTrapQualityBit
+		s.Log(MsgTrapped)
+		s.chestTrapVictim()
+	}
+	if !s.rollChestContents(quality) {
+		s.Log(MsgChestEmpty)
+	}
+}
+
+// pendingDoor 是「打開著、等著自己關上」的那一扇門(原版 `byte_3E161..164`)。
+//
+// ⚠ **只有一組**,所以同時只能有一扇門是開的。
+type pendingDoor struct {
+	Tile  byte
+	X, Y  int
+	Turns int
+}
+
+// tickDoor 是主迴圈每回合對那一扇門做的事(原版 `sub_1A54` 的
+// `dec byte_3E164; jnz` 那一段)。
+func (s *State) tickDoor() {
+	if s.door.Tile == 0 || s.door.Turns <= 0 {
+		return
+	}
+	s.door.Turns--
+	if s.door.Turns == 0 {
+		s.closePendingDoor()
+	}
+}
+
+// closePendingDoor 把那一格寫回原本的 tile(原版 `sub_2B64C`)。
+//
+// ⚠ 原版**只在場景裡**才真的寫回(`地點 != 0 && 地點 < 0x21`)——
+// 大地圖與地牢沒有門要關。
+func (s *State) closePendingDoor() {
+	d := s.door
+	s.door = pendingDoor{}
+	if d.Tile == 0 {
+		return
+	}
+	if s.Location == 0 || s.Location > u5data.LastSceneLocation {
+		return
+	}
+	s.SetTileAt(d.X, d.Y, d.Tile)
 }
 
 // openDungeonChest 打開地牢寶箱。
