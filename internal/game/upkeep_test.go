@@ -423,22 +423,27 @@ func TestDrunkStaggerUsesAllFourDirections(t *testing.T) {
 	}
 }
 
-// TestSwampHasTwoSeparatePoisonRolls —— ★ 沼澤有兩顆骰子,不是一顆。
+// TestSwampDiceDifferByPlace —— ★ 沼澤有兩顆骰子,而它們區分的是**地點**。
 //
-//	sub_10BDC(踏進去,由移動後的分派呼叫)  random(1, 30)
-//	sub_1318 (每回合站著)                  random(0, 29)
+//	sub_10BDC(大地圖,由 sub_2D9D0 呼叫)   random(1, 30)
+//	sub_1318 (場景,  由 sub_1A54  呼叫)   random(0, 29)
 //
 // 兩者條件完全相同,**只有範圍差一格**,而那個差異改變機率:
-// 敏捷 29 的人只有「踏進去」那次毒得到。
-func TestSwampHasTwoSeparatePoisonRolls(t *testing.T) {
-	if SwampArrivalPoisonHi == SwampPoisonRollMax {
-		t.Fatal("兩顆骰子的上限被寫成一樣了 —— 原版是 30 與 29")
+// 敏捷 29 的人只有在大地圖的沼澤裡才會中毒。
+//
+// ⚠⚠ 這個測試的前身叫 `TestSwampHasTwoSeparatePoisonRolls`,釘的是
+// 「踏進沼澤那一步會被擲兩次」——**那個結論是錯的**(`docs/re/81` §3)。
+// 兩支函式的呼叫者是**互斥的兩個模式主迴圈**,同一回合不會都跑。
+// 骰子的性質沒變,錯的是「兩顆骰子代表什麼」。
+func TestSwampDiceDifferByPlace(t *testing.T) {
+	if SwampOverworldPoisonHi == SwampPoisonRollMax {
+		t.Fatal("兩顆骰子的上限被寫成一樣了 —— 原版是 30(大地圖)與 29(場景)")
 	}
-	if SwampArrivalPoisonLo != 1 {
-		t.Errorf("踏進去那顆的下限是 %d,原版是 1", SwampArrivalPoisonLo)
+	if SwampOverworldPoisonLo != 1 {
+		t.Errorf("大地圖那顆的下限是 %d,原版是 1", SwampOverworldPoisonLo)
 	}
 
-	// 敏捷 29:每回合那顆(0..29)永遠毒不到,踏進去那顆(1..30)有 1/30。
+	// 敏捷 29:場景那顆(0..29)永遠毒不到,大地圖那顆(1..30)有 1/30。
 	s := upkeepScene(t)
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		s.Roster[i].Dex = 29
@@ -447,29 +452,29 @@ func TestSwampHasTwoSeparatePoisonRolls(t *testing.T) {
 		s.Roster[0].Status = u5data.StatusGood
 		s.poisonPartyBySwamp(0, SwampPoisonRollMax)
 		if s.Roster[0].Status == u5data.StatusPoisoned {
-			t.Fatal("敏捷 29 被每回合那顆(0..29)毒到了 —— 上限 29 不可能大於 29")
+			t.Fatal("敏捷 29 被場景那顆(0..29)毒到了 —— 上限 29 不可能大於 29")
 		}
 	}
 	poisoned := 0
 	for i := 0; i < 600; i++ {
 		s.Roster[0].Status = u5data.StatusGood
-		s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+		s.poisonPartyBySwamp(SwampOverworldPoisonLo, SwampOverworldPoisonHi)
 		if s.Roster[0].Status == u5data.StatusPoisoned {
 			poisoned++
 		}
 	}
 	if poisoned == 0 {
-		t.Error("敏捷 29 連踏進去那顆(1..30)都毒不到 —— 上限該是 30")
+		t.Error("敏捷 29 連大地圖那顆(1..30)都毒不到 —— 上限該是 30")
 	}
 
-	// 敏捷 30 兩顆都免疫。
+	// 敏捷 30 兩邊都免疫。
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		s.Roster[i].Dex = 30
 	}
 	for i := 0; i < 300; i++ {
 		s.Roster[0].Status = u5data.StatusGood
 		s.poisonPartyBySwamp(0, SwampPoisonRollMax)
-		s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+		s.poisonPartyBySwamp(SwampOverworldPoisonLo, SwampOverworldPoisonHi)
 		if s.Roster[0].Status == u5data.StatusPoisoned {
 			t.Fatal("敏捷 30 該對兩顆骰子都免疫")
 		}
@@ -487,7 +492,7 @@ func TestSwampPoisonSkipsTheDeadAndTheAlreadyPoisoned(t *testing.T) {
 	}
 	s.Roster[0].Status = u5data.StatusDead
 	s.Roster[1].Status = u5data.StatusGood
-	s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+	s.poisonPartyBySwamp(SwampOverworldPoisonLo, SwampOverworldPoisonHi)
 	if s.Roster[0].Status != u5data.StatusDead {
 		t.Errorf("死人被沼澤毒成了 %q", string(s.Roster[0].Status))
 	}
@@ -496,15 +501,20 @@ func TestSwampPoisonSkipsTheDeadAndTheAlreadyPoisoned(t *testing.T) {
 	}
 }
 
-// TestSwampOnlyPoisonsOnFoot —— 兩支都查 `byte_3E08C == 0x1C`。
+// TestSwampOnlyPoisonsOnFoot —— 步行才中毒(`byte_3E08C == 0x1C`,**單一值**)。
+//
+// ★ 走的是 `overworldTurnEnd()` 而不是骰子本體,因為**閘門在呼叫端**:
+// `sub_10BDC` 自己只有「逐個隊員擲一次」的迴圈,`tile == 4 && 載具 == 0x1C`
+// 兩個條件都在 `sub_2D9D0` 裡。⚠ `docs/re/74` 曾寫「兩支的條件完全相同」——
+// 那是把呼叫端的條件算進被呼叫的函式了;效果相同,但**檢查的位置不同**,
+// 而位置決定了測試該打哪裡。
 func TestSwampOnlyPoisonsOnFoot(t *testing.T) {
 	s := upkeepScene(t)
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		s.Roster[i].Dex = 0
 		s.Roster[i].Status = u5data.StatusGood
 	}
-	// ⚠ 踏進去那顆骰子**只在大地圖擲**(原版 `sub_2D9D0` 開頭
-	// `cmp byte_3E0A3, 0; jnz → 跳過`);每回合那顆沒有這個限制。
+	// ⚠ 大地圖那顆骰子只在大地圖擲(`sub_1318` 那顆是場景的)。
 	// 所以這條測試需要**真的世界地圖** —— `upkeepScene` 只載場景,
 	// 少了這一步 `SetTileAt` 會無聲失敗、測試變成永遠 skip 的空殼
 	// (同 `fireScene` 的註解;那個坑本專案踩過)。
@@ -521,13 +531,13 @@ func TestSwampOnlyPoisonsOnFoot(t *testing.T) {
 		t.Fatal("寫不進世界地圖 —— 這條測試沒有在驗任何東西")
 	}
 	s.Transport = 0x12 // 騎馬(載具 = 物件 + 2)
-	s.swampPoisonOnArrival()
+	s.overworldTurnEnd()
 	if s.Roster[0].Status == u5data.StatusPoisoned {
 		t.Error("騎著馬也被沼澤毒到了 —— 原版只在步行時判")
 	}
 	s.Transport = u5data.VehicleWalk
-	s.swampPoisonOnArrival()
+	s.overworldTurnEnd()
 	if s.Roster[0].Status != u5data.StatusPoisoned {
-		t.Error("步行踏進沼澤卻沒中毒")
+		t.Error("步行走在沼澤上卻沒中毒")
 	}
 }

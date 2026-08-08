@@ -319,6 +319,14 @@ const (
 	MsgTrapdoor       = "腳下是活門!"
 	MsgPoisonedBySwamp = "中毒了!"
 	MsgBurning        = "烈焰焚身!"
+	// 大地圖獨有的三句(原版 `sub_2D998` 與 `sub_2D9D0` 的 `loc_2DC5F`)
+	//
+	// ⚠ 後兩句原版是接在一個孤零零的 `"` 之後印的(`asc_4D95C` = `\n"`),
+	// 也就是**有個看不見的守衛在說話**。中譯保留引號,語氣照手冊的羊皮紙腔。
+	MsgEarthquake      = "地動山搖!"
+	MsgPassSeeker      = "「通行罷,求道者!」"
+	MsgNotOnSacredQuest = "「汝並未身負神聖試煉!」"
+	MsgPassageDenied   = "「不得通行!」"
 	// "Hic!" —— 喝醉之後按鍵變成隨機走一步(原版 `sub_1158`)。
 	MsgHic = "嗝!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"

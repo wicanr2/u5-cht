@@ -76,10 +76,15 @@ func (s *State) Pass() {
 		// 收帆:載具碼從揚帆那一組回到大船那一組,朝向保留。
 		s.Transport = u5data.VehicleShip | (s.Transport & 0x03)
 		s.Log("收帆!")
-		s.AdvanceTime(MinutesPerTurn)
+		// 收帆與 Pass 在原版是同一個 case 的兩條印字分支,兩條都落到
+		// 同一個收尾(`loc_2AE30`)⇒ 一樣用掉一回合、一樣結算。
+		s.tick()
 		return
 	}
 	s.Log("按兵不動。")
-	s.AdvanceTime(MinutesPerTurn)
-	s.extraWorldTurn()
+	// ★ 空白鍵一樣要走每回合收尾:原版 case 32 回到 `sub_2D9D0` / `sub_1A54`
+	// 的尾段,所以按空白鍵照樣結算地形、維生開銷、世界回合。
+	// ⚠ 引擎原本自己 `AdvanceTime` + `extraWorldTurn()`,**跳過了地形與維生開銷**
+	// —— 站著不動不會餓、中毒不會痛(`docs/re/81` §5)。
+	s.tick()
 }

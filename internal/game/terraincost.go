@@ -102,11 +102,73 @@ func (s *State) payTerrainCost(tile int) bool {
 	return true
 }
 
-// extraWorldTurn 跑一個額外的世界回合,回報有沒有出事(遭遇 / 進戰鬥)。
+// 世界回合的三道跳過閘門(原版 `sub_2E24` 開頭)
 //
-// ⚠ 這裡**不推時鐘** —— 時間由 `payTerrainCost` 依級距一次加完
-// (原版 `sub_2E24` 只動世界,`sub_29304` 才動時鐘)。混在一起會多算分鐘。
+//	if (byte_3E08A == 'T') return 0           ; An Tym 停時 → 整個跳過
+//	if (byte_3E08A == 'Q') {                  ; Rel Tym 加速
+//	    byte_4FDD5 ^= 1
+//	    if (byte_4FDD5 != 0) return 0         ; ★ 隔次跳過
+//	}
+//	if ((byte_3E08C & 0FEh) == 12h || == 14h) {   ; 馬 或 魔毯
+//	    byte_4FDD7 ^= 1
+//	    if (byte_4FDD7 != 0) return 0         ; ★ 隔次跳過
+//	}
+//
+// ★★ **兩個都是持久的切換位元,不是機率。** 效果等於「怪物只有一半的行動機會」。
+//
+// ⚠ `docs/re/38` §5 留了一個問號:「`byte_4FDD7` 與 `sub_2E24` 的其他呼叫點
+// 共不共用同一個位元?共用的話騎馬時連一般移動的回合也會隔次跳過。」
+// **答案是共用** —— 全檔只有這一個 `byte_4FDD7`,而 `sub_2E24` 的四個呼叫點
+// (`sub_2D9D0` 每回合、`sub_2D0BC` 地形代價、`sub_2D2D0`、`sub_2B8CC` 紮營修船)
+// 全部經過同一道閘門。所以騎馬 / 坐魔毯時**所有**世界回合都隔次跳過。
+type worldTurnGates struct {
+	relTymBit bool // byte_4FDD5
+	mountBit  bool // byte_4FDD7
+}
+
+// 兩個載具的比對值(原版 `cmp eax, 12h` / `cmp eax, 14h`,前面套過 `and 0FEh`)。
+const (
+	mountedHorse = 0x12 // 騎著的馬(0x12/0x13)—— 不是地上那匹(0x10/0x11)
+	ridingCarpet = 0x14 // 魔毯(0x14/0x15)
+)
+
+// extraWorldTurn 跑一個世界回合,回報有沒有出事(遭遇 / 進戰鬥)。
+//
+// ⚠ 這裡**不推時鐘** —— 時間由呼叫端加(原版 `sub_2E24` 只動世界,
+// `sub_29304` 才動時鐘)。混在一起會多算分鐘。
+//
+// ⚠⚠ **本體還沒實作。** `sub_2E24` 過了閘門之後做四件事:
+//
+//	threshold = sub_1F98()                        ; 遭遇門檻
+//	if (random(1, 30) < threshold) sub_2218()     ; 生怪
+//	倒著掃槽 0x1F..1:sub_25F0(槽) 讓怪動 / 攻擊;沒出事再 sub_2D38(槽) 漂流
+//	再掃一遍:離視窗超過 0x1F 格的怪 → sub_2B6C8 清掉
+//
+// 目前這裡只有 `advanceNPCs`(而它**只在場景裡有作用**)⇒ **大地圖上怪物不會動、
+// 不會擲遭遇、太遠的怪也不會被清掉**。`docs/re/38` §4 的對應表把
+// `sub_2E24` 標成已實作,那是過期斷言。這一段列為 `WORKLIST §5.1` 第 11 條,
+// 五支函式(`sub_1F98`/`sub_2218`/`sub_25F0`/`sub_2D38`/`sub_2B6C8`)另案處理。
 func (s *State) extraWorldTurn() bool {
+	// ⚠ 三道閘門讀的都是原版的原始欄位:`byte_3E08A`(= `CombatMode`)與
+	// `byte_3E08C`(= `Transport`)。載具用 `& 0xFE` 而不是 `VehicleKind`,
+	// 因為原版比的是 `0x12`(騎著的馬)與 `0x14`(魔毯)這兩對值 ——
+	// `VehicleKind` 會把「地上那匹馬」(0x10/0x11)也算進來。
+	if s.CombatMode == CombatModeTimeStop {
+		return false
+	}
+	if s.CombatMode == CombatModeSlow {
+		s.gates.relTymBit = !s.gates.relTymBit
+		if s.gates.relTymBit {
+			return false
+		}
+	}
+	if m := s.Transport & 0xFE; m == mountedHorse || m == ridingCarpet {
+		s.gates.mountBit = !s.gates.mountBit
+		if s.gates.mountBit {
+			return false
+		}
+	}
+	s.WorldTurns++
 	before := s.InCombat()
 	s.advanceNPCs()
 	s.syncNPCObjects()

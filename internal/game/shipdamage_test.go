@@ -392,6 +392,9 @@ func TestCollisionDamagesTheHullAndLowersSails(t *testing.T) {
 //
 // 上一輪把 `RoughSeas` 寫好了、也有測試,但**沒有任何地方叫它** ⇒
 // 遊戲裡的風浪永遠不會發生。這條測的是**入口**,不是效果。
+//
+// ★ 入口現在是 `overworldTurnEnd()`(原版 `sub_2D9D0` 的尾段)。
+// 走整條收尾而不是單獨一支,順便驗到「風浪用的是那一次讀到的 tile」。
 func TestRoughSeasActuallyFiresOnDeepWater(t *testing.T) {
 	s := shipScene(t, 100)
 	if !s.SetTileAt(s.X, s.Y, u5data.RoughSeasTile) {
@@ -400,14 +403,14 @@ func TestRoughSeasActuallyFiresOnDeepWater(t *testing.T) {
 	// 小艇踩在深水上 → 該有風浪。
 	s.Transport = u5data.VehicleSkiff
 	s.Messages = nil
-	s.RoughSeasHere()
+	s.overworldTurnEnd()
 	if !strings.Contains(strings.Join(s.Messages, "|"), MsgRoughSeas) {
 		t.Errorf("小艇在深水上沒有風浪:%q", s.Messages)
 	}
 	// 步行不算。
 	s.Transport = u5data.VehicleWalk
 	s.Messages = nil
-	s.RoughSeasHere()
+	s.overworldTurnEnd()
 	if strings.Contains(strings.Join(s.Messages, "|"), MsgRoughSeas) {
 		t.Error("步行竟然也有風浪")
 	}
@@ -415,7 +418,7 @@ func TestRoughSeasActuallyFiresOnDeepWater(t *testing.T) {
 	s.Transport = u5data.VehicleSkiff
 	s.SetTileAt(s.X, s.Y, u5data.TileShallowWater)
 	s.Messages = nil
-	s.RoughSeasHere()
+	s.overworldTurnEnd()
 	if strings.Contains(strings.Join(s.Messages, "|"), MsgRoughSeas) {
 		t.Error("淺灘竟然也有風浪 —— 原版只認 tile 1")
 	}

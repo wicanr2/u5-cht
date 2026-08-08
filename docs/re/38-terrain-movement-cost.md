@@ -96,7 +96,8 @@ sub     eax, eax        ; 這一次直接回 0,整個世界回合跳過
 |---|---|
 | `sub_2D0BC` 的分級 | `game.TerrainCost` |
 | `sub_2D0BC` 的扣款 | `game.State.payTerrainCost` |
-| `sub_2E24` 的世界回合 | `game.State.extraWorldTurn` |
+| `sub_2E24` 的閘門 | `game.State.extraWorldTurn` 的前三個 `if` |
+| `sub_2E24` 的**本體** | ⬜ **未實作**(見下方 §5) |
 | `sub_29304(n)` | `game.State.AdvanceTime(n)` |
 
 ⚠ **順序這一句已被 `docs/re/81` §4 更正。** 原本寫著「呼叫點在 `moveInWorld`:
@@ -109,9 +110,20 @@ sub     eax, eax        ; 這一次直接回 0,整個世界回合跳過
 
 ## 5. 未實作,留白不猜
 
-- **載具的免費回合**(§3)。引擎的 `extraWorldTurn` 目前每次都跑,
-  沒有 `byte_4FDD7` 那個切換位元。要補的話得先確認它與 `sub_2E24` 的
-  其他呼叫點(`sub_2B8CC`)共不共用同一個位元 —— 共用的話,
-  騎馬時連一般移動的回合也會隔次跳過,那是完全不同的手感。
+- ~~**載具的免費回合**(§3)~~ ✅ **已解並實作**(2026-08-08):問的是
+  「`byte_4FDD7` 與 `sub_2E24` 的其他呼叫點共不共用?」——**共用**。
+  全檔只有一個 `byte_4FDD7`,而 `sub_2E24` 的四個呼叫點
+  (`sub_2D9D0` 每回合、`sub_2D0BC` 地形代價、`sub_2D2D0`、`sub_2B8CC` 紮營修船)
+  全部經過同一道閘門。⇒ 騎馬 / 坐魔毯時**所有**世界回合都隔次跳過,
+  等於「怪物只有一半的行動機會」。An Tym('T')全停、Rel Tym('Q')隔次
+  用的是另一個位元 `byte_4FDD5`,一起做了(`game.worldTurnGates`)。
+- ⚠⚠ **`sub_2E24` 的本體仍未實作**,而此前這張對應表把它標成已完成 ——
+  那是過期斷言。引擎的 `extraWorldTurn()` 過了閘門之後只呼叫 `advanceNPCs()`,
+  而那支在非場景時第一行就 return ⇒ **大地圖上怪物不會動、不擲遭遇、
+  太遠的怪也不會被清掉**。原版的四件事:`sub_1F98`(門檻)→
+  `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0`
+  讓每隻怪動、沒出事才 `sub_2D38` 漂流;再掃一遍用 `sub_2B6C8`
+  清掉離視窗(`byte_3E0AB`/`byte_3E0AC`)超過 0x1F 格的。
+  見 `WORKLIST §5.1b`。
 - `sub_1F98` 的遭遇門檻、`sub_2218` 的生怪規則本身在 `docs/re/16` 已有;
   這裡只確認額外回合會走同一條路。

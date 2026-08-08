@@ -94,23 +94,10 @@ func (s *State) RoughSeas() {
 	s.DamageShip()
 }
 
-// RoughSeasHere 是「移動之後」該不該遇到風浪(原版 `sub_2D9D0` 的
-// `cmp esi, 1` 那一段,`esi` 是腳下的 tile)。
-//
-// ⚠⚠ **這一支原本沒有任何呼叫者。** `RoughSeas` 上一輪就寫好了、也有測試,
-// 但**沒有人叫它** ⇒ 遊戲裡的風浪永遠不會發生。這與卷軸 / 藥水 / 月石 / 碎片
-// 是同一類:**做完了卻接不到,等於沒做**(`docs/re/80`)。
-//
-// 觸發條件兩個都要成立:腳下是**深水**(tile 1),而且載具是小艇或魔毯。
-func (s *State) RoughSeasHere() {
-	if s.InScene() || s.InDungeon() || s.InCombat() {
-		return
-	}
-	if s.TileAt(s.X, s.Y) != u5data.RoughSeasTile {
-		return
-	}
-	s.RoughSeas()
-}
+// ⚠ 這裡原本還有一支 `RoughSeasHere()`(自己讀 tile、自己查三個模式閘門)。
+// `overworldTurnEnd` 接上之後它就是死碼了 —— 那邊的 tile **只讀一次**
+// 就分派給四條分支與風浪、瀑布共用,再讀一次不但多餘還會偏離原版
+//(進了戰鬥之後 tile 會變)。已刪:留著會在下一輪盤點被算成「已完成」。
 
 // turnShipInstead 是大船的轉向(原版 `sub_2CCFC` 的大船分支)。
 //

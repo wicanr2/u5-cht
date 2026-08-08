@@ -213,6 +213,11 @@ const (
 )
 
 // terrainEffects 是腳下那一格每回合的作用(原版 `sub_1318`)。
+//
+// ⚠⚠ **只在場景裡跑。** `sub_1318` 的唯一呼叫者是 `sub_1A54`(場景主迴圈),
+// 而大地圖走的是 `sub_2D9D0`(見 `overworldturn.go`)、地牢走 `sub_5150`。
+// 三個迴圈互斥(`docs/re/81` §1),所以這裡的「每回合」是「**場景裡的**每回合」。
+// 由 `tick()` 的模式分流保證,不要從別的地方叫它。
 func (s *State) terrainEffects() {
 	// ★ 睡著的人每回合有 1/16 自己醒(戰鬥外的那一條,與戰鬥中的兩條都不同)。
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
@@ -237,8 +242,9 @@ func (s *State) terrainEffects() {
 		// ★ 掉下去的這一回合不算吃飯(原版 `if (ebx == 0) sub_2A50C()`)。
 		return
 	case tile == TileSwamp && s.Transport == u5data.VehicleWalk:
-		// ⚠ 這是**每回合**那一顆骰子(0..29)。踏進去的那一步另有一顆
-		// (1..30,`swampPoisonOnArrival`)—— 兩顆都是原版的,別合併。
+		// ⚠ **場景裡**的沼澤擲 0..29;大地圖那顆是 1..30
+		// (`SwampOverworldPoison*`,在 `overworldturn.go`)。
+		// 兩顆都是原版的,區分的是**地點**,別合併也別互相套。
 		s.poisonPartyBySwamp(0, SwampPoisonRollMax)
 	case tile == TileLava || tile == TileFireplace:
 		s.Log(MsgBurning)
@@ -328,22 +334,22 @@ func (s *State) DrunkStagger() (Direction, bool) {
 // **同一個機制被兩支函式各做一半,是這個執行檔的常見形狀**(見 `docs/re/72`
 // 的兩顆戒指骰子)—— 找到一處之後要問「還有誰做同一件事」。
 
-// SwampArrivalPoisonLo / Hi 是踏進沼澤那次的骰範圍(原版 `sub_28E14(1, 1Eh)`)。
+// SwampOverworldPoisonLo / Hi 是**大地圖**沼澤的骰範圍(原版 `sub_10BDC` 的
+// `sub_28E14(1, 1Eh)`)。場景那顆是 `random(0, SwampPoisonRollMax)`。
+//
+// ⚠⚠ 這一格之差**改變機率**,不能統一:
+//
+//	敏捷 29 → 場景裡永遠免疫(29 > 29 不成立)、大地圖有 1/30 會中
+//	敏捷 30 → 兩邊都免疫
+//	敏捷 0  → 場景 29/30、大地圖 30/30 必中
+//
+// 幾乎確定是原作者手誤,但 `CLAUDE.md §3.0` 說得很清楚:**不自行平衡**。
+// 兩顆照原樣留著,`TestSwampDiceDifferByPlace` 用敏捷 29 把差異釘住
+// (那個值是唯一能區分兩顆骰子的敏捷)。
 const (
-	SwampArrivalPoisonLo = 1
-	SwampArrivalPoisonHi = 30
+	SwampOverworldPoisonLo = 1
+	SwampOverworldPoisonHi = 30
 )
-
-// swampPoisonOnArrival 是踏進沼澤那一次的中毒判定(原版 `sub_10BDC`)。
-func (s *State) swampPoisonOnArrival() {
-	if s.InScene() || s.InDungeon() || s.InCombat() {
-		return
-	}
-	if s.TileAt(s.X, s.Y) != TileSwamp || s.Transport != u5data.VehicleWalk {
-		return
-	}
-	s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
-}
 
 // poisonPartyBySwamp 是兩支共用的本體:逐個隊員擲一次,擲贏敏捷就中毒。
 //

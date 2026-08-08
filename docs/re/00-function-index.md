@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **929** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **931** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -37,12 +37,12 @@
 | `sub_1DC8` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md` |
 | `sub_1E74` | 主要函式  /  `sub_1E74`(配物件槽)、`sub_268`(放掉)、`sub_218`(記永久移除)、`sub_2E0`(反查)、`sub_1DC`(在不在場)  / | `33-get-command.md`, `34-ending-trigger.md`, `36-sandalwood-box-npc-objects.md`, `57-crown-and-sceptre-placement.md` |
 | `sub_1F98` | 擲一次遭遇(`sub_1F98` 給門檻,`random(1,30)` 低於門檻就 `sub_2218` 生怪) | `38-terrain-movement-cost.md` |
-| `sub_2218` | 擲一次遭遇(`sub_1F98` 給門檻,`random(1,30)` 低於門檻就 `sub_2218` 生怪) | `38-terrain-movement-cost.md` |
+| `sub_2218` | `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0` | `38-terrain-movement-cost.md` |
 | `sub_22F0` | ★ **這次找回來的**  /  `sub_2CCFC` 轉向 + `Hull weak!`、`sub_2D9D0` 的 `Rough seas!`、以及它們共同呼叫的 `sub_22F0` 沉船  / | `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `80-implemented-but-unreachable.md` |
 | `sub_23FC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `11-map-objects.md`, `66-hexrays-truncation-audit.md` |
 | `sub_24DC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `66-hexrays-truncation-audit.md` |
-| `sub_25F0` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md` |
-| `sub_2D38` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md`, `66-hexrays-truncation-audit.md` |
+| `sub_25F0` | `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0` | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md` |
+| `sub_2D38` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md` |
 | `sub_2E24` | IDA 位址:`sub_2D0BC`(分級與扣款)、`sub_2E24`(一個世界回合)、`sub_29304`(推時鐘) | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2F48` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_3010` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
@@ -72,7 +72,7 @@
 | `sub_5008` | `sub_4C6C`(移動與撲擊)、`sub_5008`(「遭到襲擊!」)、`sub_2E364`(開打)、 | `48-dungeon-wandering-monster-and-arena.md` |
 | `sub_5150` | 主要函式  /  `sub_0`(切換器)、`sub_2DD44`→`sub_2D9D0`(大地圖)、`sub_1A54`→`sub_1318`(場景)、`sub_5378`→`sub_5150`(地牢)、`sub_2A… | `18-dungeons.md`, `21-chests-fields-locks.md`, `48-dungeon-wandering-monster-and-arena.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_5378` | 主要函式  /  `sub_0`(切換器)、`sub_2DD44`→`sub_2D9D0`(大地圖)、`sub_1A54`→`sub_1318`(場景)、`sub_5378`→`sub_5150`(地牢)、`sub_2A… | `18-dungeons.md`, `48-dungeon-wandering-monster-and-arena.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
-| `sub_584B` | `dword_4FFB8` 為基底的開場動畫並列表(`sub_584B`) | `00-computed-addresses.md`, `24-intro.md` |
+| `sub_584B` | 1. `sub_584B` 是整段開場 | `24-intro.md` |
 | `sub_60BC` | `sub_60BC` / `sub_6730`  /  `game.MainMenu`(`-menu` 旗標進入)  / | `39-character-creation.md`, `40-push-and-the-main-menu.md` |
 | `sub_6730` | 2. 或查 `byte_41C18` 的 xref(`sub_6730` 開頭有 `for(i=0;i<256;i++) byte_41C18[i]=i`, | `01-tileset-and-dot16-loader.md`, `40-push-and-the-main-menu.md`, `61-tavern-lore-and-the-transfer-second-stage.md` |
 | `sub_71D0` | `dword_54498` **只有一個寫入點** —— `sub_71D0`,也就是**從 Ultima IV 轉入角色**: | `54-pass-vehicle-verbs-and-the-avatar-line.md`, `55-transfer-from-ultima-iv.md`, `61-tavern-lore-and-the-transfer-second-stage.md` |
@@ -342,7 +342,7 @@
 | `sub_21108` | ✅ 早就從組語逆過,截斷沒造成損失  /  `sub_21108` 酒單(`tavern.go`)、`sub_1D394` 聖壇與 `ALAKAZAM`(`shrine.go`)、`sub_14CAC`/`sub_14B… | `10-shop-prices-and-trade.md`, `66-hexrays-truncation-audit.md`, `70-hunger-poison-and-the-vanishing-rings.md` |
 | `sub_21310` | 乾糧  /  `sub_21310`  /  `Haggle(單價 × 數量)`  /  存糧 += 數量  / | `10-shop-prices-and-trade.md` |
 | `sub_21500` | 位址  /  `sub_21500`(酒館打聽)、`sub_27C98`(關鍵字比對)、`sub_11168`(印 `SHOPPE.DAT`)  / | `10-shop-prices-and-trade.md`, `61-tavern-lore-and-the-transfer-second-stage.md` |
-| `sub_216C8` | 酒館  /  0x82  /  `sub_216C8`  /  9  /  ✅ 餐點 / 酒 / 乾糧(打聽消息待補)  / | `00-computed-addresses.md`, `10-shop-prices-and-trade.md` |
+| `sub_216C8` | 酒館  /  0x82  /  `sub_216C8`  /  9  /  ✅ 餐點 / 酒 / 乾糧(打聽消息待補)  / | `10-shop-prices-and-trade.md` |
 | `sub_218DC` | 實際讀 `sub_218DC`(造船廠成交): | `11-map-objects.md` |
 | `sub_219B0` | 買(`sub_11AF0`、`sub_11588`、`sub_112F8`、`sub_118CC`、`sub_219B0` 都一樣) | `10-shop-prices-and-trade.md` |
 | `sub_21C40` | 造船廠  /  0x84  /  `sub_21C40` → `sub_219B0`  /  4  /  ✅ 報價收錢(地圖物件待補)  / | `10-shop-prices-and-trade.md` |
@@ -397,7 +397,7 @@
 | `sub_2B57C` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `65-the-wishing-well-easter-egg.md` |
 | `sub_2B64C` | 主要函式  /  `sub_15374`(Open 指令本體)、`sub_152B8`(地牢的開箱)、`sub_15108`(物件層的開箱)、`sub_2B64C`(把 tile 寫回去)、`sub_1A54`(主迴圈的… | `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
 | `sub_2B67C` | 主要函式  /  `sub_22F0`(船身損傷)、`sub_2CCFC`(轉向)、`sub_2D9D0`(海上遭遇)、`sub_2A4D0`(全隊傷害)、`sub_2B67C`(誰能行動)  / | `37-look-signs-and-the-sky.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md` |
-| `sub_2B6C8` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `57-crown-and-sceptre-placement.md`, `65-the-wishing-well-easter-egg.md`, `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
+| `sub_2B6C8` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `38-terrain-movement-cost.md`, `57-crown-and-sceptre-placement.md`, `65-the-wishing-well-easter-egg.md`, `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
 | `sub_2B710` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `15-combat-formulas.md`, `67-corpser-and-the-sleeping-party-member.md` |
 | `sub_2B724` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `15-combat-formulas.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2B740` | ⬜ `sub_2B740(n)`(沼澤中毒後呼叫)= `if (byte_3E0B4 != 0) 重畫 n 次`。 | `74-two-swamp-dice-and-an-unnamed-failure.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
@@ -423,7 +423,7 @@
 | `sub_2D014` | sub_2D014(dx, dy)                                     ; ★ 無條件過去 | `68-troll-bridge-and-collision.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md`, `38-terrain-movement-cost.md`, `40-push-and-the-main-menu.md` |
 | `sub_2D174` | 呼叫點在 `moveInWorld`:`tick()` 之後、月門之前 —— 原版 `sub_2D174` 就是這個順序。 | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
-| `sub_2D2D0` | (`sub_2D2D0` 的 `switch (風 − 1)`)算 (dx, dy) 讀出來的: | `23-wind-and-sailing.md`, `68-troll-bridge-and-collision.md` |
+| `sub_2D2D0` | (`sub_2D9D0` 每回合、`sub_2D0BC` 地形代價、`sub_2D2D0`、`sub_2B8CC` 紮營修船) | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2D478` | `sub_1EFC8`(清單瀏覽器)、`sub_CAC` / `sub_4074` / `sub_2D478`(Attack 三支)  / | `49-command-table-and-two-empty-keys.md`, `60-command-echo-and-menu-keys.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md` |
 | `sub_2D72C` | 分派看的是地形,不是座標。** `sub_2D72C` 依腳下 tile 決定進哪裡 | `03-scene-entry-and-tile-semantics.md`, `27-codex-and-the-shrine-chamber.md` |
@@ -559,7 +559,8 @@
 | `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `40-push-and-the-main-menu.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md` |
 | `byte_3E0A7` | if (byte_3E0A7 != 4)                                   // ★ 玩家 Y 剛好是 4 就整段跳過 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `byte_3E0A8` | 0x02F2  /  16  /  `byte_3E0A8..B7`  /  逐一單位元組  / | `26-yell-words-of-power-shadowlords.md` |
-| `byte_3E0AB` | 地圖上的距離是 `byte_3E0AB + 0x20`(上限 0x100),`byte_3E0AB` 還沒追到, | `17-magic.md` |
+| `byte_3E0AB` | 地圖上的距離是 `byte_3E0AB + 0x20`(上限 0x100),`byte_3E0AB` 還沒追到, | `17-magic.md`, `38-terrain-movement-cost.md` |
+| `byte_3E0AC` | 清掉離視窗(`byte_3E0AB`/`byte_3E0AC`)超過 0x1F 格的。 | `38-terrain-movement-cost.md` |
 | `byte_3E0AD` | 三個攻擊咒語的傷害也還沒逆到底(`sub_189E4` 只把攻擊碼寫進 `byte_3E0AD`, | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `byte_3E0AE` | movzx eax, byte_3E0AE                    ; 目前行動的單位 | `34-ending-trigger.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `67-corpser-and-the-sleeping-party-member.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `byte_3E0B0` | sub_42CC   (戰鬥)     … cmp byte_3E0B0, 4Dh ; jnz …  → call sub_135FC | `34-ending-trigger.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md` |
@@ -670,21 +671,22 @@
 | `byte_4FC54` | `byte_4FC54` 的前四個位元組是 **`3, 4, 2, 1`** —— 四個方向鍵的鍵碼 | `70-hunger-poison-and-the-vanishing-rings.md` |
 | `byte_4FC80` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
 | `byte_4FC8D` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
-| `byte_4FDD7` | 沒有 `byte_4FDD7` 那個切換位元。要補的話得先確認它與 `sub_2E24` 的 | `38-terrain-movement-cost.md` |
+| `byte_4FDD5` | 用的是另一個位元 `byte_4FDD5`,一起做了(`game.worldTurnGates`)。 | `38-terrain-movement-cost.md` |
+| `byte_4FDD7` | 「`byte_4FDD7` 與 `sub_2E24` 的其他呼叫點共不共用?」——**共用**。 | `38-terrain-movement-cost.md` |
 | `byte_4FEEE` | 正面(`sub_36C0`,查 `byte_4FEEE[種類]`): | `18-dungeons.md` |
 | `byte_4FF90` | `byte_4FF90` / `byte_4FF98` 兩張表選圖,畫的是 **`ITEMS.16`** 而不是 `DNG*.16`, | `18-dungeons.md` |
 | `byte_4FF98` | `byte_4FF90` / `byte_4FF98` 兩張表選圖,畫的是 **`ITEMS.16`** 而不是 `DNG*.16`, | `18-dungeons.md` |
 | `byte_4FFA0` | 噴泉的動畫(`sub_39A8` + `byte_4FFA0` 三格循環)與力場動畫(`sub_33F0`)。 | `18-dungeons.md` |
 | `byte_4FFA4` | 側向來自 `byte_4FFA4` / `byte_4FFA8`(= 朝向轉 90 度); | `18-dungeons.md` |
 | `byte_4FFA8` | 側向來自 `byte_4FFA4` / `byte_4FFA8`(= 朝向轉 90 度); | `18-dungeons.md` |
-| `byte_54208` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `00-computed-addresses.md`, `24-intro.md` |
-| `byte_54220` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `00-computed-addresses.md`, `24-intro.md` |
-| `byte_54238` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `00-computed-addresses.md`, `24-intro.md` |
-| `byte_54250` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `00-computed-addresses.md`, `24-intro.md` |
-| `byte_54268` | `0x4FFB8 + 0x42B0`  /  **`byte_54268`**  /  形狀編號  /  ✗ 只有本表  / | `00-computed-addresses.md`, `24-intro.md` |
+| `byte_54208` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `24-intro.md` |
+| `byte_54220` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `24-intro.md` |
+| `byte_54238` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `24-intro.md` |
+| `byte_54250` | (`byte_54208` / `byte_54220` / `byte_54238` / `byte_54250`)都是 FM Towns | `24-intro.md` |
+| `byte_54268` | 所以被讀的是 `0x4FFB8 + 0x42B0 = 0x54268` —— 反組譯檔裡 grep `byte_54268` | `24-intro.md` |
 | `byte_54280` | `byte_54280[頁]`  /  用哪一個 `STORY*.16`(0..5)  / | `24-intro.md` |
-| `byte_54298` | `0x4FFB8 + 0x42E0`  /  `byte_54298`  /  擺放座標 X  /  ✓ 另有直接參照  / | `00-computed-addresses.md`, `24-intro.md` |
-| `byte_542B0` | `0x4FFB8 + 0x42F8`  /  `byte_542B0`  /  擺放座標 Y  /  ✓ 另有直接參照  / | `00-computed-addresses.md`, `24-intro.md` |
+| `byte_54298` | `byte_54298` / `byte_542B0`  /  擺放座標(FM Towns 640×480)  / | `24-intro.md` |
+| `byte_542B0` | `byte_54298` / `byte_542B0`  /  擺放座標(FM Towns 640×480)  / | `24-intro.md` |
 | `byte_542C8` | `byte_542C8[頁]`  /  頁的種類  / | `24-intro.md` |
 | `byte_54524` | ⚠⚠ **`byte_54524` 不是玩家那張通行表。** 玩家走 `byte_5FF6C`,NPC 走這張, | `12-npc-movement.md`, `20-projectiles.md` |
 | `byte_54700` | 2. 從 `sub_2C740` 與 `byte_54700` 的 xref 反追 `.TLK` 索引表語意與控制碼(`\x01` 疑為玩家名代入)。 | `00-hexrays-p3-verified.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `30-ending.md`, `67-corpser-and-the-sleeping-party-member.md`, `79-four-dialogue-opcodes-were-corrupting-the-text.md` |
@@ -728,8 +730,8 @@
 | `byte_5606C` | `byte_5606C` / `byte_56074` / `byte_5607C`  /  完成試煉加力量 / 敏捷 / 智力  / | `25-shrines.md` |
 | `byte_56074` | `byte_5606C` / `byte_56074` / `byte_5607C`  /  完成試煉加力量 / 敏捷 / 智力  / | `25-shrines.md` |
 | `byte_5607C` | `byte_5606C` / `byte_56074` / `byte_5607C`  /  完成試煉加力量 / 敏捷 / 智力  / | `25-shrines.md` |
-| `byte_56DE8` | 存取形式 `mov dl, [eax+edx+24Ch]`,`eax = offset byte_56DE8`(`docs/re/10`)。 | `00-computed-addresses.md` |
-| `byte_57034` | `0x56DE8 + 0x24C`  /  **`byte_57034`**  /  酒館的菜單樣式(0..3,決定四個熱鍵字母)  / | `00-computed-addresses.md`, `10-shop-prices-and-trade.md` |
+| `byte_56DE8` | `mov eax, offset byte_56DE8` + `mov dl, [eax+edx+24Ch]` ⇒ `0x56DE8 + 0x24C`。 | `10-shop-prices-and-trade.md` |
+| `byte_57034` | `byte_57034[酒館]` 選出一套「菜單樣式」(0..3),樣式再決定四個字母。 | `10-shop-prices-and-trade.md` |
 | `byte_57080` | mov   dl, byte_57080[eax]     ; 停泊 X | `11-map-objects.md` |
 | `byte_57084` | mov   al, byte_57084[eax]     ; 停泊 Y | `11-map-objects.md` |
 | `byte_57090` | `byte_57090[旅店]`(每人每天 2 或 3 金)上: | `10-shop-prices-and-trade.md` |
@@ -796,7 +798,7 @@
 | `dword_41D28` | │    └─ 啟動初始化:載 towns.fnt(17,280 B → dword_41D28)與 u5.fnt(0x4000 B → dword_4FFB8); | `01-tileset-and-dot16-loader.md` |
 | `dword_478C8` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
 | `dword_4FD50` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md` |
-| `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `00-computed-addresses.md`, `01-tileset-and-dot16-loader.md` |
+| `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md`, `24-intro.md` |
 | `dword_541B4` | `dword_541B4[頁]`  /  這一頁的文字在 `STORY.DAT` 裡的**檔案位移**  / | `24-intro.md` |
 | `dword_54300` | push edi                             ; → dword_54300 | `55-transfer-from-ultima-iv.md` |
 | `dword_54328` | 分辨的依據只有一行:`mov eax, [ebp+var_4]`,而 `var_4 = offset dword_54328`。 | `55-transfer-from-ultima-iv.md` |

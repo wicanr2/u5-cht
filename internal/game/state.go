@@ -224,6 +224,11 @@ type State struct {
 	// 後來的會蓋掉前面的 —— 原版就是一個位元組,不是一組旗標。
 	CombatMode      byte
 	CombatModeTurns int
+	// WorldTurns 是到目前為止真的跑過幾個世界回合(原版 `sub_2E24` 過了閘門的次數)。
+	// 不是裝飾:它是「怪物走了幾步」的唯一觀察窗,而三道跳過閘門讓它與回合數不等。
+	WorldTurns int
+	// gates 是 `sub_2E24` 開頭那兩個持久切換位元(`byte_4FDD5` / `byte_4FDD7`)。
+	gates worldTurnGates
 	// rng 是戰鬥骰子。留空時用固定種子 —— headless 與測試要可重現;
 	// 遊戲啟動時 cmd/u5cht 換成時間種子。
 	rng *rand.Rand
@@ -604,11 +609,25 @@ func (s *State) loadNPCs() {
 // 原版一般行動每回合 1 分鐘(sub_1DC8 → sub_29304(1)),之後才輪到
 // `sub_9690` 讓 NPC 動。順序不能反 —— NPC 的模式判定要看新的小時。
 func (s *State) tick() {
-	s.AdvanceTime(MinutesPerTurn)
-	// 腳下那一格的作用(活門 / 沼澤 / 火),而**維生開銷是它的最後一步** ——
-	// 原版 `sub_1318` 的尾巴是 `if (ebx == 0) sub_2A50C()`,
-	// 所以掉下活門的那一回合不算吃飯(見 `upkeep.go`)。
-	s.terrainEffects()
+	// ★ 三個模式的分鐘數不同(`docs/re/81` §2):大地圖 2、場景與地牢 1。
+	s.AdvanceTime(s.minutesPerTurn())
+	// ★★ 每回合的結算**依模式分流** —— `sub_1318`(場景)與 `sub_2D9D0`(大地圖)
+	// 是兩個互斥主迴圈裡的東西,不是同一條路上的兩段(`docs/re/81` §1)。
+	// 引擎原本無條件跑 `terrainEffects()`,於是大地圖吃到場景那一套,
+	// 而它自己那一套(世界回合、地震、聖域關卡)一件都沒做。
+	switch {
+	case s.InCombat(), s.InDungeon():
+		// 戰鬥與地牢都有自己的回合結算(`sub_A9EC` / `sub_5150`)。
+		// ⚠ **戰鬥中不算維生開銷** —— `sub_2A50C` 的四個呼叫點
+		// (場景 / 大地圖 / 地牢 / 睡床)沒有一個在戰鬥迴圈裡。
+	case s.InScene():
+		// 腳下那一格的作用(活門 / 沼澤 / 火),而**維生開銷是它的最後一步** ——
+		// 原版 `sub_1318` 的尾巴是 `if (ebx == 0) sub_2A50C()`,
+		// 所以掉下活門的那一回合不算吃飯(見 `upkeep.go`)。
+		s.terrainEffects()
+	default:
+		s.overworldTurnEnd()
+	}
 	s.advanceNPCs()
 	// NPC 走完才更新鏡射 —— 物件表要跟著新位置走(原版 sub_1E74 在同一個迴圈裡)。
 	s.syncNPCObjects()
@@ -769,23 +788,14 @@ func (s *State) moveInWorld(d Direction) {
 		return
 	}
 	s.X, s.Y = nx, ny
-	s.tick()
 	// 粗糙地形要多付世界回合與時間(原版 `sub_2D0BC`)。
-	// ⚠ 位置在 tick 之後、月門之前 —— 原版 `sub_2D174` 就是這個順序。
+	// ⚠⚠ **順序在 tick 之前。** 原版 `sub_2D174`(移動 + 地形代價)在
+	// `sub_2D9D0` 的 line 79899 被呼叫,而每回合的收尾在 line 80013 ——
+	// 也就是「移動 + 代價 → 才是收尾」。`docs/re/38` §4 曾寫反,已更正。
 	s.payTerrainCost(int(s.TileAt(nx, ny)))
-	// 走上橋有 1/8 遇到橋下的食人妖(原版 `sub_2D9D0` 的 `tile & 0xFE == 0x6A`)。
-	if s.TileAt(nx, ny)&0xFE == TrollBridgeTile {
-		s.crossBridge()
-	}
-	// ★ 踏進沼澤要**再**擲一次中毒 —— 見 `swampPoisonOnArrival` 的說明。
-	s.swampPoisonOnArrival()
-	// ★ 小艇 / 魔毯走到深水上會遇到風浪(原版 `sub_2D9D0` 的 `cmp esi, 1`)。
-	s.RoughSeasHere()
-	// 踩到瀑布就掉下去;世界上只有一個瀑布通往幽冥界
-	//(原版 `sub_2D9D0` 的 `tile & 0xFC == 0xD4` → `sub_10A1C`)。
-	if s.TileAt(s.X, s.Y)&0xFC == FallTileGroup {
-		s.fallDownTheWaterfall()
-	}
+	// 橋下的食人妖、沼澤中毒、熔岩、聖域關卡、地震、維生開銷、風浪、瀑布、
+	// 以及**無條件的一個世界回合**都在這裡面(`overworldturn.go`)。
+	s.tick()
 	// 踏上月門就被捲走(原版 `sub_E084`)。
 	s.EnterMoongateHere()
 	// 載具的動詞與朝向(原版 `sub_7C0`)。⚠ 朝向位元同時是開砲判舷側

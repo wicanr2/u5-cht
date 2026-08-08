@@ -104,35 +104,39 @@ loc_1BE:
 ⇒ 原版的順序是 **移動 + 地形代價 → 才是每回合的收尾**,
 也就是**地形代價在前**。引擎目前是 `tick()` 先、`payTerrainCost()` 後,**反了**。
 
-## 5. 由此浮出來的缺口(未實作,逐條有位址)
+## 5. 由此浮出來的缺口 —— ✅ 十條已於同日落地
 
-⬜ **大地圖每回合 2 分鐘。** `sub_2D9D0` 的 `sub_29304(2)`;引擎的
+> 落地在 `internal/game/overworldturn.go`,測試 `overworldturn_test.go`。
+> 逐條狀態見 `WORKLIST §5.1`;下面保留原始的證據敘述(位址與判準),
+> 不因為做完了就刪 —— 那些是**為什麼這樣做**的唯一紀錄。
+
+✅ **大地圖每回合 2 分鐘。** `sub_2D9D0` 的 `sub_29304(2)`;引擎的
 `MinutesPerTurn` 是 1 且全模式共用 ⇒ 大地圖的時鐘走一半速度。
 
-⬜ **每個大地圖回合都跑一個世界回合。** `loc_2DD2F: call sub_2E24` 是**無條件**的。
+✅ **每個大地圖回合都跑一個世界回合。** `loc_2DD2F: call sub_2E24` 是**無條件**的。
 引擎的 `extraWorldTurn()` 只從 `payTerrainCost` 呼叫(地形 1/2 級),
 所以**在草地上走路,野怪不會動、也不會擲遭遇** —— 而草地是最常見的地形。
 地形代價的 1/2 個回合是**額外加**的(`docs/re/38` 的「山裡走一步怪走三步」
 = 1 個基本 + 2 個額外)。
 
-⬜ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69`
+✅ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69`
 → 印 `EARTHQUAKE!` + `sub_2AC08`(震動畫面)+ `sub_2A4D0`(全隊 random(1,8) 傷)。
 每個大地圖回合擲一次。引擎完全沒有。
 
-⬜ **`(0xE9, 0xEB)` 的「Pass, Seeker!」關卡**(`sub_2D9D0` `loc_2DC5F`):
+✅ **`(0xE9, 0xEB)` 的「Pass, Seeker!」關卡**(`sub_2D9D0` `loc_2DC5F`):
 地表大地圖上那一格,`byte_3E0DC`(進行中的聖壇試煉,引擎的 `ShrineQuestActive`)
 非 0 → 印 `Pass, Seeker!`;為 0 → 印 `Thou art not upon a Sacred Quest!` +
 `Passage denied!` 並 **`inc byte_3E0A7`**(把玩家往南推回一格)。引擎沒有。
 
-⬜ **大地圖沒有「自己醒過來」。** `random(0,15)==15` 把 `'S'` 寫回 `'G'` 的那段
+✅ **大地圖沒有「自己醒過來」。** `random(0,15)==15` 把 `'S'` 寫回 `'G'` 的那段
 只在 `sub_1318`(場景)裡。**全檔掃過**:寫 `'G'` 進名冊的位置有 22 處、
 `random(0,15)` 後比 `0Fh` 的只有 1 處(`sub_1318`)⇒ 睡著的隊員在大地圖上
 不會自己醒。引擎的 `terrainEffects()` 在所有模式都跑,所以醒得比原版容易。
 
-⬜ **`tile == 0x8F`(熔岩)在大地圖走 `sub_10BC4`**:印 `Burning!` + `sub_2A4D0`。
+✅ **`tile == 0x8F`(熔岩)在大地圖走 `sub_10BC4`**:印 `Burning!` + `sub_2A4D0`。
 與場景的 `sub_1318` 分支同效果,但是另一支函式。
 
-⬜ **空白鍵(Pass)沒有走每回合收尾。** 原版 case 32 回到 `sub_2D9D0` /
+✅ **空白鍵(Pass)沒有走每回合收尾。** 原版 case 32 回到 `sub_2D9D0` /
 `sub_1A54` 的收尾,所以按空白鍵一樣會結算地形、維生開銷、世界回合。
 引擎的 `Pass()` 自己 `AdvanceTime` + `extraWorldTurn()`,**跳過了地形與維生開銷**。
 
@@ -144,11 +148,24 @@ loc_1BE:
 | 原版 | 引擎 | 狀態 |
 |---|---|---|
 | `sub_0` 的模式切換 | `game.State` 的 `Location` / `Dungeon` / `Combat` | ✅ 結構相符 |
-| `sub_1318` | `game.(*State).terrainEffects` | ⚠ 目前所有模式都跑,應限場景 |
-| `sub_10BDC` | `game.(*State).swampPoisonOnArrival` | ⚠ 名字與語意都要改成「大地圖每回合」 |
-| `sub_2D9D0` 的收尾 | 散在 `moveInWorld` 的四個呼叫 | ⚠ 應收攏成一支,並補 §5 的缺口 |
+| `sub_1318` | `game.(*State).terrainEffects` | ✅ 已限場景(`tick()` 依模式分流) |
+| `sub_10BDC` | `overworldTurnEnd` 的沼澤分支 | ✅ 骰範圍改名 `SwampOverworldPoison*` |
+| `sub_2D9D0` 的收尾 | `game.(*State).overworldTurnEnd` | ✅ 收攏成一支 |
+| `sub_2D998` | `game.(*State).underworldEarthquake` | ✅ |
+| `loc_2DC5F` | `game.(*State).sacredQuestGate` | ✅ |
+| `sub_2E24` 的三道閘門 | `game.(*State).extraWorldTurn` 前段 | ✅ |
+| `sub_2E24` 的**本體** | — | ⬜ 五支函式,見 `WORKLIST §5.1b` |
 | `sub_2A50C` | `game.(*State).upkeep` | ✅ |
 | `sub_5150` 尾巴 | `game.(*State).dungeonTurnEnd` | ✅ |
 
-**本輪只記錄,不改碼** —— §5 有八條,一起改動的是回合結構,
-要單獨一個 commit 配測試(不然分不出哪一條改壞了)。
+**§5 的十條已於同日落地**(`internal/game/overworldturn.go`,測試 11 條)。
+
+⚠⚠ 接上第 2 條(無條件的世界回合)之後才發現 `extraWorldTurn()` 是**空殼** ——
+它只呼叫 `advanceNPCs()`,而那支在非場景時第一行就 return。所以「接上世界回合」
+把一個更大的缺口翻了出來:**大地圖上怪物不會動、不擲遭遇、太遠的怪不會被清掉**。
+`sub_2E24` 的本體是五支函式,列為 `WORKLIST §5.1b` 另案。
+
+★ 這是本專案第六次遇到同一個形狀:**接上一個入口,才看見它後面是空的**
+(卷軸 / 藥水 / 月石 / 碎片 / 風浪,現在加上世界回合)。
+⇒ 「函式存在 + 有人呼叫」還不夠,要問「**它裡面真的做了那件事嗎**」。
+`tools/find_unwired.py` 抓得到前者,抓不到後者。
