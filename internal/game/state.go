@@ -245,6 +245,13 @@ type State struct {
 	song     int
 	prevSong int
 	songSet  bool
+	// WindowX / WindowY 是大地圖載入視窗的左上角(原版 `byte_3E0AB` / `byte_3E0AC`)。
+	//
+	// ★ **對齊到 16 的倍數**,只在隊伍走進邊緣 5 格以內才整塊捲 16 格
+	// (`internal/game/loadwindow.go`,原版 `sub_2CBEC` / `sub_2D014`)。
+	// 生怪落點、月門寫不寫、清場距離全部以它為基準。
+	// ⚠ 它**會進存檔**(原版 `sub_27D24` 讀 / `sub_284CC` 寫),⬜ 位移未定位。
+	WindowX, WindowY int
 	// lastVacatedX / Y 是「這一輪剛移動的那個東西離開的格子」
 	// (原版 `byte_4FD94` / `byte_4FD95`)。★ 是**全域**一份不是每槽一份,
 	// 只由 `stepObject` 寫、只由 `notJustVacated` 讀(`docs/re/85`)。
@@ -812,6 +819,12 @@ func (s *State) moveInWorld(d Direction) {
 		return
 	}
 	s.X, s.Y = nx, ny
+	// ★ 載入視窗只在隊伍走進邊緣 5 格以內才整塊捲 16 格(原版 `sub_2D014`
+	// 的後半,`docs/re/88`)。⚠ 順序照原版:**在地形代價與收尾之前** ——
+	// 生怪落點與清場都以視窗原點為基準,晚一步就會用到上一格的視窗。
+	if !s.InScene() {
+		s.scrollLoadWindow(dx, dy)
+	}
 	// 粗糙地形要多付世界回合與時間(原版 `sub_2D0BC`)。
 	// ⚠⚠ **順序在 tick 之前。** 原版 `sub_2D174`(移動 + 地形代價)在
 	// `sub_2D9D0` 的 line 79899 被呼叫,而每回合的收尾在 line 80013 ——
@@ -1005,6 +1018,7 @@ func (s *State) leaveScene() {
 	// 所以要在下面把 `s.Location` 清成 0 **之前**決定。
 	s.playSong(s.overworldSong())
 	s.X, s.Y = loc.X, loc.Y
+	s.resetLoadWindow() // 原版 `sub_2DD44` 進大地圖時的 `sub_2CBEC`
 	s.Location = 0
 	s.scene = nil
 	s.npcs = nil
@@ -1069,6 +1083,8 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 			s.Log("讀檔:回不到原本的場景(" + err.Error() + "),改由大地圖開始。")
 		}
 	}
+	// 大地圖的載入視窗定位(原版 `sub_2CBEC`,由 `sub_2DD44` 進大地圖時跑)。
+	s.resetLoadWindow()
 	// 原版 `sub_6730` 在載完地圖之後跑一次 `sub_31DC0` 挑開場曲(`docs/re/87` §3)。
 	// ⚠ 位置照原版:**在場景載回來之後**,所以存檔在城裡時看到的是城裡的座標。
 	s.StartupSong()

@@ -49,7 +49,8 @@ func (s *State) TravelByMoongate(phase int) bool {
 		s.scene = nil
 		s.sceneObjects = nil
 	}
-	// 原版 `sub_DF84` 傳送完 push 字面 1。月門只長在地表,所以這裡不分世界。
+	// 原版 `sub_DF84` 傳送完呼叫 `sub_2CBEC`(視窗重新定位)再 push 字面 1。
+	s.resetLoadWindow()
 	s.playSong(SongBritannia)
 	s.Log("月光把汝捲了進去……")
 	return true

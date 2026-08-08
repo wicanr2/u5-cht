@@ -104,6 +104,7 @@ func (s *State) LeaveDungeon() {
 	// 音樂會是地表的那一首。照原樣做(`CLAUDE.md §3.0`),
 	// 已列進 A 階段對 DOSBox 的核對清單(`docs/re/87` §5)。
 	s.playSong(SongBritannia)
+	s.resetLoadWindow() // 回到大地圖 ⇒ 視窗重新定位(原版 `sub_2CBEC`)
 	s.Log(MsgExitTo)
 	if toUnderworld {
 		s.Floor = UnderworldFloor

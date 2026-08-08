@@ -184,8 +184,7 @@ func (s *State) extraWorldTurn() bool {
 	// ⚠ 判準用 `u5data.IsCreatureTile`(依 `ObjKind` 位元組)**不是**
 	// `MapObject.IsCreature()` —— 兩者的範圍不同,分歧點在 0x40(`docs/re/82` §3)。
 	//
-	// ⬜ 原版在這裡還有 `if (esi == 0) sub_2D38(槽)`(能不能動的閘門)與
-	// 第二趟的清場,兩者都還沒做(`docs/re/83` §2、`WORKLIST §5.1b`)。
+	// ✅ 閘門 `sub_2D38` 與**第二趟的清場**都接上了(清場見尾端)。
 	if set := s.currentObjects(); set != nil && !s.InScene() && !s.InDungeon() {
 		acted := false
 		for slot := len(set.Objects) - 1; slot >= 1; slot-- {
@@ -207,6 +206,11 @@ func (s *State) extraWorldTurn() bool {
 			}
 			s.objectMoveGate(slot)
 		}
+	}
+	// ★ 第二趟:把離載入視窗超過 0x1F 格的**生物**整槽清掉
+	// (原版 `sub_2E24` 尾段,`docs/re/88`)。⚠ 只清生物 —— 船與馬留著。
+	if !s.InScene() && !s.InDungeon() {
+		s.cullDistantCreatures()
 	}
 	s.advanceNPCs()
 	s.syncNPCObjects()

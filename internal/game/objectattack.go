@@ -75,9 +75,70 @@ func (s *State) objectAttacks(slot int) bool {
 		return true
 	}
 
-	// ⬜ 敵船開砲(`kind & 0xFC == 0x2C`,正交對齊且距離 < 4 → `"* BOOOM! *"`)
-	// 還沒做 —— `sub_23FC` 未讀,而照印象寫「船會開砲」等於自創傷害規則。
+	// ★★ 敵船開砲(原版 `sub_25F0` 的尾段 → `sub_23FC`,`docs/re/88`)。
+	//
+	//	(|dx| == 0 && |dy| < 4) || (|dy| == 0 && |dx| < 4)
+	//
+	// ⚠ **沒有機率閘門** —— 海蛇與龍是 1/8,敵船只要正交同線且距離 1..3
+	// 就**每個世界回合都開砲**。這是原版海戰壓迫感的來源,不要「平衡」它。
+	if kind&0xFC == u5data.SpawnEnemyShip {
+		if !(dx == 0 && dy < EnemyShipCannonReach) &&
+			!(dy == 0 && dx < EnemyShipCannonReach) {
+			return false
+		}
+		s.Log(MsgBoom)
+		s.turnBroadside(slot, dx, dy)
+		// 命中之後接的是同一對船損函式(`sub_2B1C8` + `sub_22F0`)。
+		// ⚠ 原版先跑投射物動畫 `sub_20CB4` 並用它的回傳值判「有沒有被擋住」;
+		// 引擎沒有動畫層 ⇒ **一律命中**。這是唯一的差異,記在 `docs/re/88`。
+		s.DamageShip()
+		return true
+	}
 	return false
+}
+
+// EnemyShipCannonReach 是敵船開砲的距離上限(原版 `cmp ebx, 4; jl` / `cmp esi, 4; jge`)。
+//
+// 條件是**嚴格小於 4** ⇒ 正交同線且相隔 1..3 格。
+const EnemyShipCannonReach = 4
+
+// turnBroadside 讓敵船側身對準玩家再開砲(原版 `sub_23FC` 的前半)。
+//
+//	if (|dx| == 0) { 船圖是南北向(0x2C / 0x2E)→ 隨機轉成 0x2D 或 0x2F }
+//	if (|dy| == 0) { 船圖是東西向(0x2D / 0x2F)→ 隨機轉成 0x2C 或 0x2E }
+//
+// ★ 舷側砲**垂直於船身** ⇒ 要打正北方的目標,船身得是東西向。這和玩家開砲
+// 判舷側(`isBroadside`)是同一個機制的另一半。
+//
+// ⚠⚠ **它只改 `ObjTile`(位移 1),不動 `ObjKind`(位移 0)。**
+// 對照 `sub_2870`(移動時轉向)**兩個都改**。後果:
+//   - 風速表查的是 `ObjKind` ⇒ 側身開砲**不影響船速**。
+//   - 下一次移動時 `sub_2870` 會用 `ObjKind` 把 `ObjTile` 蓋回去 ⇒ **不持久**。
+//
+// 也就是說這個轉向在機制上只影響**畫面上那一回合的船圖**。照原樣做 ——
+// 寫成「連 ObjKind 一起改」會意外改掉船速。
+func (s *State) turnBroadside(slot, dx, dy int) {
+	set := s.currentObjects()
+	if set == nil {
+		return
+	}
+	o := &set.Objects[slot]
+	tile := o.Raw[u5data.ObjTile]
+	base := -1
+	switch {
+	case dx == 0 && (tile == u5data.ShipTileBase+u5data.ShipFacingN ||
+		tile == u5data.ShipTileBase+u5data.ShipFacingS):
+		base = u5data.ShipTileBase + u5data.ShipFacingE // 0x2D → 東 / 西
+	case dy == 0 && (tile == u5data.ShipTileBase+u5data.ShipFacingE ||
+		tile == u5data.ShipTileBase+u5data.ShipFacingW):
+		base = u5data.ShipTileBase + u5data.ShipFacingN // 0x2C → 北 / 南
+	}
+	if base < 0 {
+		return
+	}
+	// 原版 `(random(0,3) & 2) + base` ⇒ base 或 base+2。
+	o.Raw[u5data.ObjTile] = byte(base + (s.Roll(0, 3) & 2))
+	o.Tile = o.Raw[u5data.ObjTile]
 }
 
 // wrapDistance 是原版那兩行環繞距離(`abs(d)`,`> 0x7F` 就取 `0x100 − d`)。
@@ -155,6 +216,7 @@ func (s *State) suckIntoWhirlpool(slot int) {
 	}
 	s.Floor = UnderworldFloor
 	s.X, s.Y = WhirlpoolExitX, WhirlpoolExitY
+	s.resetLoadWindow() // 原版 `sub_24DC` 這裡呼叫 `sub_2CBEC`
 	s.placeUnderworldItems()
 }
 

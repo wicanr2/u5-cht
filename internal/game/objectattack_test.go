@@ -214,3 +214,76 @@ func TestWorldTurnLetsAdjacentCreaturesAct(t *testing.T) {
 		t.Error("世界回合沒有讓貼著隊伍的怪動手 —— objectAttacks 沒接上")
 	}
 }
+
+// TestEnemyShipsFireBroadsideEveryTurnWhenAligned —— ★★ 敵船開砲沒有機率閘門。
+//
+// 條件是「正交同線且相隔 1..3 格」;海蛇與龍是 1/8,敵船是**每回合都開**。
+func TestEnemyShipsFireBroadsideEveryTurnWhenAligned(t *testing.T) {
+	s := overworldScene(t)
+	fire := func(dx, dy int) bool {
+		clearObjects(t, s)
+		flatGrass(t, s, 8)
+		putObject(t, s, 5, u5data.SpawnEnemyShip, s.X+dx, s.Y+dy)
+		s.ShipHull = 100
+		return s.objectAttacks(5)
+	}
+	for _, tc := range []struct {
+		dx, dy int
+		want   bool
+		why    string
+	}{
+		{3, 0, true, "正東 3 格"},
+		{-3, 0, true, "正西 3 格"},
+		{0, 3, true, "正南 3 格"},
+		{0, -2, true, "正北 2 格"},
+		{4, 0, false, "正東 4 格 —— 條件是嚴格 < 4"},
+		{0, 4, false, "正南 4 格"},
+		{2, 2, false, "斜對角 —— 要正交同線"},
+		{1, 3, false, "不同線"},
+	} {
+		if got := fire(tc.dx, tc.dy); got != tc.want {
+			t.Errorf("%s:開砲 = %v,預期 %v", tc.why, got, tc.want)
+		}
+	}
+	// 沒有 1/8 那種閘門 —— 同一個位置連開十次都要成立。
+	for i := 0; i < 10; i++ {
+		if !fire(2, 0) {
+			t.Fatalf("第 %d 次沒開砲 —— 敵船不該有機率閘門", i+1)
+		}
+	}
+}
+
+// TestBroadsideTurnChangesTheTileNotTheKind —— ⚠ 只改船圖,不動種類碼。
+//
+// 原版 `sub_23FC` 寫的是位移 1(`ObjTile`),而 `sub_2870`(移動時轉向)
+// **兩個都寫**。差別是可觀察的:風速表查 `ObjKind` ⇒ 側身開砲不影響船速。
+func TestBroadsideTurnChangesTheTileNotTheKind(t *testing.T) {
+	s := overworldScene(t)
+	clearObjects(t, s)
+	flatGrass(t, s, 8)
+	// 船圖朝北(南北向),玩家在正東 ⇒ dy == 0 ⇒ 不該轉(已經能打東西向嗎?)
+	// 先驗 dx == 0 那條:玩家在正南,船身南北向 ⇒ 轉成東西向。
+	putObject(t, s, 5, u5data.SpawnEnemyShip, s.X, s.Y+2)
+	set := s.currentObjects()
+	set.Objects[5].Raw[u5data.ObjTile] = u5data.ShipTileBase + u5data.ShipFacingN
+	kindBefore := set.Objects[5].Raw[u5data.ObjKind]
+
+	s.turnBroadside(5, 0, 2)
+	got := set.Objects[5].Raw[u5data.ObjTile]
+	east := byte(u5data.ShipTileBase + u5data.ShipFacingE)
+	west := byte(u5data.ShipTileBase + u5data.ShipFacingW)
+	if got != east && got != west {
+		t.Errorf("船圖是 0x%02X,預期東(0x%02X)或西(0x%02X)", got, east, west)
+	}
+	if set.Objects[5].Raw[u5data.ObjKind] != kindBefore {
+		t.Errorf("種類碼被改成 0x%02X 了 —— 原版 `sub_23FC` 只寫位移 1",
+			set.Objects[5].Raw[u5data.ObjKind])
+	}
+
+	// 已經是東西向、玩家又在正南 ⇒ 不動(原版兩個 if 都不成立)。
+	set.Objects[5].Raw[u5data.ObjTile] = east
+	s.turnBroadside(5, 0, 2)
+	if set.Objects[5].Raw[u5data.ObjTile] != east {
+		t.Error("船身已經對得到目標了還轉 —— 原版只在需要時轉")
+	}
+}

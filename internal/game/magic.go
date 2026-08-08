@@ -1371,6 +1371,7 @@ func (s *State) blinkTowards(d Direction) bool {
 			continue
 		}
 		s.X, s.Y = x, y
+		s.resetLoadWindow() // 原版 `sub_19098` 瞬移後呼叫 `sub_2CBEC`
 		s.Log("汝在一瞬間移動了。")
 		return true
 	}

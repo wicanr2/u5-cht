@@ -62,14 +62,13 @@ func (s *State) spawnCandidate() (int, int, bool) {
 
 // spawnWindowOrigin 是載入視窗的左上角(原版 `byte_3E0AB` / `byte_3E0AC`)。
 //
-// ⚠ **不是隊伍座標。** 原版另外維護這一對,而生怪與清場都以它為基準
-// (清場的條件是「離視窗超過 0x1F 格」)。引擎目前沒有這個欄位,
-// 用「隊伍為中心的 32×32」當近似 —— 視窗本來就是跟著隊伍捲動的。
+// ✅ **不再是近似**(`docs/re/88`):原點對齊 16 的倍數,只在隊伍走進邊緣 5 格
+// 以內才整塊捲 16 格。維護在 `internal/game/loadwindow.go`。
 //
-// ⬜ 要完全對齊得先找出原版什麼時候更新 `byte_3E0AB`/`byte_3E0AC`
-// (捲動是每步一格還是整塊跳),差異會影響怪出現在哪一側。記在 `docs/re/82`。
+// ⚠ 此前用「隊伍為中心的 32×32」當近似,而差別是可觀察的:真視窗的原點
+// 在同一塊裡**不動**,所以生怪的那一圈落在固定位置;近似版永遠貼著隊伍。
 func (s *State) spawnWindowOrigin() (int, int) {
-	return s.X - u5data.SpawnWindowSpan/2, s.Y - u5data.SpawnWindowSpan/2
+	return s.WindowX, s.WindowY
 }
 
 // spawnKindFor 依地形選一種怪(原版 `sub_203C`)。回 0 = 這一格不生。

@@ -116,6 +116,10 @@ func TestSteppingOnAMoongateTeleports(t *testing.T) {
 	// 站到某個月門旁邊,再走進去。
 	g := s.Moongates[0]
 	s.X, s.Y = g.X-1, g.Y
+	// ⚠ 視窗原點現在是真的狀態(原版 `byte_3E0AB`/`byte_3E0AC`)——
+	// 直接改座標之後要跟著定位,否則 `moongateWritesHere` 的視窗檢查
+	// 會拿 (0,0) 當原點。真實遊戲裡這由 `resetLoadWindow` 負責。
+	s.resetLoadWindow()
 	s.Move(East)
 	want := s.Moongates[s.MoonPhaseNow()]
 	if s.X != want.X || s.Y != want.Y {
@@ -152,6 +156,7 @@ func TestMoongateTileIsWrittenAtNightAndErasedByDay(t *testing.T) {
 	g := s.Moongates[0]
 	// 站到那顆月石旁邊,月門才在載入視窗內(原版 `sub_DE74` 的範圍檢查)。
 	s.X, s.Y = g.X-2, g.Y
+	s.resetLoadWindow()
 
 	// 夜裡:那一格該變成月門。
 	s.Clock.Hour = u5data.MoongateNightFrom

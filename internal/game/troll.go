@@ -281,5 +281,7 @@ func (s *State) fallDownTheWaterfall() {
 	}
 	s.Log(MsgFallingIntoUnderworld)
 	s.Floor = -1
+	// 原版的墜落動畫 `sub_10A1C` 呼叫 `sub_2CBEC` 重新定位視窗(`docs/re/88`)。
+	s.resetLoadWindow()
 	s.placeUnderworldItems()
 }
