@@ -224,6 +224,11 @@ const (
 	MsgWoundHeavily  = "傷勢沉重!"
 	MsgWoundLightly  = "受了輕傷!"
 	MsgWoundBarely   = "只受了皮肉傷!"
+	// " grazed!" —— 減傷把傷害吃到 0 以下時的那一句。
+	//
+	// 兩處都會設 `byte_3E0B2 = 20h`:`sub_B9A8`(對隊員,傷害 < 0 直接跳過扣血)
+	// 與 `sub_B51C` 開頭(**任何目標**,傷害 < 1 就歸零)。
+	MsgGrazed = "只被擦過!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

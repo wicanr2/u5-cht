@@ -289,3 +289,43 @@ func TestBadlyHurtMonstersFlee(t *testing.T) {
 		t.Error("滿血卻還掛著逃跑旗標 —— 原版會把它清掉")
 	}
 }
+
+// TestZeroDamageIsAGrazeForMonstersToo:傷害不到 1 也是擦傷,**怪物也算**。
+//
+// 原版 `sub_B51C` 開頭 `cmp [ebp+arg_4], 1; jge …; mov byte_3E0B2, 20h`
+// 沒有分敵我。引擎原本只對隊員擋(`dmg < 0 && t.IsParty()`),
+// 怪物吃到 0 傷害時會照樣報一句傷勢等級 —— 那會讓玩家以為打中了。
+func TestZeroDamageIsAGrazeForMonstersToo(t *testing.T) {
+	s := corpserArena(t)
+	party, monster := -1, -1
+	for i := range s.Combat.Units {
+		u := &s.Combat.Units[i]
+		if u.Flags == 0 {
+			continue
+		}
+		if u.IsParty() && party < 0 {
+			party = i
+		}
+		if !u.IsParty() && monster < 0 && s.creatureOf(u) != nil {
+			monster = i
+		}
+	}
+	if party < 0 || monster < 0 {
+		t.Skip("戰場上湊不出一個隊員與一隻怪物")
+	}
+	before := s.Combat.Units[monster].HP
+	s.Messages = nil
+	s.applyDamage(party, monster, 0)
+	if s.Combat.Units[monster].HP != before {
+		t.Errorf("0 點傷害卻扣了血:%d → %d", before, s.Combat.Units[monster].HP)
+	}
+	joined := strings.Join(s.Messages, "|")
+	if !strings.Contains(joined, MsgGrazed) {
+		t.Errorf("沒印「只被擦過」:%q", s.Messages)
+	}
+	for _, w := range []string{MsgWoundCritical, MsgWoundHeavily, MsgWoundLightly, MsgWoundBarely} {
+		if strings.Contains(joined, w) {
+			t.Errorf("0 點傷害卻報了傷勢等級 %q:%q", w, s.Messages)
+		}
+	}
+}

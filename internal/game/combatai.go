@@ -352,8 +352,10 @@ func (s *State) resolveAttack(attacker, target int) {
 	}
 	dmg := s.damageAfterResist(base, t)
 	if dmg < 0 && t.IsParty() {
-		// 防禦擲贏了傷害:對隊員就是完全擋下。
-		s.Log(tn + "擋下了這一擊。")
+		// ★ 防禦擲贏了傷害。原版 `sub_B9A8` 在這裡設 `byte_3E0B2 = 20h`
+		// 並**跳過扣血**,而 `sub_1F840` 看到那個位元就印 `" grazed!"` 收工。
+		// 所以這一句就是原版的「擦傷」,不是引擎自己加的仁慈規則。
+		s.Log(tn + MsgGrazed)
 		return
 	}
 	s.applyDamage(attacker, target, dmg)
@@ -432,6 +434,14 @@ func (s *State) applyDamage(attacker, target, dmg int) {
 		if st.Has(u5data.CreatureHalfDamage) && dmg != u5data.InstantKillDamage {
 			dmg /= 2
 		}
+	}
+
+	// ★ 傷害不到 1 也是擦傷 —— 原版 `sub_B51C` 開頭:
+	// `cmp [ebp+arg_4], 1; jge …; mov byte_3E0B2, 20h; mov arg_4, 0`。
+	// 這一條**對怪物也成立**,所以減傷把傷害吃到 0 的時候不會報傷勢等級。
+	if dmg < 1 && dmg != u5data.InstantKillDamage {
+		s.Log(tn + MsgGrazed)
+		return
 	}
 
 	xp := 0
