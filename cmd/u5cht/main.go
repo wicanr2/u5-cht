@@ -588,6 +588,18 @@ func (g *game) Update() error {
 		g.dirty = true
 		return nil
 	} else {
+		// ★ 喝醉了先攔一手:原版 `sub_1158` 是**讀鍵那一層**在做這件事 ——
+		// 有一半機率把按到的鍵換成一個隨機方向,而且印 "Hic!"。
+		// 攔在這裡而不是各指令裡面,才會像原版一樣**所有鍵都會踉蹺**。
+		if anyGameKeyPressed() {
+			if d, staggered := st.DrunkStagger(); staggered {
+				st.Move(d)
+				if len(st.Messages) != before || g.key() != snapshot {
+					g.dirty = true
+				}
+				return nil
+			}
+		}
 		g.commandKeys(st, ctrl)
 		if inpututil.IsKeyJustPressed(ebiten.KeyK) {
 			st.Klimb()
@@ -907,4 +919,26 @@ func harpKey(st *gamestate.State) rune {
 		}
 	}
 	return 0
+}
+
+// anyGameKeyPressed 回報這一幀有沒有按下「會被醉酒攔掉」的鍵。
+//
+// 原版的 `sub_1158` 攔的是**任何一次讀鍵**,所以這裡把字母指令表、K 與四個
+// 方向鍵都算進去 —— 但**不含** Ctrl 組合與 ESC 那類離開 / 系統鍵。
+func anyGameKeyPressed() bool {
+	for _, c := range commandTable {
+		if inpututil.IsKeyJustPressed(c.key) {
+			return true
+		}
+	}
+	for _, k := range []ebiten.Key{
+		ebiten.KeyK,
+		ebiten.KeyArrowUp, ebiten.KeyArrowDown,
+		ebiten.KeyArrowLeft, ebiten.KeyArrowRight,
+	} {
+		if inpututil.IsKeyJustPressed(k) {
+			return true
+		}
+	}
+	return false
 }

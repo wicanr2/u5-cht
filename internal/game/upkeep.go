@@ -254,3 +254,60 @@ func (s *State) terrainEffects() {
 	}
 	s.upkeep()
 }
+
+// 喝醉(原版 `sub_1158` —— 讀鍵的那一層)
+//
+// `sub_1158` 是**讀一個鍵**的包裝函式,而它在讀完之後夾了一段:
+//
+//	if (byte_3E169 != 0 && rand(0, 1) != 0) {      ; ★ 醉酒計數 > 0,而且擲中 1/2
+//	    sub_C10()
+//	    byte_3E169--                               ; ★ 每次踉蹺就少一次
+//	    印 "Hic!"
+//	    return byte_4FC54[rand(0, 3)]              ; ★★ 回傳一個**亂的方向鍵**
+//	}
+//	return 真正讀到的鍵
+//
+// `byte_4FC54` 的前四個位元組是 `3, 4, 2, 1` —— 正是四個方向鍵的鍵碼
+// (與 `sub_1EFC8` 的清單瀏覽器用的 1..4 同一組)。
+//
+// # 誰讓你醉的
+//
+//	sub_21108  mov byte_3E169, 19h    ← ★ **酒館的酒單**,一杯醉 25 次
+//	sub_1678   mov byte_3E169, 0      ← 進場景時清掉
+//
+// ⇒ **在酒館點一杯酒,接下來有 25 次「按鍵變成隨機走一步」**,
+// 而且是「有一半機率發生,發生了才扣一次」—— 所以實際會持續相當久。
+//
+// ★ 這是**輸入層**的效果,不是狀態欄上的一個圖示:玩家按 Z 想看數值,
+// 結果往東走了一格。少了它,酒館的酒就只是「花錢買一句話」。
+
+// 醉酒的常數。
+const (
+	// TavernDrunkTurns 是點一杯酒醉多久(原版 `sub_21108` 的 `mov byte_3E169, 19h`)。
+	TavernDrunkTurns = 0x19
+	// DrunkStaggerOdds 是每次按鍵踉蹺的機率分母(原版 `rand(0, 1) != 0` → 1/2)。
+	DrunkStaggerOdds = 2
+)
+
+// DrunkKeys 是踉蹺時會走的四個方向(原版 `byte_4FC54` 的前四個位元組 3,4,2,1)。
+//
+// ⚠ 順序照原樣 —— 四個都在裡面,機率相同,但**表的順序就是原版的順序**。
+var DrunkKeys = [4]Direction{West, East, South, North}
+
+// GetDrunk 讓隊伍醉 25 次(酒館點酒時呼叫)。
+func (s *State) GetDrunk() { s.Drunk = TavernDrunkTurns }
+
+// DrunkStagger 回報這一次按鍵是不是變成了隨機走一步。
+//
+// 回傳 (方向, true) 代表踉蹺了 —— 呼叫端應該**丟掉原本的按鍵**、改成往那個方向走。
+func (s *State) DrunkStagger() (Direction, bool) {
+	if s.Drunk <= 0 {
+		return North, false
+	}
+	if s.Roll(0, DrunkStaggerOdds-1) == 0 {
+		return North, false
+	}
+	s.Drunk--
+	s.Log(MsgHic)
+	return DrunkKeys[s.Roll(0, len(DrunkKeys)-1)], true
+}

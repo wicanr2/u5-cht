@@ -347,3 +347,78 @@ func TestSleepersWakeOnTheirOwn(t *testing.T) {
 
 // envGamedata 是 `U5_GAMEDATA`(itest 才有;test 會是空字串 → 測試跳過)。
 func envGamedata() string { return os.Getenv("U5_GAMEDATA") }
+
+// TestBuyingADrinkMakesYouDrunk 是這一條的入口。
+//
+// ⚠ `tavern.go` 原本寫「原版只把『這趟喝了幾杯』加一,沒有其他效果」——
+// 那是錯的:同一支 `sub_21108` 還有 `mov byte_3E169, 19h`。
+func TestBuyingADrinkMakesYouDrunk(t *testing.T) {
+	s := upkeepScene(t)
+	if s.Drunk != 0 {
+		t.Fatalf("一開始就醉了(%d)", s.Drunk)
+	}
+	s.GetDrunk()
+	if s.Drunk != TavernDrunkTurns {
+		t.Errorf("喝一杯醉 %d 次,預期 %d", s.Drunk, TavernDrunkTurns)
+	}
+	if TavernDrunkTurns != 25 {
+		t.Errorf("醉的次數是 %d,原版是 0x19 = 25", TavernDrunkTurns)
+	}
+}
+
+// TestDrunkStaggerHalfTheTimeAndCountsDown 釘住兩件事:1/2 機率,而且**踉蹺才扣**。
+func TestDrunkStaggerHalfTheTimeAndCountsDown(t *testing.T) {
+	// 沒醉就不會踉蹺。
+	s := upkeepScene(t)
+	for i := 0; i < 100; i++ {
+		if _, ok := s.DrunkStagger(); ok {
+			t.Fatal("沒醉卻踉蹺了")
+		}
+	}
+
+	// 醉了:擲很多次,踉蹺的次數應該把計數扣到 0,而總按鍵數大約是兩倍。
+	s = upkeepScene(t)
+	s.GetDrunk()
+	presses, staggers := 0, 0
+	for s.Drunk > 0 && presses < 1000 {
+		presses++
+		if _, ok := s.DrunkStagger(); ok {
+			staggers++
+		}
+	}
+	if staggers != TavernDrunkTurns {
+		t.Errorf("踉蹺了 %d 次才醒,預期 %d 次", staggers, TavernDrunkTurns)
+	}
+	// ★ 一半機率 → 按鍵數該在踉蹺數的 1..4 倍之間(放寬只為擋數量級錯誤)。
+	if presses < staggers || presses > staggers*4 {
+		t.Errorf("按了 %d 次才用完 %d 次踉蹺 —— 1/2 的機率不該這樣", presses, staggers)
+	}
+	// 醒了就不再踉蹺。
+	for i := 0; i < 100; i++ {
+		if _, ok := s.DrunkStagger(); ok {
+			t.Fatal("醉意退了卻還在踉蹺")
+		}
+	}
+}
+
+// TestDrunkStaggerUsesAllFourDirections:四個方向都要出得來。
+//
+// 原版 `byte_4FC54` 的前四個位元組是 3, 4, 2, 1 —— 四個方向鍵碼。
+func TestDrunkStaggerUsesAllFourDirections(t *testing.T) {
+	s := upkeepScene(t)
+	seen := map[Direction]bool{}
+	for i := 0; i < 2000; i++ {
+		s.Drunk = TavernDrunkTurns // 一直保持醉著
+		if d, ok := s.DrunkStagger(); ok {
+			seen[d] = true
+		}
+	}
+	for _, d := range []Direction{North, South, East, West} {
+		if !seen[d] {
+			t.Errorf("方向 %v 一次都沒出現 —— 四個方向該等機率", d)
+		}
+	}
+	if len(DrunkKeys) != 4 {
+		t.Errorf("方向表有 %d 筆,原版是 4 筆", len(DrunkKeys))
+	}
+}

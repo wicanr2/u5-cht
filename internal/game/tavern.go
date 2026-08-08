@@ -208,9 +208,16 @@ func (s *State) settleTavern() {
 		}
 		s.Log("存糧增為 " + strconv.Itoa(s.Inventory.Food) + " 份。")
 	case GoodsDrink:
-		// 原版只把「這趟喝了幾杯」加一(dword_56E1C),沒有其他效果。
 		s.Shop.drinks++
 		s.Log("「請慢用。」")
+		// ⚠ **更正**:此前這裡寫「原版只把『這趟喝了幾杯』加一,沒有其他效果」——
+		// 那是錯的。同一支 `sub_21108` 還有一行 `mov byte_3E169, 19h`,
+		// 也就是**喝一杯醉 25 次**:接下來每次按鍵有一半機率變成隨機走一步
+		// (`sub_1158` 的 `Hic!`,見 `upkeep.go`)。
+		//
+		// 沒讀到的原因與許願井同一個 —— `sub_21108` 也在截斷清單上
+		// (153 行 → 6 行 C、17 個字串全掉,`docs/re/66`)。
+		s.GetDrunk()
 	}
 }
 

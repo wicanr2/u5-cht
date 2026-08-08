@@ -281,6 +281,8 @@ const (
 	MsgTrapdoor       = "腳下是活門!"
 	MsgPoisonedBySwamp = "中毒了!"
 	MsgBurning        = "烈焰焚身!"
+	// "Hic!" —— 喝醉之後按鍵變成隨機走一步(原版 `sub_1158`)。
+	MsgHic = "嗝!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"
