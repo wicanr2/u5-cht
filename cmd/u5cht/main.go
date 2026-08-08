@@ -18,6 +18,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/wicanr2/u5-cht/internal/assets"
+	"github.com/wicanr2/u5-cht/internal/audio"
 	gamestate "github.com/wicanr2/u5-cht/internal/game"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 	"github.com/wicanr2/u5-cht/internal/render"
@@ -38,9 +39,17 @@ type game struct {
 	combatAiming bool
 	// dungeonKlimb 是「按了 K、正在等 U/D」的中間狀態。
 	dungeonKlimb bool
+	// music 把 `state.CurrentSong()` 同步到實際播放。可為 nil(沒有音樂資料)。
+	music *audio.Player
 }
 
 func (g *game) Update() error {
+	// 配樂:`internal/game` 只決定曲號,這裡把它同步到播放層(`docs/re/87`)。
+	// ⚠ 每一帧呼叫是刻意的 —— `Player.Update` 對「同一首」是 no-op,
+	// 而換曲點散在引擎各處(進城、開戰、上船…),用輪詢比到處插回呼乾淨。
+	if g.music != nil {
+		g.music.Update(g.state.CurrentSong())
+	}
 	// 離開語意:F10 / Ctrl+Q 才離開,ESC 永遠是取消(P5 補確認框與自動存檔)。
 	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
 	if inpututil.IsKeyJustPressed(ebiten.KeyF10) || (ctrl && inpututil.IsKeyJustPressed(ebiten.KeyQ)) {
@@ -750,6 +759,8 @@ func main() {
 		"原版 Ultima V(DOS 版)資料目錄;版權素材由玩家自備,不隨本專案散布")
 	fmtowns := flag.String("fmtowns", "re_work/fmtowns/iso/U5_E",
 		"FM Towns 版 U5_E 目錄(未壓縮 tileset 來源)")
+	audioDir := flag.String("audio", "assets/audio",
+		"渲染好的配樂目錄(ogg;由 .EUP 離線轉出,不入 git)")
 	fontPrefix := flag.String("font", "assets/fonts/eten-15",
 		"倚天中文點陣字 atlas 前綴(用 tools/dev.sh font 15 產生)")
 	saveFile := flag.String("save", "",
@@ -885,8 +896,25 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		st.BeginMainMenu()
 	}
 
+	// 配樂。⚠ 目前**沒有後端**(傳 nil)—— `.EUP` → ogg 的離線渲染還沒做,
+	// 所以接上去也還沒有聲音。先把管線與「缺什麼」的回報接好:曲號在引擎裡
+	// 已經會正確切換(`docs/re/87`),缺的只有音訊本身。
+	// ⚠ 讀不到 `U5_BGM.TBL` 只是「沒有 FM Towns 資料」,不擋遊戲。
+	var music *audio.Player
+	if mp, err := audio.New(*fmtowns, *audioDir, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "⚠ 配樂:%v\n", err)
+	} else {
+		music = mp
+		if n := len(mp.Missing()); n > 0 {
+			fmt.Fprintf(os.Stderr,
+				"⚠ 配樂:%d/%d 首還沒渲染成 %s(離線轉檔還沒做,遊戲照樣可玩)\n",
+				n, u5data.BGMSongCount, audio.Ext)
+		}
+	}
+
 	g := &game{
 		state: st,
+		music: music,
 		scene: &render.Scene{
 			State:        st,
 			Tiles:        bundle.Tiles,
