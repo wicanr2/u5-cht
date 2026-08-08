@@ -207,6 +207,11 @@ func (g *game) Update() error {
 			st.PickPage(-1)
 		case inpututil.IsKeyJustPressed(ebiten.KeyPageDown):
 			st.PickPage(1)
+		// Home / End —— 原版鍵碼 0xD3 / 0xD4(`docs/re/60` 追記)。
+		case inpututil.IsKeyJustPressed(ebiten.KeyHome):
+			st.PickHome()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnd):
+			st.PickEnd()
 		case multi && (inpututil.IsKeyJustPressed(ebiten.KeySpace) ||
 			inpututil.IsKeyJustPressed(ebiten.KeyEnter) ||
 			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter)):

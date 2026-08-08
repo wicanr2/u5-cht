@@ -95,17 +95,140 @@ func TestPickCancelGoesBack(t *testing.T) {
 	}
 }
 
-// TestPickMoveWraps:游標上下繞回。
-func TestPickMoveWraps(t *testing.T) {
+// TestPickMoveDoesNotWrap:原版**不繞回** —— 到頭到尾那一步是空轉。
+//
+// ⚠ 這條原本叫 `TestPickMoveWraps`,測的是「往上繞到最後一項」——
+// 而繞回是我自己加的,原版 `sub_1EFC8` 的移動靠 `sub_1E3D8` / `sub_1E418`
+// 回 −1 停住。測試每次都綠,因為它量的是我自己的發明(`docs/re/60` 追記)。
+func TestPickMoveDoesNotWrap(t *testing.T) {
 	s := pickScene(t)
 	s.beginPick("t", []PickEntry{{Label: "a"}, {Label: "b"}, {Label: "c"}}, "", nil)
 	s.PickMove(-1)
+	if s.Pick.Cursor != 0 {
+		t.Errorf("在第一項往上該停住,實際跑到 %d", s.Pick.Cursor)
+	}
+	for i := 0; i < 10; i++ {
+		s.PickMove(1)
+	}
 	if s.Pick.Cursor != 2 {
-		t.Errorf("往上該繞到最後,實際 %d", s.Pick.Cursor)
+		t.Errorf("按到底該停在最後一項,實際 %d", s.Pick.Cursor)
 	}
 	s.PickMove(1)
-	if s.Pick.Cursor != 0 {
-		t.Errorf("再往下該回到 0,實際 %d", s.Pick.Cursor)
+	if s.Pick.Cursor != 2 {
+		t.Errorf("在最後一項往下該停住,實際跑到 %d", s.Pick.Cursor)
+	}
+}
+
+// TestCursorSticksToTheMiddleRow 釘住原版最有個性的那一段:
+// 游標走到第 4 列就黏住,改成捲視窗。
+func TestCursorSticksToTheMiddleRow(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	var out []PickEntry
+	for i := 0; i < 20; i++ {
+		out = append(out, PickEntry{Label: "x", Value: i})
+	}
+	s.beginPick("t", out, "empty", func(int) bool { return true })
+	// 前三步游標自己往下走,視窗不動。
+	for i := 1; i <= 3; i++ {
+		s.PickMove(1)
+		if s.Pick.Top != 0 {
+			t.Fatalf("第 %d 步視窗就動了(Top=%d)", i, s.Pick.Top)
+		}
+		if got := s.Pick.row(); got != i+1 {
+			t.Fatalf("第 %d 步游標在第 %d 列,預期第 %d 列", i, got, i+1)
+		}
+	}
+	// 到第 4 列之後改成捲視窗,游標列不再變。
+	for i := 4; i <= 10; i++ {
+		s.PickMove(1)
+		if got := s.Pick.row(); got != PickCenterRow {
+			t.Fatalf("第 %d 步游標跑到第 %d 列,預期黏在第 %d 列", i, got, PickCenterRow)
+		}
+		if s.Pick.Top != i-3 {
+			t.Fatalf("第 %d 步視窗頂端 %d,預期 %d", i, s.Pick.Top, i-3)
+		}
+	}
+	// 捲到底之後(Top = 20−7 = 13)游標才自己走到第 7 列。
+	for i := 0; i < 20; i++ {
+		s.PickMove(1)
+	}
+	if s.Pick.Top != len(out)-PickRows {
+		t.Errorf("按到底視窗頂端 %d,預期 %d", s.Pick.Top, len(out)-PickRows)
+	}
+	if got := s.Pick.row(); got != PickRows {
+		t.Errorf("按到底游標在第 %d 列,預期第 %d 列", got, PickRows)
+	}
+	if s.Pick.Cursor != len(out)-1 {
+		t.Errorf("按到底停在第 %d 項,預期第 %d 項", s.Pick.Cursor, len(out)-1)
+	}
+}
+
+// TestPickOnlyDrawsSevenRows:原版視窗只有七列。
+func TestPickOnlyDrawsSevenRows(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	var out []PickEntry
+	for i := 0; i < 20; i++ {
+		out = append(out, PickEntry{Label: "x", Value: i})
+	}
+	s.beginPick("t", out, "empty", func(int) bool { return true })
+	lines := s.PickLines()
+	if len(lines) != PickRows+1 { // 標題 + 七列
+		t.Errorf("畫了 %d 行(含標題),預期 %d 行", len(lines), PickRows+1)
+	}
+}
+
+// TestScrollHintMatchesTheThreeArrows 對上原版 `sub_29008` 的三個字元碼。
+func TestScrollHintMatchesTheThreeArrows(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	var out []PickEntry
+	for i := 0; i < 20; i++ {
+		out = append(out, PickEntry{Label: "x", Value: i})
+	}
+	s.beginPick("t", out, "empty", func(int) bool { return true })
+	if got := s.PickScrollHint(); got != "\u2193" {
+		t.Errorf("在最上面該只有 ↓,實際 %q", got)
+	}
+	s.PickMove(5) // 捲一點,兩邊都有東西
+	if got := s.PickScrollHint(); got != "\u2195" {
+		t.Errorf("中間該是 ↕,實際 %q", got)
+	}
+	s.PickEnd()
+	if got := s.PickScrollHint(); got != "\u2191" {
+		t.Errorf("在最下面該只有 ↑,實際 %q", got)
+	}
+	// 清單短到裝得進視窗 → 不畫箭頭。
+	s2 := pickScene(t)
+	s2.beginPick("t", []PickEntry{{Label: "a"}, {Label: "b"}}, "", nil)
+	if got := s2.PickScrollHint(); got != "" {
+		t.Errorf("清單裝得下卻畫了 %q", got)
+	}
+}
+
+// TestHomeAndEndAreTheTwoUntracedKeyCodes 釘住 0xD3 / 0xD4 的語意。
+func TestHomeAndEndAreTheTwoUntracedKeyCodes(t *testing.T) {
+	s := &State{MaxMessages: 8}
+	var out []PickEntry
+	for i := 0; i < 20; i++ {
+		out = append(out, PickEntry{Label: "x", Value: i})
+	}
+	s.beginPick("t", out, "empty", func(int) bool { return true })
+	s.PickEnd() // 0xD4
+	if s.Pick.Cursor != len(out)-1 {
+		t.Errorf("End 停在第 %d 項,預期最後一項 %d", s.Pick.Cursor, len(out)-1)
+	}
+	if s.Pick.Top != len(out)-PickRows {
+		t.Errorf("End 之後視窗頂端 %d,預期 %d(最後一頁)", s.Pick.Top, len(out)-PickRows)
+	}
+	s.PickHome() // 0xD3
+	if s.Pick.Cursor != 0 || s.Pick.Top != 0 {
+		t.Errorf("Home 之後 Cursor=%d Top=%d,預期都是 0", s.Pick.Cursor, s.Pick.Top)
+	}
+	// 清單比視窗短時 End 不該把 Top 推成負的。
+	s2 := pickScene(t)
+	s2.beginPick("t", []PickEntry{{Label: "a"}, {Label: "b"}}, "", nil)
+	s2.PickEnd()
+	if s2.Pick.Top != 0 || s2.Pick.Cursor != 1 {
+		t.Errorf("短清單 End 之後 Cursor=%d Top=%d,預期 1 / 0", s2.Pick.Cursor, s2.Pick.Top)
 	}
 }
 
@@ -160,7 +283,7 @@ func pickScene(t *testing.T) *State {
 	return s
 }
 
-// 翻頁鍵一次移 7 項,而且會繞回。
+// 翻頁鍵一次走 7 步(不繞回)。
 //
 // ⚠ 7 是原版的數字(`sub_1EFC8` 對 0xD5 / 0xD6 把移動次數設成 7),
 // 不是「一整頁」——清單再長也是 7。
@@ -179,10 +302,10 @@ func TestPickPageMovesSevenRows(t *testing.T) {
 	if s.Pick.Cursor != 0 {
 		t.Errorf("往上翻回第 %d 項,預期第 0 項", s.Pick.Cursor)
 	}
-	// 從第 0 項往上翻要繞到尾巴,不是停在 0(與 PickMove 同一套環繞)。
+	// ⚠ 更正:原版**不繞回**。在第 0 項再往上翻,七步全部空轉。
 	s.PickPage(-1)
-	if s.Pick.Cursor != len(out)-PickPageRows {
-		t.Errorf("繞回之後在第 %d 項,預期第 %d 項", s.Pick.Cursor, len(out)-PickPageRows)
+	if s.Pick.Cursor != 0 || s.Pick.Top != 0 {
+		t.Errorf("在第一項往上翻該停住,實際 Cursor=%d Top=%d", s.Pick.Cursor, s.Pick.Top)
 	}
 }
 

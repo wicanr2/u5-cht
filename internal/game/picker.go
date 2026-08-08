@@ -39,7 +39,14 @@ type PickEntry struct {
 type Picker struct {
 	Title   string
 	Entries []PickEntry
-	Cursor  int
+	// Cursor 是游標停在哪一項(整份清單的絕對索引)。
+	Cursor int
+	// Top 是視窗最上面那一項 —— 原版 `sub_1EFC8` 的 `arg_0`。
+	//
+	// 原版只畫 **7 列**(文字列 2..8,畫到第 9 列就 `break`),
+	// 游標列 `j`(1..7)與視窗頂端是兩個獨立的量。少了 Top 就無法重現
+	// 「游標黏在中間、視窗自己捲」那個行為。
+	Top int
 	// Marks 是複選模式下每一項的勾選狀態;nil 代表單選。
 	//
 	// 只有調藥的藥草清單是複選(原版 `sub_18468`):空白鍵或 Enter 勾 / 取消勾,
@@ -66,30 +73,162 @@ func (s *State) beginPick(title string, entries []PickEntry, empty string, then 
 		back = PromptNone // 選單接選單時不要回到自己
 	}
 	s.Pick = &Picker{Title: title, Entries: entries, then: then, back: back}
+	// Top / Cursor 都從 0 開始 —— 原版每次進瀏覽器也是從第一個候選起算。
 	s.Prompt = PromptPick
 	return true
 }
 
-// PickMove 移動游標,會繞回。
-func (s *State) PickMove(delta int) {
-	if s.Pick == nil {
-		return
-	}
-	n := len(s.Pick.Entries)
-	s.Pick.Cursor = ((s.Pick.Cursor+delta)%n + n) % n
-}
+// 清單瀏覽器的捲動規則 —— 逐條照 `sub_1EFC8`(`docs/re/60` 追記)
+//
+// 原版不是「一次列完、游標繞回」,而是一個**七列的視窗**加一個游標列:
+//
+//	視窗頂端  a1     ← Picker.Top
+//	游標列    j      ← 1..7,= Cursor − Top + 1
+//
+// 而移動的規則有一個很有個性的地方:**游標黏在第 4 列(正中間)**,
+// 到那裡之後改成捲視窗;只有靠近頭尾捲不動了,游標才自己在視窗裡走。
+// 原版的上移迴圈長這樣(下移對稱,多一個 `j >= 已畫列數` 的條件):
+//
+//	for 步數 {
+//	    if j == 4 || j == 1 {
+//	        if 上面還有東西 { 視窗往上一項; continue }
+//	        if j != 4      { continue }          // j==1 且到頂 → 這一步空轉
+//	    }
+//	    j--                                     // 游標在視窗裡往上
+//	}
+//
+// ⚠ **原版不繞回**:到頂 / 到底時那一步是空轉(`sub_1E3D8` / `sub_1E418`
+// 回 −1),游標留在原地。此前引擎的 `PickMove` 會繞回 —— 那是我自己加的,
+// 而 `TestPickMoveWraps` 每次都綠,因為它量的是我自己的發明。
+
+// PickRows 是視窗畫幾列(原版畫到文字列 9 就 `break`,起點是列 2 → 7 列)。
+const PickRows = 7
+
+// PickCenterRow 是游標會黏住的那一列(原版寫死 `j == 4`)。
+const PickCenterRow = 4
 
 // PickPageRows 是翻頁鍵一次移幾項(原版 `sub_1EFC8` 對 0xD5 / 0xD6 把
 // 移動次數設成 **7**,不是「一整頁」)。
-const PickPageRows = 7
+const PickPageRows = PickRows
 
-// PickPage 翻一頁:往 dir 的方向移 PickPageRows 項。
+// rows 是這一幀實際畫出來幾列(清單比視窗短的時候會少於 PickRows)。
+func (p *Picker) rows() int {
+	n := len(p.Entries) - p.Top
+	if n > PickRows {
+		return PickRows
+	}
+	return n
+}
+
+// row 是游標所在的視窗列號(原版的 `j`,1..7)。
+func (p *Picker) row() int { return p.Cursor - p.Top + 1 }
+
+// stepUp 是往上一步(原版 0xD5 分支的迴圈本體,鍵 1 / 3 走同一段)。
+func (p *Picker) stepUp() {
+	if j := p.row(); j == PickCenterRow || j == 1 {
+		if p.Top > 0 { // 上面還有東西 → 捲視窗,游標列不變
+			p.Top--
+			p.Cursor--
+			return
+		}
+		if j != PickCenterRow { // j == 1 且到頂 → 這一步空轉
+			return
+		}
+	}
+	p.Cursor-- // 游標在視窗裡往上
+}
+
+// stepDown 是往下一步(原版 0xD6 分支)。
+func (p *Picker) stepDown() {
+	rows := p.rows()
+	if j := p.row(); j == PickCenterRow || j == PickRows || j >= rows {
+		if p.Top+rows < len(p.Entries) { // 下面還有東西 → 捲視窗
+			p.Top++
+			p.Cursor++
+			return
+		}
+		// 捲不動了。只有「游標剛好在正中間、而且清單長過中間」才讓游標自己走。
+		if j != PickCenterRow || rows <= PickCenterRow {
+			return
+		}
+	}
+	p.Cursor++
+}
+
+// PickMove 移動游標。**不繞回** —— 到頭到尾就停住(原版行為)。
+func (s *State) PickMove(delta int) {
+	if s.Pick == nil || len(s.Pick.Entries) == 0 {
+		return
+	}
+	p := s.Pick
+	for n := delta; n > 0; n-- {
+		p.stepDown()
+	}
+	for n := delta; n < 0; n++ {
+		p.stepUp()
+	}
+}
+
+// PickPage 翻一頁:往 dir 的方向走 PickPageRows 步。
+//
+// 注意是「走 7 步」而不是「索引加 7」—— 因為每一步可能捲視窗、可能移游標,
+// 兩者對索引的影響一樣,但對 `Top` 不一樣。
 func (s *State) PickPage(dir int) {
 	if dir < 0 {
 		s.PickMove(-PickPageRows)
 		return
 	}
 	s.PickMove(PickPageRows)
+}
+
+// PickHome 跳到第一項(原版鍵碼 **0xD3**:`sub_1E418(-1, …)` 從頭找第一個候選)。
+func (s *State) PickHome() {
+	if s.Pick == nil {
+		return
+	}
+	s.Pick.Top, s.Pick.Cursor = 0, 0
+}
+
+// PickEnd 跳到最後一項(原版鍵碼 **0xD4**:先 `sub_1E3D8` 找最後一項,
+// 再往前走最多 6 步把視窗頂端定出來 —— 也就是「最後一頁,游標在最後一項」)。
+func (s *State) PickEnd() {
+	if s.Pick == nil || len(s.Pick.Entries) == 0 {
+		return
+	}
+	p := s.Pick
+	p.Cursor = len(p.Entries) - 1
+	p.Top = p.Cursor - (PickRows - 1)
+	if p.Top < 0 {
+		p.Top = 0
+	}
+}
+
+// PickScrollHint 回報原版畫在清單旁邊的捲動指示字元。
+//
+// 原版用 CP437 的三個箭頭(`sub_29008` 的參數就是字元碼):
+//
+//	24 → ↑   上面還有(視窗頂端不是第一項)
+//	25 → ↓   下面還有
+//	18 → ↕   兩邊都有
+//	（都沒有時走 `sub_28F80` 清掉,不畫）
+//
+// 回傳空字串代表不畫。
+func (s *State) PickScrollHint() string {
+	p := s.Pick
+	if p == nil {
+		return ""
+	}
+	up := p.Top > 0
+	down := p.Top+p.rows() < len(p.Entries)
+	switch {
+	case up && down:
+		return "\u2195" // ↕ CP437 18
+	case up:
+		return "\u2191" // ↑ CP437 24
+	case down:
+		return "\u2193" // ↓ CP437 25
+	}
+	return ""
 }
 
 // PickChoose 按下 Enter。
@@ -121,9 +260,16 @@ func (s *State) PickLines() []string {
 	if p == nil {
 		return nil
 	}
-	out := make([]string, 0, len(p.Entries)+1)
-	out = append(out, p.Title)
-	for i, e := range p.Entries {
+	out := make([]string, 0, PickRows+2)
+	title := p.Title
+	// 捲動指示跟在標題後面 —— 原版畫在清單旁邊,這裡受 CJK 版面限制擺在標題列。
+	if hint := s.PickScrollHint(); hint != "" {
+		title += " " + hint
+	}
+	out = append(out, title)
+	// ★ 只畫視窗裡的七列,不是整份清單(原版 `sub_1EFC8` 畫到文字列 9 就 break)。
+	for i := p.Top; i < p.Top+p.rows(); i++ {
+		e := p.Entries[i]
 		mark := "  "
 		if i == p.Cursor {
 			mark = "→"
