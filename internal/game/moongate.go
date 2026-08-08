@@ -69,14 +69,28 @@ func (s *State) CastGreatGate(phase int) bool {
 	return s.TravelByMoongate(phase)
 }
 
-// MoongateAt 回報世界座標上有沒有月門(那八個固定位置)。
+// MoongateAt 回報世界座標上有沒有**開著的**月門。
 //
-// ⚠ 原版的月門是**夜裡才出現**的地圖物件,由月相決定哪一座開著;
-// 生成那一段(哪幾個小時、tile 是什麼)還沒逆完。這裡只回報「那個位置
-// 是不是月門的座標」,踏上去就走傳送 —— **少了「白天不開」那一條**,
-// 文件裡標明了。
+// ✅ 「哪幾個小時、tile 是什麼」已經逆完了(`docs/re/86`,原版 `sub_DEE4`):
+//
+//	夜裡(20:00–04:59)→ 把 tile 0xDC 寫進**八顆月石埋藏的座標**
+//	白天               → 計數器遞減,歸零才寫回草地(tile 5)
+//
+// ★★ 座標就是月石的埋藏點 —— **月門長在月石被埋的地方**,那是「埋月石
+// 有什麼用」的答案。而 `sub_DE74` **完全不看月相**:它只查那顆月石在不在
+// 當前的地點 / 樓層 / 視窗裡。
+//
+// ⇒ 三件事各由不同的東西決定:**開不開**看時間、**在哪裡**看月石埋在哪、
+// **去哪裡**看月相(`TravelByMoongate`)。
+//
+// ⬜ 仍未做:把 tile 真的寫進地圖緩衝(原版每次重畫都寫),以及天亮後
+// 那 0x10 次重畫的淡出。引擎用「座標 + 時段」判定,效果相同但畫面上看不到門。
 func (s *State) MoongateAt(x, y int) (int, bool) {
 	if s.BaseSave == nil {
+		return 0, false
+	}
+	// ★ 白天沒有月門(原版 `sub_DEE4` 天亮之後把那一格寫回草地)。
+	if !u5data.MoongateOpenAtHour(s.Clock.Hour) {
 		return 0, false
 	}
 	for i := range s.Moongates {

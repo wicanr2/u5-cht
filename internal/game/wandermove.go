@@ -47,8 +47,12 @@ func (s *State) stepObject(slot, dx, dy int) {
 	o.Raw[u5data.ObjY] = byte(ny)
 	o.X, o.Y = int(o.Raw[u5data.ObjX]), int(o.Raw[u5data.ObjY])
 
-	// ★ 走到 tile 0xDC 就消失(原版 `cmp byte ptr [eax], 0DCh` → 兩個位元組歸零)。
-	if tile == u5data.CreatureVanishTile {
+	// ★★ 走進**開著的月門**就整個消失 —— 怪跟玩家一樣被捲走了
+	// (原版 `cmp byte ptr [eax], 0DCh` → 種類碼與 tile 都歸零,`docs/re/86`)。
+	//
+	// ⚠ 這裡的 `0xDC` 是**地圖 tile**;同一支函式上面那個 `0xDC` 是**龍的
+	// 物件種類碼**。兩個命名空間,同一個值。
+	if tile == u5data.MoongateOpenTile {
 		*o = u5data.MapObject{}
 	}
 }

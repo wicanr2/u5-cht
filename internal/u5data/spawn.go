@@ -285,12 +285,24 @@ var SpawnSlotPasses = []SpawnSlotPass{
 	{0x00, 0xFF, false, "隨便一個"},
 }
 
-// CreatureVanishTile 是「走上去就消失」的那一格(原版 `sub_2870` 尾段
-// `cmp byte ptr [eax], 0DCh` → 種類碼與 tile 都歸零)。
+// MoongateOpenTile 是**開著的月門**那一格的地圖 tile(`docs/re/86`)。
 //
-// ⬜ 那是什麼地形還沒查(要抽 FM Towns 的 `EGA*.TIL` 才看得到圖)。
-// 照編號實作、語意留白。
-const CreatureVanishTile = 0xDC
+// ★★ 怪物走上去會**整個消失**(原版 `sub_2870` 尾段:種類碼與 tile 都歸零)
+// —— 牠跟玩家一樣被月門捲走了。三個佐證:
+//
+//  1. `look#220` 的譯文就是「月亮門!」(220 = 0xDC,而地圖 tile 是 0..255)
+//  2. `sub_E084`(玩家踏上月門)比的是同一個值:`cmp byte ptr [eax], 0DCh`
+//  3. `sub_DEE4` 每次重畫都把這個值**寫進**八顆月石的座標(夜裡)
+//
+// ⚠⚠ **`0xDC` 同時是龍的物件種類碼**(`FlyerDragon`),而 `sub_2870`
+// 在**同一支函式裡**對兩個命名空間各比一次:
+//
+//	cmp eax, 0DCh              ; eax = 物件種類碼 → 龍(免疫地形延遲)
+//	cmp byte ptr [eax], 0DCh   ; eax = 地圖 tile 指標 → 月門
+//
+// 兩個 0xDC 意思完全不同。把其中一個當成另一個,會做出「龍走到哪都會消失」
+// 或「所有怪物都免疫地形」——**而兩種錯都不會崩,只會怪**。
+const MoongateOpenTile = 0xDC
 
 // 免疫地形延遲的四種(原版 `sub_2870` 的四個 `cmp eax, …; jz def_295C`)。
 //

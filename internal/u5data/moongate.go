@@ -140,3 +140,42 @@ func encodeMoongates(out []byte, g [MoonPhaseCount]MoongateDest) {
 }
 
 var _ = binary.LittleEndian
+
+// 月門開關的時段(原版 `sub_DEE4`)
+//
+//	esi = 0xDC                                    ; 預設要寫的 tile = 開著的月門
+//	if (小時 >= 0x14 || 小時 < 5) 計數器累加到 0x10  ; ★ 夜裡(20:00–04:59)
+//	else { 計數器遞減; if (計數器 == 0) esi = 5 }    ; 白天,歸零才寫回草地
+//	for (i = 0; i < 8; i++)
+//	    if (sub_DE74(i)) 把 esi 寫進 (byte_3E040[i], byte_3E048[i])
+//
+// ★★★ 那對座標就是**埋下去的月石的 X / Y**(`byte_3E040` / `byte_3E048`,
+// 見 `Save` 的 `SaveMoonstoneXOffset` / `YOffset`)。
+// ⇒ **月門長在月石被埋的地方** —— 這是「埋月石有什麼用」的完整答案。
+//
+// ★ `sub_DE74(i)` **完全不看月相**,只查三件事:那顆月石埋在**當前的地點**、
+// 埋在**當前的樓層**、而且(在大地圖時)落在 32×32 的載入視窗內。
+//
+// ⇒ 三件事各由不同的東西決定,不要混:
+//
+//	開不開  → 時間(夜裡開)
+//	在哪裡  → 月石埋在哪裡
+//	去哪裡  → 月相(`docs/re/22`)
+const (
+	// MoongateNightFrom 是月門開始出現的小時(含)。
+	MoongateNightFrom = 0x14
+	// MoongateNightUntil 是月門消失的小時(不含)——「小時 < 5」。
+	MoongateNightUntil = 5
+	// MoongateLingerTicks 是天亮之後月門還留著的重畫次數(`sub_2BBB8` 的上限)。
+	//
+	// ★ 白天不是立刻關:計數器從 0x10 遞減,歸零才把那一格寫回草地(tile 5)。
+	// 所以日出後月門還會殘留一陣子 —— 那是原版的淡出。
+	MoongateLingerTicks = 0x10
+	// MoongateClosedTile 是月門關上之後寫回去的地形(原版 `mov esi, 5`)。
+	MoongateClosedTile = 5
+)
+
+// MoongateOpenAtHour 回報這個小時月門開不開(原版 `sub_DEE4` 的第一個判斷)。
+func MoongateOpenAtHour(hour int) bool {
+	return hour >= MoongateNightFrom || hour < MoongateNightUntil
+}

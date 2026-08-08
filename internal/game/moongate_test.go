@@ -102,12 +102,17 @@ func TestMoongateDependsOnTimeOfDay(t *testing.T) {
 }
 
 // TestSteppingOnAMoongateTeleports:走上月門就被捲走。
+//
+// ⚠ **要在夜裡。** 原版的月門是 `sub_DEE4` 每次重畫時寫進地圖的 tile 0xDC,
+// 而它只在 20:00–04:59 寫(白天寫回草地)⇒ **白天沒有月門可踏**
+// (`docs/re/86`)。第一版沒設時間,紅燈看起來像傳送壞了。
 func TestSteppingOnAMoongateTeleports(t *testing.T) {
 	s := moonState(t)
 	if s.BaseSave == nil {
 		t.Skip("沒有底稿存檔")
 	}
 	s.Location, s.Floor = 0, 0
+	s.Clock.Hour = u5data.MoongateNightFrom // 夜裡
 	// 站到某個月門旁邊,再走進去。
 	g := s.Moongates[0]
 	s.X, s.Y = g.X-1, g.Y
@@ -130,5 +135,69 @@ func TestGreatGateRefusesUnderSail(t *testing.T) {
 	s.Transport = u5data.VehicleWalk
 	if !s.CastGreatGate(0) {
 		t.Errorf("走路時大傳送門卻失敗:\n%s", s.log())
+	}
+}
+
+// TestMoongatesOnlyOpenAtNight —— ★ 月門只在 20:00–04:59 出現。
+//
+// 原版 `sub_DEE4` 每次重畫都把 tile 0xDC 寫進**八顆月石埋藏的座標**;
+// 白天則遞減一個計數器,歸零就寫回草地(tile 5)。⇒ 白天沒有月門
+// (`docs/re/86`)。
+func TestMoongatesOnlyOpenAtNight(t *testing.T) {
+	s := moonState(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	s.Location, s.Floor = 0, 0
+	g := s.Moongates[0]
+	for h := 0; h < 24; h++ {
+		s.Clock.Hour = h
+		_, ok := s.MoongateAt(g.X, g.Y)
+		want := u5data.MoongateOpenAtHour(h)
+		if ok != want {
+			t.Errorf("%02d 點:月門在不在 = %v,預期 %v", h, ok, want)
+		}
+	}
+	// 邊界逐一釘住 —— 判準是「>= 20 或 < 5」。
+	for _, tc := range []struct {
+		hour int
+		open bool
+	}{
+		{4, true}, {5, false}, {12, false}, {19, false}, {20, true}, {23, true},
+	} {
+		if got := u5data.MoongateOpenAtHour(tc.hour); got != tc.open {
+			t.Errorf("%02d 點 → %v,預期 %v", tc.hour, got, tc.open)
+		}
+	}
+}
+
+// TestCreatureWalkingIntoAMoongateVanishes —— ★★ 怪跟玩家一樣被月門捲走。
+//
+// `sub_2870` 尾段:新格 tile == 0xDC 就把種類碼與 tile 都歸零。
+//
+// ⚠ 這裡的 0xDC 是**地圖 tile**;`sub_2870` 上面那個 0xDC 是**龍的物件種類碼**。
+// 同一支函式、同一個值、兩個命名空間 —— 這條測試順便釘住兩者沒被搞混。
+func TestCreatureWalkingIntoAMoongateVanishes(t *testing.T) {
+	s := overworldScene(t)
+	clearObjects(t, s)
+	flatGrass(t, s, 8)
+	ox, oy := s.X+4, s.Y
+	putObject(t, s, 5, 0xC0, ox, oy) // Orc
+	if !s.SetTileAt(ox-1, oy, u5data.MoongateOpenTile) {
+		t.Fatal("寫不進世界地圖")
+	}
+	s.stepObject(5, -1, 0)
+	if got := s.currentObjects().Objects[5].Raw[u5data.ObjKind]; got != 0 {
+		t.Errorf("怪走進月門之後種類碼還是 0x%02X,原版把它歸零", got)
+	}
+
+	// ★ 反面:龍(物件種類碼 0xDC)走在**草地**上不該消失。
+	s2 := overworldScene(t)
+	clearObjects(t, s2)
+	flatGrass(t, s2, 8)
+	putObject(t, s2, 6, u5data.FlyerDragon, s2.X+4, s2.Y)
+	s2.stepObject(6, -1, 0)
+	if s2.currentObjects().Objects[6].Raw[u5data.ObjKind] != u5data.FlyerDragon {
+		t.Error("龍在草地上消失了 —— 把物件種類碼 0xDC 當成地圖 tile 0xDC 了")
 	}
 }
