@@ -8,24 +8,19 @@ import (
 	"testing"
 )
 
-func fmtownsDir(t *testing.T) string {
-	t.Helper()
-	dir := os.Getenv("U5_FMTOWNS")
-	if dir == "" {
-		dir = "../../re_work/fmtowns/iso/U5_E"
-	}
-	if _, err := os.Stat(filepath.Join(dir, "U5_SE.TBL")); err != nil {
-		t.Skip("找不到 FM Towns 的 U5_E 目錄,跳過需要它的測試")
-	}
-	return dir
-}
+// ⚠⚠ 這裡原本有一份自己的 `fmtownsDir`,它把 `U5_FMTOWNS` 當成
+// **`U5_E` 目錄本身**,而 `tools/dev.sh` 與其他測試(`tiles_test` / `tlk_test`)
+// 都把它當成 **ISO 根目錄**。⇒ 本檔的五條測試在 gate 裡**一路 skip,從沒跑過**
+// —— 而 skip 不會讓 gate 變紅,所以看起來一直是綠的
+// (`diagnosis-notes/03-silence-is-not-success`:沉默不等於成功)。
+// 已改用 `tiles_test.go` 的 `fmTownsDir`(單一慣例:ISO 根 + `U5_E`)。
 
 // `U5_SE.TBL` 的第三欄就是檔案大小 —— 逐一相符才算表與檔案是同一批。
 //
 // 這條同時把「檔頭 32 B」釘住:`.SND` 的 +0x0C 宣稱資料長度,
 // 而 表裡的大小 − 資料長度 必須恆等於 32。
 func TestSoundTableSizesMatchTheFilesAndTheHeader(t *testing.T) {
-	dir := fmtownsDir(t)
+	dir := fmTownsDir(t)
 	table, err := LoadSoundTable(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -59,7 +54,7 @@ func TestSoundTableSizesMatchTheFilesAndTheHeader(t *testing.T) {
 // 於是波形每次過零就跳一次;平滑度指標會差好幾倍。
 // 這條測試把那個差距釘住:**每一個檔案**都必須是 sign-magnitude 比較平滑。
 func TestSoundPCMIsSignMagnitudeNotTwosComplement(t *testing.T) {
-	dir := fmtownsDir(t)
+	dir := fmTownsDir(t)
 	set, err := LoadSoundSet(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +104,7 @@ func TestSoundPCMIsSignMagnitudeNotTwosComplement(t *testing.T) {
 // 三種形態都是合法的「不迴圈」寫法:長度 0、長度 1(繞著一個取樣轉)、起點與長度都 0。
 // `Loops()` 判的是「這個迴圈聽得出來嗎」——那一層才是判準。
 func TestOnlyAmbientSoundsLoop(t *testing.T) {
-	dir := fmtownsDir(t)
+	dir := fmTownsDir(t)
 	set, err := LoadSoundSet(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +169,7 @@ func TestSignMagnitudeHasTwoZeros(t *testing.T) {
 // 合法的形態只有四種:真迴圈(起點 + 長度 == 全長且長度 > 1)、長度 0、
 // 長度 1、起點與長度都 0。出現第五種就代表這個語意讀錯了。
 func TestLoopFieldsAreConsistentForEveryFile(t *testing.T) {
-	dir := fmtownsDir(t)
+	dir := fmTownsDir(t)
 	set, err := LoadSoundSet(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +191,7 @@ func TestLoopFieldsAreConsistentForEveryFile(t *testing.T) {
 //
 // `sub_2C4F4` 裡有一處 `push 3Ch; push 3` = 「用音高 **60** 播第 3 號音效」。
 func TestBaseNoteIsSixtyOrSixtyOne(t *testing.T) {
-	dir := fmtownsDir(t)
+	dir := fmTownsDir(t)
 	table, err := LoadSoundTable(dir)
 	if err != nil {
 		t.Fatal(err)

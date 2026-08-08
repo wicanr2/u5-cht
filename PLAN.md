@@ -147,7 +147,7 @@ u5-cht/
 ### P6 — 音樂與美術主題
 
 音樂三來源:FM Towns **CDDA 兩軌**(最省)、15 首 `.EUP`、upgrade 19 首 `.XMI`;
-場景對應讀明文 `U5_BGM.TBL`。美術主題:EGA / CGA / Hercules / FM Towns `.TIF` / PC-98。
+場景對應**要逆向**(`docs/re/87`;`.TBL` 只給曲號→檔名與六聲道音量)。美術主題:EGA / CGA / Hercules / FM Towns `.TIF` / PC-98。
 
 ### P7 — 打包與回歸
 

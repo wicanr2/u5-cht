@@ -132,7 +132,7 @@ IDA Pro 反組譯 ──┬─ ★ FM Towns WORRIORS.EXP(32-bit P3,可能可反�
 | 另有 `U5_E/*.JPN` 六份:`END` `ENDMSG` `KARMA` `LOOK2J` `MISCMSG` `SHOPPE` | 連系統訊息與商店都有英日對照 → **§2.1 的八類文字全部有第二語言可校** |
 | **`EGA0–EGA3.TIL` 各 65,536 B 未壓縮**;DOS `TILES.16` 的檔頭宣稱解壓後**正是 65,536** | ★ **極可能就是 DOS 壓縮 tileset 的解壓結果** → 拿它當 oracle,破 `TILES.16` 壓縮時有逐位元組對答案 |
 | `U5.FNT` 16,384 B、`TOWNS.FNT` 17,160 B | 字型檔。⚠ `U5.FNT` 以 8×16 ASCII 直索引 dump 出來**不是字形**(idx 65 是橫條紋)→ 佈局待 P1 驗,**不要假設同 DOS 版的 `IBM.CH`** |
-| **`U5_BGM.TBL` / `U5_SE.TBL` 是純文字表**(`M1.EUP 102 87 87 87 87 87`、`M2.EUP 102 97 …`) | ★ 場景配樂對應**免逆向,直接讀表** |
+| **`U5_BGM.TBL` / `U5_SE.TBL` 是純文字表**(`M1.EUP 102 87 87 87 87 87`、`WALK.SND 100 3032`) | ⚠⚠ **更正(2026-08-08,`docs/re/87`)**:此前寫「場景配樂對應**免逆向直接讀表**」是**錯的**。表裡沒有任何一欄是場景 —— `U5_BGM.TBL` 是**檔名 + 六個 FM 聲道的起始音量**(換曲時一起遞減當淡出),`U5_SE.TBL` 是**檔名 + 音量 + 檔案位元組數**。「什麼時候播第幾首」寫在程式碼裡(32 個 `sub_3181C` 呼叫點 + `sub_31DC0` 的地點跳表),**要逆向**。★ 表唯一直接給的是**曲號 → 檔名**(15 列,對上 `sub_3181C` 的上限 0x0E),而檔名編號不連續(`M92`/`M152` 夾在中間)⇒ 不能用「曲號 = 檔名數字 − 1」。<br>⚠ 錯因:只看表的**形狀**就推語意,沒追「誰讀它、讀去做什麼」(`rulebook/62`) |
 | **`M1–M152.EUP` 15 首**(EUPHONY 序列)+ 兩條 CDDA | 遊玩音樂是 EUP、非 CDDA(kb 已知陷阱);EUPHONY 格式 u1-cht 逆過,**可複用** |
 | `.TIF` 49 個,固定 154,112 B = 512 B 檔頭 + 320×240×2 B | FM Towns 16-bit 直色美術。⚠ kb 陷阱:**FillOrder=2(LSB-first)** |
 | `.SND` 25 個 | 音效。⚠ kb 陷阱:**sign-magnitude PCM**,不是 two's complement |
@@ -405,7 +405,7 @@ char sub_CD28()                    // ← ★ 參數列是空的
 | **P3** | IDA 逆向 oracle 主攻(依 §4.2 分派)。**第一件事:實測 Hex-Rays 能否反編譯 `WORRIORS.EXP`(P3 格式)** —— 結果決定後續是讀 C 還是讀組語。接著:`WORRIORJ ⊖ WORRIORS` diff 定位 DBCS 文字路徑、`.TLK` 索引與控制碼語意、時間與月相、NPC 排程、戰鬥與魔法公式;DOS 的 overlay 載入機制另案 | 每條結論在 `docs/re/` 有筆記(輸入檔 + SHA-256 + IDA 位址),且**與 DOSBox 實測一致** |
 | **P4** | 引擎補完:城鎮/城堡/地底世界/地牢/戰鬥/NPC 對話/魔法/船與氣球/存檔 | **正常玩家路徑**可從開場走到主要城鎮(見下方鐵則) |
 | **P5** | 全文中文化:`.TLK` ×4 + 7 個明文 `.DAT` + `DATA.OVL` 名表 + `.OVL` 硬編字串 | 逐畫面巡查,玩家可見文字 0 殘留英文(美術內嵌字母另計並誠實揭露) |
-| **P6** | 音樂與美術主題。音樂三來源:**FM Towns 兩條 CDDA**(直接轉 ogg,最省)、**15 首 `.EUP`**(EUPHONY,u1-cht 逆過可複用)、**upgrade 的 19 首 `.XMI`**(→MID→fluidsynth);場景對應直接讀明文 `U5_BGM.TBL`/`U5_SE.TBL`。美術主題:EGA / CGA / Hercules / **FM Towns 直色 `.TIF`** / PC-98 | 熱鍵切換不掉 NPC、不崩(u1-cht 踩過);顏色對得上各版實機截圖(⚠ TIF FillOrder=2、`.SND` 是 sign-magnitude PCM);音樂隨場景切換 |
+| **P6** | 音樂與美術主題。音樂三來源:**FM Towns 兩條 CDDA**(直接轉 ogg,最省)、**15 首 `.EUP`**(EUPHONY,u1-cht 逆過可複用)、**upgrade 的 19 首 `.XMI`**(→MID→fluidsynth);場景對應**要逆向**(`docs/re/87`;`.TBL` 只給曲號→檔名與音量)。美術主題:EGA / CGA / Hercules / **FM Towns 直色 `.TIF`** / PC-98 | 熱鍵切換不掉 NPC、不崩(u1-cht 踩過);顏色對得上各版實機截圖(⚠ TIF FillOrder=2、`.SND` 是 sign-magnitude PCM);音樂隨場景切換 |
 | **P7** | 打包 Linux / Windows / macOS + CI + game tester 回歸 | 解壓即玩;`retro-game-playtest` 驗收通過 |
 | **P8** | README(§7)+ 攻略 / 文件收尾 | §7 的引用要求全部滿足 |
 | **後補** | PC-98 的 YM2203 曲譜(`UL01–15.BIN` + `OPNDRV.COM`)還原與 PC-98 美術主題;其他平台(Apple II / C64 / Amiga / Atari ST,需自備媒體) | 顏色與聲音對得上實機;每種格式的破解過程寫成 `docs/re/` 可重跑筆記 |
