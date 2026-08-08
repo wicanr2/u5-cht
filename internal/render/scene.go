@@ -159,7 +159,7 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 			if !game.SightVisible(mask, dx, dy) {
 				continue
 			}
-			s.drawTile(dst, int(s.State.TileAt(s.State.X+dx, s.State.Y+dy)),
+			s.drawTerrain(dst, int(s.State.TileAt(s.State.X+dx, s.State.Y+dy)),
 				MapOriginX+(dx+half)*TilePixels,
 				MapOriginY+(dy+half)*TilePixels)
 		}
@@ -204,6 +204,73 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 }
 
 // drawTile 以 TileScale 倍(nearest)把一個 tile 畫到 (x, y)。
+// drawTerrain 畫地形格,並處理月門的長出動畫(原版 `sub_29BEC` → `sub_265F0`)。
+//
+// 原版的地圖重畫在畫每一格之前多問一句:
+//
+//	if (視窗緩衝[格] == 0DCh && byte_3E097 != 0 && byte_3E097 < 10h)
+//	    sub_265F0(byte_3E097, 欄, 列)      ; ★ 中間格
+//	else 一般畫法                            ; 0 或 >= 16 → 直接畫 tile
+//
+// ⇒ 計數器**滿格(0x10)才畫完整的月門**,1..15 是長出的過程。
+// 而計數器為 0 時走一般畫法 —— 那正好是「離開載入視窗、tile 沒被寫回草地」
+// 的殘留(`docs/re/86`):殘留的月門會被畫成**完整的門**。
+func (s *Scene) drawTerrain(dst *image.NRGBA, idx, x, y int) {
+	if idx != int(u5data.MoongateOpenTile) || s.State == nil {
+		s.drawTile(dst, idx, x, y)
+		return
+	}
+	f := s.State.MoongateFrame
+	if f <= 0 || f >= game.MoongateFrameMax {
+		s.drawTile(dst, idx, x, y)
+		return
+	}
+	s.drawMoongateFrame(dst, f, x, y)
+}
+
+// drawMoongateFrame 疊出第 f 格的月門(原版 `sub_265F0`)。
+//
+// 組語裡是兩次 `rep movs` 疊在一個 512 byte 的暫存格上:
+//
+//	ebx = 基址 + 0A00h                  ; 0x0A00 / 0x200 = tile **5(草地)**
+//	var_224 = 基址 + 1B800h             ; 0x1B800 / 0x200 = tile **0DCh(月門)**
+//	整格填草地(rep movsd,ecx = 80h = 512 byte)
+//	dest = 暫存格 + (20h − 2*f) * 10h   ; = 第 (16 − f) 列
+//	copy f*20h byte                      ; = 月門圖的**前 f 列**
+//
+// ⇒ **底下先鋪草地,月門圖的前 f 列疊在第 (16−f) 列起** —— 門由下往上長出來,
+// 而露出來的一直是門圖的上半部。f = 16 時就等於整格月門(走一般畫法)。
+//
+// ★ 每格 0x200 byte、每列 0x20 byte ⇒ 16×16 × 2 byte/px,正好是 FM Towns 的
+// 16-bit 直色。這順帶佐證了「0x1B800 / 0x200 = 0xDC」不是巧合。
+//
+// ⚠ `offset sub_1B800` 是 **IDA 的自動命名,不是函式** —— 它被當成數值用。
+// 這是本專案第四次踩到「`aXxx` / `sub_Xxxx` 自動名不是資料」(`CLAUDE.md §4.5`)。
+func (s *Scene) drawMoongateFrame(dst *image.NRGBA, f, x, y int) {
+	gate := int(u5data.MoongateOpenTile)
+	grass := int(u5data.MoongateClosedTile)
+	if gate >= len(s.Tiles) || grass >= len(s.Tiles) {
+		return
+	}
+	g, m := &s.Tiles[grass], &s.Tiles[gate]
+	top := u5data.TileSize - f
+	for ty := 0; ty < u5data.TileSize; ty++ {
+		for tx := 0; tx < u5data.TileSize; tx++ {
+			// 第 (16−f) 列起換成月門圖的第 (ty − (16−f)) 列。
+			px := g.At(tx, ty)
+			if ty >= top {
+				px = m.At(tx, ty-top)
+			}
+			c := u5data.EGAPalette[px&0x0F]
+			for sy := 0; sy < TileScale; sy++ {
+				for sx := 0; sx < TileScale; sx++ {
+					SetPixel(dst, x+tx*TileScale+sx, y+ty*TileScale+sy, c)
+				}
+			}
+		}
+	}
+}
+
 func (s *Scene) drawTile(dst *image.NRGBA, idx, x, y int) {
 	if idx < 0 || idx >= len(s.Tiles) {
 		idx = 0

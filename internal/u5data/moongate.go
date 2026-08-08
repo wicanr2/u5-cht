@@ -179,3 +179,12 @@ const (
 func MoongateOpenAtHour(hour int) bool {
 	return hour >= MoongateNightFrom || hour < MoongateNightUntil
 }
+
+// MoongateDeadMinutes 是午夜之後「月門開著但送不走人」的分鐘數
+// (原版 `sub_E084` 的 `cmp byte_3E091, 0Ah`)。
+//
+// ★ 判準是 `小時 == 0 && 分鐘 < 10`。那十分鐘裡踏上月門只會把門關掉,
+// 人留在原地 —— **沒有訊息、沒有動畫**,玩家只看到門消失。
+// 疑似是「月相剛換、目的地還沒定」的空窗期,但原版沒有任何說明文字,
+// 所以語意不猜(`docs/re/86` §6)。
+const MoongateDeadMinutes = 10

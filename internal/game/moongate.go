@@ -86,5 +86,20 @@ func (s *State) EnterMoongateHere() bool {
 	if s.TileAt(s.X, s.Y) != u5data.MoongateOpenTile {
 		return false
 	}
+	// ⬜ 原版在這裡跑一段**阻塞動畫**:把載具碼暫時換成 0x16、在視窗中心畫月門
+	// (`sub_25DE4`),然後 `byte_3E097 = 0x0F` 倒數著呼叫 `sub_265F0` 15 次。
+	// 引擎沒有阻塞動畫層,所以只有結果沒有過程(`docs/re/86` §6)。
+
+	// ★★ 踏過的月門**立刻變回草地**(原版 `mov byte ptr [eax], 5`)。
+	// 夜裡下一次 `RefreshMoongateTiles` 會再把它寫回 0xDC ⇒ 看起來是
+	// 「吸走你之後閉合、再張開」。順序照原版:**先關門,才判要不要傳送**。
+	s.SetTileAt(s.X, s.Y, u5data.MoongateClosedTile)
+	// ★★ 午夜的前十分鐘踏上月門**不會傳送**,只是把門關掉
+	// (原版 `if (byte_3E08F == 0 && byte_3E091 < 0Ah) esi = 1`)。
+	// ⚠ 這一條沒有訊息也沒有動畫 —— 玩家只會看到門消失而人沒動。
+	// 照原樣做(`CLAUDE.md §3.0`),不要「順手」補一句提示。
+	if s.Clock.Hour == 0 && s.Clock.Minute < u5data.MoongateDeadMinutes {
+		return true
+	}
 	return s.TravelByMoongate(s.MoonPhaseNow())
 }

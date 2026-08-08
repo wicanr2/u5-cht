@@ -2,6 +2,7 @@ package render
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"os"
 	"path/filepath"
@@ -216,4 +217,70 @@ func dungeonScene(t *testing.T) (*Scene, *game.State) {
 	}
 	st.TorchTurns = 100
 	return sc, st
+}
+
+// TestMoongateGrowsFromTheBottom —— ★ 月門的長出動畫(原版 `sub_265F0`)。
+//
+// 第 f 格 = 「草地 + 月門圖的前 f 列疊在第 (16−f) 列起」。所以:
+//
+//	f = 0 或 f >= 16 → 整格月門(一般畫法)
+//	f = 1..15        → 上面 (16−f) 列是草地、下面 f 列是門
+//
+// ⚠ 這條測試比對的是**列的來源**,不是「有沒有變化」—— 只驗「畫面不一樣」
+// 會讓「疊反了(門在上、草在下)」照樣過關。
+func TestMoongateGrowsFromTheBottom(t *testing.T) {
+	tiles := make([]u5data.Tile, 256)
+	// 草地全填色號 1、月門每一列填「列號 + 2」,這樣就分得出來源是哪一列。
+	for p := range tiles[u5data.MoongateClosedTile].Pix {
+		tiles[u5data.MoongateClosedTile].Pix[p] = 1
+	}
+	for ty := 0; ty < u5data.TileSize; ty++ {
+		for tx := 0; tx < u5data.TileSize; tx++ {
+			tiles[u5data.MoongateOpenTile].Pix[ty*u5data.TileSize+tx] = byte(ty + 2)
+		}
+	}
+	world := &u5data.WorldMap{}
+	for i := range world.Tiles {
+		world.Tiles[i] = u5data.MoongateOpenTile
+	}
+	s := &Scene{
+		State: &game.State{World: world, X: 100, Y: 100},
+		Tiles: tiles,
+		Text:  NewTextRenderer(nil, nil, ColorText),
+	}
+
+	// 挑**非中央**的一格 —— 中央那格上面疊著玩家標記(ColorMarker),
+	// 量到的會是白色而不是地形。第一版量中央,紅燈看起來像疊反了。
+	half := ViewTiles / 2
+	cx := MapOriginX + (half+2)*TilePixels
+	cy := MapOriginY + half*TilePixels
+	rowColor := func(img *image.NRGBA, ty int) color.Color {
+		return img.At(cx+1, cy+ty*TileScale+1)
+	}
+
+	for _, f := range []int{1, 5, 15} {
+		s.State.MoongateFrame = f
+		img := s.Render()
+		top := u5data.TileSize - f
+		for ty := 0; ty < u5data.TileSize; ty++ {
+			want := u5data.EGAPalette[1] // 草地
+			why := "草地"
+			if ty >= top {
+				want = u5data.EGAPalette[(ty-top+2)&0x0F]
+				why = fmt.Sprintf("月門圖第 %d 列", ty-top)
+			}
+			if got := rowColor(img, ty); got != color.Color(want) {
+				t.Fatalf("f=%d 第 %d 列該是%s:得到 %v,預期 %v", f, ty, why, got, want)
+			}
+		}
+	}
+
+	// f = 0 與滿格都走一般畫法 = 整格月門(第 0 列就是門的第 0 列)。
+	for _, f := range []int{0, game.MoongateFrameMax} {
+		s.State.MoongateFrame = f
+		img := s.Render()
+		if got, want := rowColor(img, 0), color.Color(u5data.EGAPalette[2]); got != want {
+			t.Errorf("f=%d 該畫完整的月門:第 0 列得到 %v,預期 %v", f, got, want)
+		}
+	}
 }

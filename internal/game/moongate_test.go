@@ -224,6 +224,11 @@ func TestEnteringReadsTheTileNotTheCoordinates(t *testing.T) {
 	}
 
 	// (b) 隨便一格寫上月門 tile → 該傳送。
+	//
+	// ⚠ 要避開午夜前十分鐘的空窗(見 `TestMidnightMoongateSwallowsWithoutSending`)
+	// —— 那時 `EnterMoongateHere` 也回 true,只驗回傳值會變成假綠燈。
+	// 所以這裡連**人有沒有真的移動**一起驗。
+	s.Clock.Hour = u5data.MoongateNightFrom
 	fx, fy := g.X+7, g.Y+7
 	s.X, s.Y = fx, fy
 	if !s.SetTileAt(fx, fy, u5data.MoongateOpenTile) {
@@ -231,6 +236,81 @@ func TestEnteringReadsTheTileNotTheCoordinates(t *testing.T) {
 	}
 	if !s.EnterMoongateHere() {
 		t.Error("有月門 tile 卻沒傳送 —— 原版只讀那一格")
+	}
+	if s.X == fx && s.Y == fy {
+		t.Error("回了 true 但人沒動")
+	}
+}
+
+// TestSteppingThroughClosesTheGateBehindYou —— ★ 踏過的月門立刻變回草地。
+//
+// 原版 `sub_E084` 在判「要不要傳送」**之前**就 `mov byte ptr [eax], 5` ——
+// 把腳下那一格寫回草地(`docs/re/86` §6)。夜裡下一次 `RefreshMoongateTiles`
+// 會再寫回 0xDC ⇒ 畫面上是「吸走你之後閉合、再張開」。
+func TestSteppingThroughClosesTheGateBehindYou(t *testing.T) {
+	s := moonState(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	s.Location, s.Floor = 0, 0
+	s.Clock.Hour = u5data.MoongateNightFrom
+	// 挑一格離月石很遠的地方,免得 `RefreshMoongateTiles` 立刻又寫回去。
+	fx, fy := s.Moongates[0].X+40, s.Moongates[0].Y+40
+	s.X, s.Y = fx, fy
+	if !s.SetTileAt(fx, fy, u5data.MoongateOpenTile) {
+		t.Fatal("寫不進世界地圖")
+	}
+	if !s.EnterMoongateHere() {
+		t.Fatal("沒傳送")
+	}
+	if got := s.TileAt(fx, fy); got != u5data.MoongateClosedTile {
+		t.Errorf("踏過的那一格是 0x%02X,預期草地 0x%02X", got, u5data.MoongateClosedTile)
+	}
+}
+
+// TestMidnightMoongateSwallowsWithoutSending —— ★★ 午夜前十分鐘踏上月門不會傳送。
+//
+// 原版 `sub_E084`:`if (byte_3E08F == 0 && byte_3E091 < 0Ah) esi = 1`,
+// 直接跳過 `sub_DF84`(傳送)。門照樣關掉,人留在原地 ——
+// **沒有訊息、沒有動畫**(`docs/re/86` §6)。
+//
+// ⚠ 這看起來像 bug,而它可能真的是。`CLAUDE.md §3.0`:照原樣做,
+// 不補提示、不「順手」修掉。已列進 A 階段對 DOSBox 的核對清單。
+func TestMidnightMoongateSwallowsWithoutSending(t *testing.T) {
+	s := moonState(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	s.Location, s.Floor = 0, 0
+	fx, fy := s.Moongates[0].X+40, s.Moongates[0].Y+40
+
+	step := func(hour, minute int) (moved bool, tile byte) {
+		s.Clock.Hour, s.Clock.Minute = hour, minute
+		s.X, s.Y = fx, fy
+		if !s.SetTileAt(fx, fy, u5data.MoongateOpenTile) {
+			t.Fatal("寫不進世界地圖")
+		}
+		s.EnterMoongateHere()
+		return s.X != fx || s.Y != fy, s.TileAt(fx, fy)
+	}
+
+	// 00:00–00:09:門關掉,人不動。
+	for _, m := range []int{0, 5, 9} {
+		moved, tile := step(0, m)
+		if moved {
+			t.Errorf("00:%02d 傳送了 —— 原版那十分鐘不送人", m)
+		}
+		if tile != u5data.MoongateClosedTile {
+			t.Errorf("00:%02d 之後那一格是 0x%02X,門該關掉", m, tile)
+		}
+	}
+	// 00:10 起恢復正常。
+	if moved, _ := step(0, u5data.MoongateDeadMinutes); !moved {
+		t.Error("00:10 還是不送人 —— 判準是 `分鐘 < 10`")
+	}
+	// 別的小時的第 0 分鐘不受影響(判準含 `小時 == 0`)。
+	if moved, _ := step(u5data.MoongateNightFrom, 0); !moved {
+		t.Error("20:00 不送人 —— 空窗只在午夜那個小時")
 	}
 }
 

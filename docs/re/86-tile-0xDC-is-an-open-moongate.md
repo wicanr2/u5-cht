@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | 輸入檔 | `re_work/fmtowns/WORRIORS.EXP.asm` |
-| 主要函式 | `sub_DEE4`(開關月門)、`sub_DE74`(這一顆算不算在場)、`sub_E084`(玩家踏上)、`sub_2870`(怪物踏上) |
+| 主要函式 | `sub_DEE4`(開關月門)、`sub_DE74`(這一顆算不算在場)、`sub_E084`(玩家踏上)、`sub_2870`(怪物踏上)、`sub_29BEC`(★ 重畫時挑動畫格)、`sub_265F0`(★ 疊出第 N 格)、`sub_135FC`(某段過場也用同一個計數器) |
 | 起因 | `docs/re/85` 留的 ⬜:「走到 tile 0xDC 就消失,那是什麼地形?」 |
 | 狀態 | ✅ 解完,順帶結案 WORKLIST 那條「埋下去的月石怎麼變成月門」 |
 
@@ -94,11 +94,17 @@ cmp     byte ptr [eax], 0DCh   ; eax = 地圖 tile 指標 → **月門**
 | 原版 | 引擎 | 狀態 |
 |---|---|---|
 | tile 0xDC | `u5data.MoongateOpenTile` | ✅(原名 `CreatureVanishTile`,語意當時未定) |
-| `sub_DEE4` 的時段 | `u5data.MoongateOpenAtHour` | ✅ 接進 `MoongateAt` ⇒ **白天沒有月門** |
+| `sub_DEE4` 的時段 | `u5data.MoongateOpenAtHour` | ✅ 接進 `RefreshMoongateTiles` ⇒ **白天沒有月門** |
 | `sub_2870` 的月門吞噬 | `game.(*State).stepObject` | ✅ |
 | `sub_DE74` | `game.(*State).moongateWritesHere` | ✅ 含 32×32 視窗檢查(用「隊伍為中心」近似) |
 | 把 tile 寫進地圖緩衝 | `game.(*State).RefreshMoongateTiles` | ✅ **月門現在畫得出來** |
-| 淡出計數器 `byte_3E097` | `game.State.MoongateFrame` | ✅ 開關生效;⬜ 繪圖還沒用它當動畫格 |
+| 淡出計數器 `byte_3E097` | `game.State.MoongateFrame` | ✅ 開關生效 + ✅ 繪圖用它當動畫格(§7);⬜ 存檔位移未定位 |
+| `sub_E084` 踏過就關門 | `EnterMoongateHere` 寫回草地 | ✅(§6) |
+| `sub_E084` 午夜前十分鐘不傳送 | `u5data.MoongateDeadMinutes` | ✅(§6) |
+| `sub_E084` 的阻塞動畫 | — | ⬜ 引擎沒有阻塞動畫層 |
+| `sub_29BEC` 挑動畫格 | `render.(*Scene).drawTerrain` | ✅(§7) |
+| `sub_265F0` 疊出第 N 格 | `render.(*Scene).drawMoongateFrame` | ✅(§7) |
+| `sub_135FC` 的過場 | — | ⬜ 未讀(見 §7 末) |
 
 ## 5. 落地時的三個決定
 
@@ -127,3 +133,113 @@ cmp     byte ptr [eax], 0DCh   ; eax = 地圖 tile 指標 → **月門**
 ⚠ 另一個可觀察的後果來自 `sub_DE74` 的視窗檢查:**離開視窗時原版不會把那一格
 寫回草地**,所以遠處的月門 tile 會留在地圖上直到玩家再走近。
 順序保護了它(回到視窗內時先重寫,才可能踏上去),所以不是 bug。
+
+## 6. ★★ `sub_E084` 讀完之後的兩個機制
+
+前面只讀到「比 tile 0xDC」就停了。整支讀完(`WORRIORS.EXP.asm`)是這樣:
+
+```
+if (tile(隊伍X, 隊伍Y) != 0DCh) return 0
+重畫;音效
+saved = byte_3E08C ; byte_3E08C = 16h        ; 載具碼暫時換掉(畫成被吸走的樣子)
+sub_25DE4(0DCh, 5, 5)                        ; 在視窗中心畫月門
+byte_3E08C = saved ; 重畫
+byte_3E097 = 0Fh
+while (byte_3E097 != 0) {                    ; ★ 阻塞動畫:倒數 15 格
+    sub_265F0(byte_3E097, 5, 5) ; nullsub_20(2) ; byte_3E097--
+}
+tile(隊伍X, 隊伍Y) = 5                        ; ★★ 踏過的月門立刻變回草地
+sub_253D4(5, 5, 5)
+if (byte_3E08F == 0 && byte_3E091 < 0Ah) esi = 1   ; ★★ 午夜前十分鐘不傳送
+else {
+    if (byte_3E08F < 0Ch) 相位 = byte_3E095 else 相位 = byte_3E096
+    sub_DF84(相位 − 30h)                      ; 傳送
+}
+```
+
+### (a) 踏過的月門立刻變回草地
+
+`mov byte ptr [eax], 5` 在**判要不要傳送之前**。夜裡下一次 `sub_DEE4` 會再寫回
+0xDC ⇒ 畫面上是「吸走你之後閉合、再張開」。順序照抄:先關門,才判傳送。
+
+⚠ 又是寫死的 5(同 §5(c))—— 埋在沙漠的月門,你踏過一次那格就變草地。
+
+### (b) ★★ 午夜的前十分鐘踏上月門**不會傳送**
+
+`byte_3E08F` 是小時、`byte_3E091` 是分鐘(同 `docs/re/26` 的時鐘欄位)。
+`小時 == 0 && 分鐘 < 10` ⇒ **00:00–00:09 踏上月門只會把門關掉,人留在原地**。
+
+- **沒有訊息、沒有動畫** —— 玩家只看到門消失而自己沒動。
+- 阻塞動畫**照跑**(那一段在判定之前),所以看起來就是「被吸了一下又吐回來」。
+- 疑似是「相位剛換、目的地還沒定」的空窗期,但原版沒有任何說明文字,
+  所以語意不猜。照原樣做(`CLAUDE.md §3.0`),已列進 A 階段對 DOSBox 的核對清單。
+
+⇒ `game.MoongateDeadMinutes = 10`,`TestMidnightMoongateSwallowsWithoutSending`
+釘住三個點:00:00/00:05/00:09 不送人但門關掉、00:10 恢復、20:00 不受影響。
+
+### (c) 相位來源依時段分兩個變數
+
+中午前讀 `byte_3E095`、中午後讀 `byte_3E096`(`cmp byte_3E08F, 0Ch`),
+兩者都要減 `0x30` —— 存的是 **ASCII 數字**。引擎的 `MoonPhaseNow()` 本來就
+吃「日 + 小時」算出同一個分界,這一條已經對上,不用改。
+
+## 7. ★★★ `byte_3E097` 真的是動畫格編號 —— 而且繪圖那一半找到了
+
+全檔掃描 `byte_3E097`,**五個使用者**(不是原本以為的「開關 + 存檔」):
+
+| 函式 | 做什麼 |
+|---|---|
+| `sub_DEE4` | 日夜升降(§2) |
+| `sub_E084` | 玩家踏上時的阻塞倒數 0x0F → 0(§6) |
+| `sub_135FC` | 某段過場:先 1 → 0x10 長出、清掉全部物件槽、再 0x0F → 0 收回 |
+| `sub_27D24` / `sub_284CC` | 存檔寫 / 讀 |
+| **`sub_29BEC`** | ★ **重畫時挑動畫格** —— 這是缺的那一半 |
+
+### `sub_29BEC`:計數器決定畫哪一格
+
+```asm
+eax = esi*32 + edi                     ; 視窗緩衝的索引(32 欄一列)
+cmp  byte_3F6E4[eax], 0DCh
+jnz  loc_29C60                         ; 不是月門 → 一般畫法
+mov  al, byte_3E097
+and  al, al      ; jz  loc_29C60       ; ★ 計數器 0   → 一般畫法
+cmp  al, 10h     ; jnb loc_29C60       ; ★ 計數器滿格 → 一般畫法
+call sub_265F0(al, edi, esi)           ; 1..15 → 中間格
+```
+
+⇒ **滿格(0x10)畫的才是完整的月門**,1..15 是長出的過程。
+而**計數器為 0 時走一般畫法** —— 那正好是 §5 末尾那個殘留:離開載入視窗、
+tile 沒被寫回草地的月門,會被畫成**完整的門**。兩件事互相咬合。
+
+### `sub_265F0(f, 欄, 列)`:草地上疊出前 f 列
+
+```asm
+ebx     = 基址 + 0A00h                 ; 0x0A00 / 0x200 = tile 5   → **草地**
+var_224 = 基址 + 1B800h                ; 0x1B800 / 0x200 = tile 0DCh → **月門**
+rep movsd (ecx = 80h)                  ; 整格填草地(80h dword = 512 byte)
+dest = 暫存格 + (20h − 2*f) * 10h      ; = 第 (16 − f) 列
+copy f * 20h byte                       ; = 月門圖的**前 f 列**
+```
+
+**每格 0x200 byte、每列 0x20 byte ⇒ 16×16 × 2 byte/px**,正好是 FM Towns 的
+16-bit 直色 —— 這順帶佐證「0x1B800 ÷ 0x200 = 0xDC」與「0x0A00 ÷ 0x200 = 5」
+不是巧合湊出來的。
+
+⇒ **底下鋪草地,月門圖的前 f 列疊在第 (16−f) 列起**:門由下往上長出來,
+露出來的一直是門圖的上半部。
+
+⚠ `offset sub_1B800` 是 **IDA 的自動命名,不是函式** —— 它被當純數值用。
+這是本專案第四次踩到「`aXxx` / `sub_Xxxx` 自動名不是資料」(`CLAUDE.md §4.5`)。
+第一次是 `a88`(其實是權重表),這次是把 tile 位移認成函式位址。
+
+### 引擎落地
+
+`render.(*Scene).drawTerrain` 在畫地形前多問一句(與 `sub_29BEC` 同形),
+`drawMoongateFrame` 照上面的算式疊。⇒ **`MoongateFrame` 現在看得見了** ——
+此前它只控制「開 / 關」,中間 15 格完全沒有畫面差別。
+
+⚠ 測試比對的是**每一列的來源**(草地或門圖第幾列),不是「畫面有沒有變」——
+只驗「不一樣」的話,疊反了(門在上、草在下)照樣過關。
+
+⬜ `sub_135FC` 沒讀:它 `byte_3F979 = 0DCh`、長出月門、把 `byte_3E06B` 個物件槽
+逐一清零、再收回。看起來是某段**過場**(月門吞掉全場)。留在 D 階段。
