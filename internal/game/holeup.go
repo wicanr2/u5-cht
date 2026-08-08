@@ -495,7 +495,7 @@ func (s *State) AnswerYesNo(yes bool) {
 	s.yesNoThen = nil
 	s.Prompt = s.ynReturn
 	if yes {
-		s.Log("是。")
+		s.Log(MsgYes)
 	} else {
 		s.Log(MsgNo)
 	}

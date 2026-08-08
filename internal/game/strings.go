@@ -19,8 +19,9 @@ const (
 	MsgBritannia = "不列顛尼亞!"
 	// "Underworld!\n"
 	MsgUnderworld = "幽冥界!"
-	// "No\n"
-	MsgNo = "否。"
+	// "No\n" / "Yes\n"
+	MsgNo  = "否。"
+	MsgYes = "是。"
 	// "Up!\n"
 	MsgUp = "拾級而上!"
 	// "Down!\n"
@@ -211,9 +212,19 @@ const (
 	//
 	// "\nThou dost see\n"
 	MsgThouDostSee = "汝所見為"
-	// "a deep well"。原版接著問「Drop a coin?」但**不管答什麼都沒有後續** ——
-	// 組語裡沒有任何寫入,所以這裡也不做成互動,一句話帶過。
+	// "a deep well"
+	//
+	// ⚠ **更正**:此前這裡寫「原版接著問『Drop a coin?』但不管答什麼都沒有後續,
+	// 組語裡沒有任何寫入」—— 那是錯的。錯因是讀了 Hex-Rays 的 `sub_CD28`,
+	// 而它**把函式截斷在 Y/N 迴圈**就 return 了(`CLAUDE.md` §4.4 那條 `[HARD]`
+	// 講的正是這件事)。組語裡它有三個參數、四倍長,而且是**整個許願井彩蛋**:
+	// 扣一枚錢、問願望、六個字串、兩個地點、生一匹馬。見 `u5data/well.go`。
 	MsgLookWell = "一口深井。"
+	// "Drop a coin?" / "\nThy wish?\n" / "Nothing\n" / "\nPoof!\n"
+	MsgDropACoin = "要投一枚錢幣嗎?"
+	MsgThyWish   = "汝所願為何?"
+	MsgNothing   = "無。"
+	MsgPoof      = "砰!"
 	// "a gurgling fountain!" / "Who will drink?" / "None!" /
 	// "Incapacitated!" / "Refreshing..."
 	//

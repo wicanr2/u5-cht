@@ -29,8 +29,8 @@ const (
 	LookCrystalSphere = 0x29
 	// LookSky 是可以抬頭看天的格子(原版 tile 0x59)。
 	LookSky = 0x59
-	// LookWell 是井。
-	LookWell = 0xA1
+	// LookWell 是井 —— 而井是**互動**的(許願井彩蛋,見 `well.go`)。
+	LookWell = u5data.WellLookTile
 	// LookFountainGroup 是噴泉:`tile & 0xFC == 0xD8`,四個朝向。
 	LookFountainGroup = 0xD8
 	// LookFlame 是三聖火的封印,敘述結尾「the Flame of 」要接火名。
@@ -132,7 +132,7 @@ func (s *State) lookTerrain(tile byte, x, y int) {
 		s.lookAtTheSky()
 		return
 	case tile == LookWell:
-		s.Log(MsgLookWell)
+		s.lookAtWell()
 		return
 	case tile&0xFC == LookFountainGroup:
 		s.drinkFromFountain()
