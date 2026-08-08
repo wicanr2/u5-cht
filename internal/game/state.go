@@ -782,7 +782,8 @@ func (s *State) moveInWorld(d Direction) {
 		s.tick()
 		return
 	}
-	// 駕船時風向決定走不走得動(原版 `sub_2D38` 的延遲表)。
+	// 駕船時風向決定走不走得動。
+	// ⚠ 原版是 `sub_2D2D0`,不是 `sub_2D38`(那支是敵船的)—— 見 `docs/re/83` §4。
 	if s.IsSailing() && !s.InScene() && !s.CanSail(dx, dy) {
 		s.tick()
 		return
