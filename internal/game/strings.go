@@ -355,6 +355,11 @@ const (
 	MsgUnderSail = "船正揚帆而行。"
 	// 腳下放不下東西 —— 原版靠「取空槽」失敗,沒有專屬訊息;這是引擎的回饋。
 	MsgNoRoom = "(此處放不下)"
+
+	// MsgStrangeRock 是搜出埋著的月石時那一句(原版 `"a strange rock!\n"`)。
+	//
+	// ★ 原版**不說那是月石** —— 撿起來才知道。與 `sub_13CB0` 第 25 筆同字。
+	MsgStrangeRock = "一塊奇怪的石頭!"
 	// "You respond-\n:" —— 回答 NPC 的提問時的提示。
 	MsgYouRespond = "汝答:"
 	// 記錄裡找不到對應的提問區塊 —— 資料或解析的問題,讓它看得見。

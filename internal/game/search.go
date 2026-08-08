@@ -107,6 +107,16 @@ func (s *State) searchAt(x, y int) {
 		s.Log(MsgHiddenDoor)
 		return
 	}
+	// ★ 月門那一格搜不到任何東西(原版 `cmp [ebp+var_8], 0DCh; jz` 直接離開,
+	// 連「什麼也沒有」都不印)。
+	if tile == u5data.MoongateOpenTile {
+		return
+	}
+	// ★★ 三層固定內容(`docs/re/96`)——原版在隨機那一層**之後**才跑,
+	// 而「什麼也沒有」只在三層都沒中時才印。
+	if s.searchFixedContents(x, y) {
+		return
+	}
 	s.rollSearchFind(member)
 }
 
@@ -189,6 +199,14 @@ func (s *State) rollSearchJunk(member int) {
 
 // placeFoundObject 把翻到的東西放進物件槽。
 func (s *State) placeFoundObject(slot int, kind, quality byte) {
+	s.placeFoundObjectAt(slot, kind, quality, s.X, s.Y)
+}
+
+// placeFoundObjectAt 放在指定座標。
+//
+// ★ 三層固定內容(月石 / 藥草 / 113 筆)放的是**被搜的那一格**,不是腳下 ——
+// 原版 `sub_2B6C8(…, X, Y, 樓層, …)` 的 X/Y 來自搜尋的目標(`docs/re/96`)。
+func (s *State) placeFoundObjectAt(slot int, kind, quality byte, x, y int) {
 	objs := s.currentObjects()
 	if objs == nil || slot < 0 || slot >= len(objs.Objects) {
 		return
@@ -196,9 +214,9 @@ func (s *State) placeFoundObject(slot int, kind, quality byte) {
 	o := &objs.Objects[slot]
 	o.Raw[u5data.ObjKind] = kind
 	o.Raw[u5data.ObjTile] = kind
-	o.Raw[u5data.ObjX] = byte(s.X)
-	o.Raw[u5data.ObjY] = byte(s.Y)
+	o.Raw[u5data.ObjX] = byte(x)
+	o.Raw[u5data.ObjY] = byte(y)
 	o.Raw[u5data.ObjQuality] = quality
 	o.Kind, o.Tile = kind, kind
-	o.X, o.Y, o.Floor = s.X, s.Y, s.Floor
+	o.X, o.Y, o.Floor = x, y, s.Floor
 }

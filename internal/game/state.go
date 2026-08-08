@@ -272,6 +272,12 @@ type State struct {
 	// (原版 `byte_4FD94` / `byte_4FD95`)。★ 是**全域**一份不是每槽一份,
 	// 只由 `stepObject` 寫、只由 `notJustVacated` 讀(`docs/re/85`)。
 	lastVacatedX, lastVacatedY int
+	// hiddenTaken 是「113 筆固定物品哪幾筆已經被撿走」的位元圖
+	// (原版 `byte_3E06C`)。⬜ 存檔位移未定位。
+	hiddenTaken [u5data.HiddenTakenBytes]byte
+	// herbPickedDay[i] 是第 i 個秘密採藥點**最後一次被採的日期**
+	// (原版 `byte_3E068[i]`,與 `byte_3E08E` 比對)。⬜ 存檔位移未定位。
+	herbPickedDay [len(u5data.HerbSpots)]byte
 	// rng 是戰鬥骰子。留空時用固定種子 —— headless 與測試要可重現;
 	// 遊戲啟動時 cmd/u5cht 換成時間種子。
 	rng *rand.Rand
