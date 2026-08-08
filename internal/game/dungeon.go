@@ -339,23 +339,24 @@ func (s *State) enterDungeonRoom(tile byte) {
 
 // damageWholeParty 讓全隊受傷(原版 `sub_2A4D0`)。
 //
-// ⚠ 傷害值還沒逆出來 —— `sub_2A4D0` 內部另有一套。這裡用陷阱最常見的
-// `random(1, 20)`(與下毒攻擊 `sub_B8DC` 的 `random(0,20)` 同量級),
-// 並在文件裡標明是**估計值**。
+// ⚠ **更正**:此前這裡寫「傷害值還沒逆出來,用 `random(1, 20)` 是估計值」——
+// 其實 `sub_2A4D0` 整支只有九行,讀出來就是:
+//
+//	for (i = 0; i < 6 && i < 隊伍人數; i++)
+//	    if (狀態[i] != 'D') sub_2A464(i, sub_28E14(1, 8))
+//
+// 沒讀到的原因與許願井同一個:反編譯版的參數列是空的(`docs/re/66`)。
+// 所以傷害是 **rand(1, 8)**,不是 1..20;而且**最多只掃 6 個人**
+// (原版 `cmp edi, 6`;`CombatPartySlots` 就是那個 6)。
+//
+// `sub_2A464` 就是 `damageMember`(見 `pickchar.go`),所以這裡直接用它,
+// 不再自己重寫扣血與判死。
 func (s *State) damageWholeParty() {
-	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
-		ch := &s.Roster[i]
-		if ch.Status == u5data.StatusDead {
+	for i := 0; i < s.PartySize && i < len(s.Roster) && i < u5data.CombatPartySlots; i++ {
+		if s.Roster[i].Status == u5data.StatusDead {
 			continue
 		}
-		dmg := s.Roll(1, 20)
-		hp := int(ch.HP) - dmg
-		if hp <= 0 {
-			hp = 0
-			ch.Status = u5data.StatusDead
-			s.Log(ch.Name + "倒下了!")
-		}
-		ch.HP = uint16(hp)
+		s.damageMember(i, s.Roll(1, u5data.DrownDamageMax))
 	}
 }
 

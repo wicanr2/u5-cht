@@ -58,7 +58,12 @@ func (s *State) sailDelay(dx, dy int) int {
 // 也是 Rel Hur 有用的原因。
 func (s *State) CanSail(dx, dy int) bool {
 	if s.Wind == u5data.WindCalm {
-		// 無風:原版在查表前就 `jz` 掉,船一律不受風影響 —— 照走。
+		// 無風:原版 `sub_2D38` 在查延遲表**之前**就把它 `jz` 掉,所以不查表。
+		//
+		// ⚠ 但這**不等於「照走」**:揚著帆(0x20..0x23)而且無風時,
+		// `sub_2CCFC` 會回傳「這一步用掉了」—— 船動不了。那個判斷在
+		// `turnShipInstead`,在呼叫本函式之前就攔下來了(`docs/re/66`)。
+		// 走到這裡的是收帆的船(0x24..0x27),它不受風影響。
 		return true
 	}
 	delay := s.sailDelay(dx, dy)

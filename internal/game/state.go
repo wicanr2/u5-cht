@@ -695,6 +695,13 @@ func (s *State) moveInWorld(d Direction) {
 		s.Log(MsgBlocked)
 		return
 	}
+	// ★ 大船先判「轉向」:想去的方向與船頭不同就只轉向,這一步用掉了
+	// (原版 `sub_2D174` → `sub_2CCFC`,回傳非 0 就不移動)。
+	// 揚著帆又無風也走不了 —— 兩件事都在 `turnShipInstead` 裡。
+	if !s.InScene() && s.turnShipInstead(d) {
+		s.tick()
+		return
+	}
 	// 駕船時風向決定走不走得動(原版 `sub_2D38` 的延遲表)。
 	if s.IsSailing() && !s.InScene() && !s.CanSail(dx, dy) {
 		s.tick()

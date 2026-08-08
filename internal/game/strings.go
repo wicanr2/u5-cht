@@ -192,6 +192,17 @@ const (
 	MsgOnFoot = "汝須先下來步行。"
 	// "\nDANGER: SHIP BADLY DAMAGED!\n"
 	MsgShipDamaged = "警告:此船受損嚴重!"
+	// 船身損傷與沉船(原版 `sub_22F0` / `sub_2CCFC` / `sub_2D9D0`,見 `docs/re/66`)
+	//
+	// ⚠ "Hull weak!" 的門檻是 **50**,與上面 MsgShipDamaged 的 10 是
+	// **兩個不同的警告**:前者每次轉向都會唸,後者只在上船時唸一次。
+	MsgHullWeak    = "船身脆弱!"
+	MsgShipSunk    = "船沉了!"
+	MsgAbandonShip = "棄船!"
+	MsgDrowning    = "溺水!"
+	MsgRoughSeas   = "風浪險惡!"
+	// "Head " —— 大船轉向時印的,後面接方向名。
+	MsgHeading = "轉向"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"
