@@ -18,6 +18,7 @@
 | 寫 / 大改 README | `rulebook/80-retro-cht-readme-polish.md` + 本檔 §7 |
 | 決定中文字尺寸 / 畫布 | `rulebook/81-retro-cjk-hires-canvas.md` + `retro-cht/eten-bitmap-font/SKILL.md` |
 | 做打包後的可玩性驗收 | `retro-cht/retro-game-playtest/SKILL.md` |
+| **動音樂 / 音效 / 轉檔 / `.EUP` / `.FMB` / CDDA** | `docs/audio-pipeline.md`(整條鏈路的單一真相來源,含待決的岔路) |
 | 除錯 / 找 bug | `rulebook/60-feedback-loop-priority.md` |
 | 特例越補越多、「再差一點」卡很久 | `rulebook/41-whack-a-mole-stop-rethink.md` |
 | 規劃模組介面 | `rulebook/70-deep-modules.md` |

@@ -527,13 +527,50 @@ DOSBox 設定的實測基準見 `~/.claude/knowledge-base/retro/dosbox-game-conf
   誠實印出來。
   ⚠ 讀不到 `U5_BGM.TBL` 是**錯誤**不是「沒有音樂」;表在但 ogg 沒渲染才是降級。
 
+### 📄 音訊這條線有獨立工程文件:**`docs/audio-pipeline.md`**
+
+從原版媒體到玩家聽見聲音的完整鏈路、每一環的狀態、驗收條件、命令速查,
+以及 §3.3 那個待決的岔路都在那裡。**每有突破就更新它**,不另開新檔。
+
+### ⚠⚠ C 階段撞到一個硬結(`docs/re/89`)
+
+原計畫是「追 `sub_34xxx` 怎麼把 FMB 的 40 byte 寫進 YM2612 暫存器」。
+**那個計畫不成立** —— `WORRIORS.EXP` 從來沒有解析過 `.EUP` 或 `.FMB`:
+它把**檔名的 far pointer** 交給音源驅動(`sub_3453B`:`AH=15h/16h` →
+`sub_34B1B`),`getenv("FMINST")` 只是找音色目錄。
+
+而解析它的東西**在 `TBIOS.BIN` 裡**(Fujitsu Towns BIOS,81,920 B,就在光碟根目錄):
+`CONFIG.SYS` 只載 `TBIOS.SYS /TBIOS.BIN`、`AUTOEXEC.BAT` 不載任何音源驅動
+⇒ selector 0x110 那張入口表是 BIOS 裝的;而 `TBIOS.BIN` 裡有
+`mov dx,4D8h` × 18(FM 晶片埠)與 `mov ah,3Dh` × 2(DOS 開檔)
+—— **同時碰晶片又會開檔**,正是「收檔名、把 FMB 寫進 YM2612」該有的形狀。
+
+⚠⚠ **本節第一版寫「那份驅動不在我們手上」是錯的**,推翻它的證據是
+`EUPHONY DRIVER FOR TOWNES by Joe Mizuno 1989 Copyright (C) FUJITSU LIMITED`
+這條字串同時出現在 `WORRIORS.EXP` / `WORRIORJ.EXP` / `U5OPEN.EXP` 三個檔案裡。
+錯因:只追了「遊戲怎麼呼叫」那一半就跳到「所以不在我們手上」——
+**「沒找到」與「不存在」是兩件事**(`diagnosis-notes/02`)。
+
+⇒ 需要使用者決定走哪條路:
+
+| 路線 | 代價 |
+|---|---|
+| (1) **逆 `TBIOS.BIN`** 找 `AH=15h/16h` 的分派 → FMB 解析 | 16-bit BIOS 映像、無 MZ 檔頭、無 Hex-Rays ⇒ 全程讀組語,是個新的子專案。錨點是那 18 處 `mov dx,4D8h` |
+| (2) 依外部 EUPHONY/FMB 格式文件實作,標明「未經一手驗證」 | 讀錯一個欄位就是音色不對,**而且聽起來仍然像 FM 音樂** ⇒ 錯不會自己暴露 |
+| (3) ❌ 自製 2-op FM 近似(u1-cht 的做法) | 明知 `FM_BANK.FMB` 就在光碟上卻不用 —— 違反 §3.0 |
+
+⚠ (1) 只影響**音色的正確性**,不影響音序(音高/時長/聲道/選第幾號音色都已解出)。
+
+⚠ **音樂的資料一個位元組都不缺**,缺的只有「那 40 byte 怎麼變成聲音」與
+「一個 tick 多長」。⇒ 這是**渲染器**的問題,不是逆向的問題。
+
 ⬜ C 階段剩下的:
-- **`.EUP` → ogg 離線渲染**(主體)。前置兩個都還沒解,而且**刻意不猜**:
-  - FMB 那 40 byte 的參數語意(兩個候選佈局,(a) 看起來對但沒證據)⇒ 要追
-    `sub_34xxx` 怎麼寫進 YM2612 暫存器。
-  - **tick → 秒**:`簽章+8` 那 8 byte 裡有兩個隨曲子變(疑速度)。
-    u1-cht 用 0.0108 s/tick,但那是**從 U1 曲長反推**的,不是讀出來的。
-- 兩條 CDDA → ogg。
+- **`.EUP` → ogg 離線渲染** —— 卡在上面那個決定。
+- ✅ **兩條 CDDA 已轉成 ogg**(`tools/cdda2ogg.sh`):180 s / 371 s 與位元組數
+  算出來的秒數逐一相符(CDDA 是紅皮書規格 44.1 kHz/16-bit/立體聲,
+  176,400 byte/s ⇒ 長度可以算,不必猜)。轉出的 ogg 不入 git。
+  ⬜ 但**誰在什麼時候播它們**還沒追 —— `cdr_mtplay` 那組 CD API 確實連進了
+  執行檔(見 `docs/re/89` §3a),所以不是裝飾。
 - ebiten 音訊後端(等有 ogg 才有意義)。
 
 ### 5.2 截斷清單剩下的 19 個函式

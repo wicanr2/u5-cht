@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       git \
       unzip \
       p7zip-full \
+      ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # 容器內的 Go 快取放掛載點外,避免污染 repo

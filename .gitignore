@@ -39,3 +39,7 @@
 
 # Go build/module cache(docker 共用,見 tools/dev.sh)
 /.gocache/
+
+# 轉出來的配樂 —— 衍生自原版光碟(CDDA / .EUP),與原版資料同樣不入庫。
+# 由 tools/cdda2ogg.sh 產生,各自從自備的合法副本重跑。
+assets/audio/
