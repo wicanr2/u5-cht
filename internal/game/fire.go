@@ -47,8 +47,102 @@ func (s *State) fireToward(d Direction) {
 	}
 	dx, dy := d.Delta()
 	s.Log(MsgBooom)
-	// 砲彈沿著那個方向飛,打到第一個擋住的東西為止 —— 與投射物同一條路。
-	s.FlyProjectile(0, s.X+dx*cannonRange, s.Y+dy*cannonRange)
+	if s.InCombat() {
+		// 戰場上與投射物同一條路。
+		s.FlyProjectile(0, s.X+dx*cannonRange, s.Y+dy*cannonRange)
+		return
+	}
+	// ⚠ 大地圖上 `FlyProjectile` 一開頭就 `if s.Combat == nil { return }` ——
+	// 也就是說在此之前**開砲什麼都不會發生**,只印一句 BOOOM。
+	// 原版 `sub_172C4` 的後半是另一條路,見 `fireCannonball`。
+	s.fireCannonball(dx, dy)
+}
+
+// 大地圖上的砲彈(原版 `sub_172C4` 的後半)
+//
+// 砲彈沿方向飛最多 5 格,每一格先問「有沒有物件」再問「是不是門」:
+//
+//	物件是有效目標 → 打中:**整個槽直接清掉**(沒有血量、不進戰鬥)、
+//	                 **業報 −5**(下限 0)、若那是個人就**被逮捕**
+//	物件是隊伍自己(槽 0)→ ★ `sub_2A4D0()`:**全隊受傷**(自己打自己)
+//	七種門         → 印 "Door destroyed!",那一格變成 **0x44 磚地**
+//
+// # 有效目標的判準(原版 `loc_1751C` 那一段)
+//
+//	kind == 0x10 或 0x11              → 是目標(★ 馬)
+//	kind <  0x1C                      → 不是
+//	kind & 0xF8 == 0x78               → 不是 ★ 那是**黑刺(14)與不列顛王(15)**
+//	                                     (0x78 = 14×4+0x40、0x7C = 15×4+0x40)
+//	其餘                              → 是目標
+//
+// ⚠ 中間還有一道 `and eax, 0FCh; cmp eax, 2Fh` —— **那是死碼**:
+// `& 0xFC` 會清掉低兩位,結果永遠不可能等於 0x2F。照實際行為實作,不照抄意圖
+// (同 `docs/re/61` 的酒館關鍵字那個死碼)。
+//
+// # 七種門
+//
+//	0x97 0x98 奇怪的門   0x99 柵門
+//	0xB8 木門   0xB9 上鎖的門   0xBA 有窗戶的木門   0xBB 有窗戶的上鎖的門
+//
+// 打掉之後那一格寫成 **0x44**(`TileBrickFloor`)—— 與 An Ylem(消除)寫的是同一個值。
+
+// cannonDoors 是砲彈打得掉的七種門(原版 `sub_172C4` 的七個 `cmp`)。
+var cannonDoors = map[byte]bool{
+	0x97: true, 0x98: true, 0x99: true,
+	0xB8: true, 0xB9: true, 0xBA: true, 0xBB: true,
+}
+
+// cannonKarmaPenalty 是打中東西的業報代價(原版 `sub byte_3E098, 5`,下限 0)。
+const cannonKarmaPenalty = 5
+
+// cannonTargets 回報砲彈打不打得到這種物件。
+func cannonTargets(kind byte) bool {
+	if kind == u5data.TileHorse || kind == u5data.TileHorse+1 {
+		return true // ★ 馬是特例:編號比 0x1C 小,但原版明文放行
+	}
+	if kind < 0x1C {
+		return false
+	}
+	// ★ 黑刺與不列顛王打不掉(0x78..0x7F)。
+	return kind&0xF8 != 0x78
+}
+
+// fireCannonball 讓砲彈飛出去。
+func (s *State) fireCannonball(dx, dy int) {
+	x, y := s.X, s.Y
+	for step := 0; step < cannonRange; step++ {
+		x, y = WrapWorld(x+dx), WrapWorld(y+dy)
+		// 原版先問物件(`sub_2B3DC` 從槽 31 往下掃),再問地形。
+		if o, slot, ok := s.ObjectAt(x, y); ok && cannonTargets(o.Kind) {
+			s.cannonHit(slot, x, y)
+			return
+		}
+		if cannonDoors[s.TileAt(x, y)] {
+			s.Log(MsgDoorDestroyed)
+			s.SetTileAt(x, y, u5data.TileBrickFloor)
+			return
+		}
+	}
+}
+
+// cannonHit 是砲彈打中東西的後果。
+func (s *State) cannonHit(slot, x, y int) {
+	// ★ 打到槽 0(隊伍自己)→ 全隊受傷。原版的 `var_20 == 0` 那條路。
+	if slot == u5data.PartyObjectSlot {
+		s.damageWholeParty()
+		return
+	}
+	s.currentObjects().Remove(slot)
+	// 業報 −5,下限 0(原版 `cmp al,5; jbe → mov byte_3E098, 0`)。
+	if s.Karma > cannonKarmaPenalty {
+		s.Karma -= cannonKarmaPenalty
+	} else {
+		s.Karma = 0
+	}
+	// 打的是人就被逮捕(原版 `sub_2E0` 查 NPC → `sub_218` + `sub_268`)。
+	if _, ok := s.NPCAt(x, y); ok {
+		s.Arrest()
+	}
 }
 
 // cannonRange 是砲彈飛多遠。原版沿著視野緩衝一路掃到邊界,

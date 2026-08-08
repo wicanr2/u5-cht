@@ -269,6 +269,8 @@ const (
 	// ⚠ 「F-A-L-L-S!!!」原版是用破折號拉長的擬聲 —— 中文用刪節號拉長同樣的效果。
 	MsgFalls                = "墜——落——!"
 	MsgFallingIntoUnderworld = "墜入幽冥界!"
+	// "Door destroyed!" —— 砲彈打掉門(原版 `sub_172C4`)。
+	MsgDoorDestroyed = "門被轟掉了!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

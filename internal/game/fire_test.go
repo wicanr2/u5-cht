@@ -116,5 +116,126 @@ func fireScene(t *testing.T) *State {
 	}
 	s.Under = w
 	s.World = w // 地表也用同一張 —— 這條測試只在意 tile 讀寫,不在意地形長相
+	if s.Objects == nil {
+		s.Objects = &u5data.ObjectSet{}
+	}
+	if s.X == 0 && s.Y == 0 {
+		s.X, s.Y = 64, 64
+	}
 	return s
+}
+
+// TestCannonballDestroysDoors 是這次補上的:大地圖開砲原本什麼都不會發生。
+//
+// ⚠ `fireToward` 原本呼叫 `FlyProjectile`,而它一開頭就 `if s.Combat == nil { return }`
+// —— 所以在此之前大地圖上的砲彈只印一句 BOOOM 就結束。
+func TestCannonballDestroysDoors(t *testing.T) {
+	s := fireScene(t)
+	for _, door := range []byte{0x97, 0x98, 0x99, 0xB8, 0xB9, 0xBA, 0xBB} {
+		s.Messages = nil
+		if !s.SetTileAt(s.X+2, s.Y, door) {
+			t.Skip("寫不進世界地圖")
+		}
+		s.fireCannonball(1, 0)
+		if !strings.Contains(strings.Join(s.Messages, "|"), MsgDoorDestroyed) {
+			t.Errorf("門 0x%02X 沒被轟掉:%q", door, s.Messages)
+		}
+		if got := s.TileAt(s.X+2, s.Y); got != u5data.TileBrickFloor {
+			t.Errorf("門 0x%02X 轟完變成 0x%02X,預期磚地 0x%02X",
+				door, got, u5data.TileBrickFloor)
+		}
+	}
+	// 不是門的東西不會變。
+	s.Messages = nil
+	if !s.SetTileAt(s.X+2, s.Y, 0x05) { // 草地
+		t.Skip("寫不進世界地圖")
+	}
+	s.fireCannonball(1, 0)
+	if strings.Contains(strings.Join(s.Messages, "|"), MsgDoorDestroyed) {
+		t.Errorf("草地被當成門轟掉了:%q", s.Messages)
+	}
+}
+
+// TestCannonCannotShootBlackthornOrLordBritish 釘住那個 `& 0xF8 == 0x78`。
+//
+// 0x78 = 14×4+0x40(黑刺)、0x7C = 15×4+0x40(不列顛王)——
+// 兩個都在 0x78..0x7F 這一組裡。
+func TestCannonCannotShootBlackthornOrLordBritish(t *testing.T) {
+	for kind := 0x78; kind <= 0x7F; kind++ {
+		if cannonTargets(byte(kind)) {
+			t.Errorf("種類 0x%02X 竟然打得掉 —— 那一組是黑刺與不列顛王", kind)
+		}
+	}
+	// 其他生物打得掉。
+	for _, kind := range []byte{0x40, 0x44, 0x80, 0xE4} {
+		if !cannonTargets(kind) {
+			t.Errorf("種類 0x%02X 該打得掉", kind)
+		}
+	}
+	// ★ 馬是特例:編號比 0x1C 小卻放行。
+	for _, kind := range []byte{u5data.TileHorse, u5data.TileHorse + 1} {
+		if !cannonTargets(kind) {
+			t.Errorf("馬(0x%02X)該打得掉 —— 原版明文放行", kind)
+		}
+	}
+	// 小物件打不掉。
+	for _, kind := range []byte{0x01, 0x0F, 0x1B} {
+		if cannonTargets(kind) {
+			t.Errorf("種類 0x%02X 不該是目標(< 0x1C)", kind)
+		}
+	}
+	// ⚠ 那道 `& 0xFC == 0x2F` 是死碼 —— 船(0x2C..0x2F)照樣打得掉。
+	for kind := 0x2C; kind <= 0x2F; kind++ {
+		if !cannonTargets(byte(kind)) {
+			t.Errorf("種類 0x%02X 打不掉 —— 那道 `& 0xFC == 0x2F` 永遠不成立,是死碼", kind)
+		}
+	}
+}
+
+// TestCannonHitCostsKarma:打中東西業報 −5,下限 0。
+func TestCannonHitCostsKarma(t *testing.T) {
+	for _, c := range []struct{ before, after int }{
+		{50, 45}, {6, 1}, {5, 0}, {3, 0}, {0, 0},
+	} {
+		s := fireScene(t)
+		objs := s.currentObjects()
+		if objs == nil {
+			t.Skip("沒有物件層")
+		}
+		slot, ok := objs.Spawn(0xE4, s.X+1, s.Y, s.Floor)
+		if !ok {
+			t.Skip("生不出目標")
+		}
+		s.Karma = c.before
+		s.cannonHit(slot, s.X+1, s.Y)
+		if s.Karma != c.after {
+			t.Errorf("業報 %d → %d,預期 %d", c.before, s.Karma, c.after)
+		}
+		if objs.Objects[slot].Present() {
+			t.Error("打中的東西沒有消失 —— 原版是整個槽清掉")
+		}
+	}
+}
+
+// TestShootingYourOwnSlotHurtsTheParty:打到槽 0 就是打自己。
+func TestShootingYourOwnSlotHurtsTheParty(t *testing.T) {
+	s := fireScene(t)
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Status = u5data.StatusGood
+		s.Roster[i].HP = 200
+	}
+	before := s.Karma
+	s.cannonHit(u5data.PartyObjectSlot, s.X, s.Y)
+	if s.Karma != before {
+		t.Errorf("打到自己卻扣了業報:%d → %d", before, s.Karma)
+	}
+	hurt := false
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		if s.Roster[i].HP < 200 {
+			hurt = true
+		}
+	}
+	if !hurt {
+		t.Error("打到自己卻沒人受傷")
+	}
 }
