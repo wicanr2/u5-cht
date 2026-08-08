@@ -78,6 +78,12 @@ var lookDungeonByX = map[int]string{
 
 // Look 是 L 指令。
 func (s *State) Look() {
+	// ★ 地牢是**另一支程式**(原版 `sub_2ACF4` 的 'L' 依地點碼分派到 `sub_EEEC`)——
+	// 相對方向、十六種地形描述、噴泉能喝。見 `internal/game/dungeonlook.go`。
+	if s.InDungeon() {
+		s.LookDungeon()
+		return
+	}
 	s.AskDirection(func(d Direction) {
 		dx, dy := d.Delta()
 		s.lookAt(s.X+dx, s.Y+dy)

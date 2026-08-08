@@ -242,22 +242,36 @@ member 的智力 > roll  →  "Strange vision!" + sub_EDD4  (= In Quas Wis 的�
                   印 "the night sky! " 後等按鍵
 ```
 
-### 未解:白天那條路的一行
+### ✅ 白天那條路的那一行:不是 bug(`docs/re/95` 收掉)
 
 ```asm
 cmp     byte_3E08B, 0FFh
-jnz     short loc_D0A3
+jnz     short loc_D0A3            ; 已經選好人 → 跳過
 call    sub_2B67C
 and     eax, eax
-jnz     short loc_D0A3
-mov     al, byte ptr word_3E086     ← 把**隊伍的 x 座標低位元組**寫進 byte_3E08B
+jnz     short loc_D0A3            ; 沒找到醒著的 → 跳過
+mov     al, byte ptr word_3E086
 mov     byte_3E08B, al
 ```
 
-`byte_3E08B` 是「單人狀態下是哪一位」,而 `word_3E086` 是 x 座標。
-把座標寫進成員索引看起來像原版的 bug,但 `sub_2B67C` 的語意還沒追,
-**不排除是我讀錯**。引擎目前沒有單人狀態,所以這一段先不實作 ——
-留白比猜著寫好。要收掉這條得先逆 `sub_2B67C` 與 `byte_3E08B` 的全部寫入點。
+`sub_2B67C` 是「**找第一個醒著的隊員**」,而它用 `word_3E086` **當回傳通道**:
+
+```
+for (i = 0; i < 隊伍人數; i++) {
+   if (狀態 == 'G' || 'P') { word_3E086 = i; return 0 }   ; ★ 索引寫進 word_3E086
+   if (狀態 == 'S') 睡著數++
+}
+return 睡著數 ? 1 : -1
+```
+
+⇒ 上面那三行是「還沒選人就自動選第一個醒著的」,**完全合理**。
+
+⚠ 之所以看起來像 bug,是因為把 `word_3E086` 當成「只可能是 x 座標」——
+它其實是**通用暫存全域**,`docs/re/16` §? 早就記過同一個坑
+(「⚠ 它用的兩個全域 `word_3E086` / `word_3E088` … 很容易把兩者搞混」)。
+全檔掃描:36 處寫入、164 處讀取,語意由呼叫端決定。
+
+⇒ 規則:**看到一個全域被大量讀寫且語意不一致,先假設它是暫存,不是具名欄位。**
 
 ## 7. 引擎對應
 
