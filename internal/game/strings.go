@@ -215,6 +215,8 @@ const (
 	// ⚠ "Hull weak!" 的門檻是 **50**,與上面 MsgShipDamaged 的 10 是
 	// **兩個不同的警告**:前者每次轉向都會唸,後者只在上船時唸一次。
 	MsgHullWeak    = "船身脆弱!"
+	// 揚著帆卻完全無風(原版 `sub_2CCFC` 的最後一條:回 1 = 這一步用掉了)。
+	MsgBecalmed = "帆無風可吃,船動不了。"
 	MsgShipSunk    = "船沉了!"
 	MsgAbandonShip = "棄船!"
 	MsgDrowning    = "溺水!"

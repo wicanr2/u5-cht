@@ -24,76 +24,56 @@ func (s *State) SetWind(wind int) {
 
 // ChangeWind 是 Rel Hur:把風轉到指定方向(原版 `sub_1CDA4` 的跳表)。
 //
-// 方向 → 風值的對應寫死在那張跳表裡:
+// 方向 → 風值的對應寫死在 `sub_1CDA4` 的 `jpt_1CDD0` 裡(方向是**鍵碼** 1..4,
+// 而鍵碼 1=西 2=東 3=北 4=南 —— 由 `sub_2D174`/`sub_2CCFC` 定案):
 //
-//	北 → 風 1   南 → 風 2   西 → 風 3   東 → 風 4
+//	北 → 風 1   南 → 風 2   東 → 風 3   西 → 風 4
+//
+// ⚠ 原本這裡寫「西 → 風 3、東 → 風 4」,那是照引擎自己抄反的常數寫的。
+// 更正的三個來源見 `u5data/wind.go` 的說明與 `docs/re/84` §3。
 func (s *State) ChangeWind(d Direction) bool {
 	switch d {
 	case North:
 		s.SetWind(u5data.WindNorth)
 	case South:
 		s.SetWind(u5data.WindSouth)
-	case West:
-		s.SetWind(u5data.WindWest)
-	default:
+	case East:
 		s.SetWind(u5data.WindEast)
+	default:
+		s.SetWind(u5data.WindWest)
 	}
 	return true
 }
 
-// sailDelay 是隊伍這艘船此刻的延遲(ShipNeverMoves = 逆風動不了)。
-func (s *State) sailDelay(dx, dy int) int {
-	if s.WindDelay == nil {
-		return 2
-	}
-	return s.WindDelay.Delay(u5data.ShipFacingForDirection(dx, dy), s.Wind)
-}
-
-// CanSail 回報在目前的風下,往這個方向的船這一步走不走得動。
+// CanSail 回報這一步走不走得動(原版 `sub_2CCFC` 的最後五行)。
 //
-// ⚠⚠ **這一支掛在錯的原版函式上**(`docs/re/83` §4)。註解原本寫
-// 「原版 `sub_2D38` 的邏輯」,但 `sub_2D38` 全檔**只有一個呼叫者**
-// (`sub_2E24`)而且讀的是**物件槽** —— 它是**敵船與遊蕩物件**的閘門,
-// 與玩家的船無關(玩家的船是 `byte_3E08C` 載具碼,不是物件槽)。
+//	loc_2CE50:                       ; 想去的方向就是現在的船頭(不必轉向)
+//	    cmp  byte_3E08C, 24h
+//	    jnb  short 回0               ; ★ >= 0x24(收帆的大船)→ 照走
+//	    cmp  byte_3E0A2, 0
+//	    jnz  short 回0               ; ★ 有風 → 照走
+//	    mov  ebx, 1                  ; ★ 揚帆(0x20..0x23)且**完全無風** → 動不了
 //
-// 玩家的自動航行在 `sub_2D2D0`,用的是另外兩張表(`byte_601C7` / `byte_601CB`,
-// 四個風向的單位向量)與另一條規則:
+// ⇒ **玩家的航行只有這一條閘門:揚著帆而且風是 Calm。有風就照走,不管風向。**
 //
-//	n = 1 + (帆向與風向不同的分量數)
-//	這一回合走 n % 3 步 ⇒ 同向 1 步、反向 2 步、垂直 0 步
+// ⚠⚠ 這一支此前是**照敵船的規則寫的**(`docs/re/83`、`84`)。舊版查那張
+// 4×5 的延遲表,逆風與橫風都走不動 —— 但那張表只被 `sub_2D38` 讀,
+// 而 `sub_2D38` 只處理**物件槽**;玩家的船是 `byte_3E08C` 載具碼,不是物件槽。
+// 而且連那張表的極性都反了(`4` 是每回合都動,不是動不了)。
 //
-// ⚠ **還沒改成那一條**,因為 `sub_2D2D0` 的「走一步」那一段**沒有任何一行
-// 寫座標**(`docs/re/83` §5)—— 位置更新可能在 `sub_2D174`,也可能是我把
-// 那一段認錯了。用半個理解換掉一個至少「玩起來對」的近似會更糟:
-// 方向對應搞反就會做出「順風走不動、逆風飛快」的船,而那在遊玩時只覺得怪。
-//
-// ⇒ 這是 A 階段(對 DOSBox 並排)最省力的第一題:在原版揚帆,
-// 數順風 / 逆風 / 側風各走幾格,十分鐘就有答案。
-//
-// 目前的近似:延遲 4 一律不動;否則累加一個計數器,超過延遲才動一格然後歸零
-// ⇒ 逆風完全動不了,側風要兩三拍才走一格。
+// ★ 風向真正的作用在 `sub_2D2D0`:揚帆時它依「帆向 vs 風向」多燒
+// **0 / 1 / 2 個世界回合**(垂直 0、同向 1、反向 2)——
+// 加的是**時間與怪物的行動機會**,不是位移。⬜ 那一段還沒實作。
 func (s *State) CanSail(dx, dy int) bool {
-	if s.Wind == u5data.WindCalm {
-		// 無風:原版 `sub_2D38` 在查延遲表**之前**就把它 `jz` 掉,所以不查表。
-		//
-		// ⚠ 但這**不等於「照走」**:揚著帆(0x20..0x23)而且無風時,
-		// `sub_2CCFC` 會回傳「這一步用掉了」—— 船動不了。那個判斷在
-		// `turnShipInstead`,在呼叫本函式之前就攔下來了(`docs/re/66`)。
-		// 走到這裡的是收帆的船(0x24..0x27),它不受風影響。
+	// 收帆的大船(0x24..0x27)與其他載具不受風影響。
+	if u5data.VehicleKind(s.Transport) != u5data.VehicleSailing {
 		return true
 	}
-	delay := s.sailDelay(dx, dy)
-	if delay >= u5data.ShipNeverMoves {
-		s.Log("逆風!船動不了。")
-		return false
+	if s.Wind != u5data.WindCalm {
+		return true
 	}
-	s.windTimer++
-	if s.windTimer <= delay {
-		s.Log("船在頂風前進……")
-		return false
-	}
-	s.windTimer = 0
-	return true
+	s.Log(MsgBecalmed)
+	return false
 }
 
 // IsSailing 回報隊伍是不是正在駕船。

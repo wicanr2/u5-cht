@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **947** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **953** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -47,9 +47,10 @@
 | `sub_24DC` | `sub_24DC` 的接觸三條  /  `game.(*State).contactParty`  /  ✅ 含漩渦、流沙、小艇例外  / | `66-hexrays-truncation-audit.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
 | `sub_25F0` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
 | `sub_27F0` | if (sub_27F0(槽) == 0) return 動        ; ⬜ 未讀 | `83-monster-attacks-and-two-different-wind-rules.md` |
-| `sub_2A54` | sub_2A54(槽)                           ; ⬜ 未讀 | `83-monster-attacks-and-two-different-wind-rules.md` |
-| `sub_2D38` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
-| `sub_2E24` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `sub_2A54` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `sub_2B24` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `84-the-sailing-gate-and-the-wind-table.md` |
+| `sub_2D38` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `sub_2E24` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2F48` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_3010` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_31F0` | `byte_3F3D8` 的語意**未解**。取用它的 `sub_31F0` 只抽 0x90 / 0x60 / 0x0F, | `48-dungeon-wandering-monster-and-arena.md` |
@@ -301,7 +302,7 @@
 | `sub_1CA0C` | `sub_1CA0C` 是施法與調藥**共用**的輸入常式(`sub_1994C+5C` 與 `sub_18704+3E` 兩處呼叫): | `17-magic.md`, `58-rune-input-cast-and-mix.md` |
 | `sub_1CC50` | 1 RH  "Wind change!"    sub_1CC50() 問方向;byte_3E0A3 >= 21h → ebx = 0 | `17-magic.md`, `20-projectiles.md`, `21-chests-fields-locks.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `sub_1CD3C` | Mani  /  `sub_1CD3C`  /  回 **1..30**(與命中骰同一顆 `sub_2B724`),上限 MaxHP,死人無效  / | `17-magic.md`, `71-the-use-list-had-29-empty-slots.md` |
-| `sub_1CDA4` | Rel Hur 的跳表(`sub_1CDA4`)把方向鍵換成風值,對應就是上表。 | `23-wind-and-sailing.md` |
+| `sub_1CDA4` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `23-wind-and-sailing.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_1CE0C` | `sub_1CE0C` 做的是 `sub_2E0E8(-1, 0, 0)` —— **把視線遮蔽罩整個填成 0xFF**, | `17-magic.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `sub_1CE70` | 5 KXC "Summon Daemon!"  <= 7Fh → "Not here!";  else sub_1CE70(1) | `17-magic.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `sub_1CFC8` | 6 IMC "Resurrection!"   >= 80h → "Not here!";  else sub_1C9C0() + sub_1CFC8() | `17-magic.md`, `71-the-use-list-had-29-empty-slots.md` |
@@ -392,7 +393,7 @@
 | `sub_2A610` | case 2: return (tile & 0xF0) == 0x60  /  /  sub_2A674(tile)  /  /  sub_2A610(mover, tile);  // 水陸兩棲 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `47-move-modes-and-time-of-day.md`, `51-closing-four-known-gaps.md` |
 | `sub_2A674` | tile 0 為何被歸進「水」  /  `sub_2A674` 的 `tile < 4` 把 0 併進來。**視覺上 tile 0 根本不是水**(算繪出來是一團紅黃爆裂圖案,tile 1–3 才是藍色水面),所以這不是… | `02-movement-and-tile-flags.md`, `47-move-modes-and-time-of-day.md`, `51-closing-four-known-gaps.md` |
 | `sub_2A694` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `47-move-modes-and-time-of-day.md` |
-| `sub_2A984` | 主要函式  /  `sub_1A38C`(用碎片)、`sub_2D9D0`(風浪)、`sub_2A1E8` / `sub_2A0C4` / `sub_2A984`(狀態列)  / | `23-wind-and-sailing.md`, `80-implemented-but-unreachable.md` |
+| `sub_2A984` | 主要函式  /  `sub_1A38C`(用碎片)、`sub_2D9D0`(風浪)、`sub_2A1E8` / `sub_2A0C4` / `sub_2A984`(狀態列)  / | `23-wind-and-sailing.md`, `80-implemented-but-unreachable.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2AB38` | ⬜ `chestTrapVictim` 的傷害仍是估計值(`random(1, 20)`);`sub_2AB38` 沒讀。 | `75-open-did-nothing-outside-dungeons.md` |
 | `sub_2AC08` | → 印 `EARTHQUAKE!` + `sub_2AC08`(震動畫面)+ `sub_2A4D0`(全隊 random(1,8) 傷)。 | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2ACF4` | 位址  /  `sub_2ACF4`(59 case 主分派器)、`sub_1F3A4`(Ready)、`sub_1E418`(找下一個非空欄位)  / | `35-harp-and-the-secret-door.md`, `41-jimmy-neworder-gem-ztats.md`, `42-equipment-slots-ready-wear.md`, `49-command-table-and-two-empty-keys.md`, `50-hole-up-camp-sleep-repair.md`, `54-pass-vehicle-verbs-and-the-avatar-line.md`, `60-command-echo-and-menu-keys.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
@@ -425,17 +426,17 @@
 | `sub_2CB3C` | call sub_2CB3C(2) | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2CBEC` | An Ylem(`sub_18C00` 的 32-case 消除表)、In Por(瞬移,`sub_2CBEC`)、 | `17-magic.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
 | `sub_2CC8C` | sub_2CC8C(); sub_2E24();                       ; 動畫 + 一個世界回合 | `50-hole-up-camp-sleep-repair.md` |
-| `sub_2CCFC` | ★ **這次找回來的**  /  `sub_2CCFC` 轉向 + `Hull weak!`、`sub_2D9D0` 的 `Rough seas!`、以及它們共同呼叫的 `sub_22F0` 沉船  / | `66-hexrays-truncation-audit.md` |
+| `sub_2CCFC` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `66-hexrays-truncation-audit.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2CE70` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md` |
-| `sub_2D014` | sub_2D014(dx, dy)                                     ; ★ 無條件過去 | `68-troll-bridge-and-collision.md` |
+| `sub_2D014` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `68-troll-bridge-and-collision.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md`, `38-terrain-movement-cost.md`, `40-push-and-the-main-menu.md` |
-| `sub_2D174` | 呼叫點在 `moveInWorld`:`tick()` 之後、月門之前 —— 原版 `sub_2D174` 就是這個順序。 | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
-| `sub_2D2D0` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `68-troll-bridge-and-collision.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `sub_2D174` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `sub_2D2D0` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `68-troll-bridge-and-collision.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2D478` | `sub_1EFC8`(清單瀏覽器)、`sub_CAC` / `sub_4074` / `sub_2D478`(Attack 三支)  / | `49-command-table-and-two-empty-keys.md`, `60-command-echo-and-menu-keys.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md` |
 | `sub_2D72C` | 分派看的是地形,不是座標。** `sub_2D72C` 依腳下 tile 決定進哪裡 | `03-scene-entry-and-tile-semantics.md`, `27-codex-and-the-shrine-chamber.md` |
 | `sub_2D998` | ✅ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69` | `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
-| `sub_2D9D0` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `sub_2D9D0` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2DD44` | 主要函式  /  `sub_0`(切換器)、`sub_2DD44`→`sub_2D9D0`(大地圖)、`sub_1A54`→`sub_1318`(場景)、`sub_5378`→`sub_5150`(地牢)、`sub_2A… | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2DDB0` | 主要函式  /  `sub_29D64`(重畫)、`sub_2E0E8`(罩子入口)、`sub_2DDB0`(flood fill)、`sub_2E1D0`(擋不擋)、`sub_2E8D0`(距離)、`sub_29304… | `31-line-of-sight.md` |
 | `sub_2E0E8` | 主要函式  /  `sub_29D64`(重畫)、`sub_2E0E8`(罩子入口)、`sub_2DDB0`(flood fill)、`sub_2E1D0`(擋不擋)、`sub_2E8D0`(距離)、`sub_29304… | `17-magic.md`, `31-line-of-sight.md`, `71-the-use-list-had-29-empty-slots.md` |
@@ -543,7 +544,7 @@
 | `byte_3E06B` | ⬜ `sub_10BDC` 走的是 `byte_3E06B`(隊伍人數)而不是 `CombatPartySlots` 的 6 —— | `07-save-format.md`, `28-shadowlords-and-blackthorn.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `byte_3E08A` | `Absorbed!` 的條件:`byte_3E08A != 'N'` 且 `byte_3DFC0 == 0` 且 `byte_3E0A4 == 0x12` | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `26-yell-words-of-power-shadowlords.md`, `32-guard-challenge.md`, `38-terrain-movement-cost.md`, `44-use-item.md`, `67-corpser-and-the-sleeping-party-member.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `71-the-use-list-had-29-empty-slots.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E08B` | mov     al, byte ptr word_3E086     ← 把**隊伍的 x 座標低位元組**寫進 byte_3E08B | `37-look-signs-and-the-sky.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `75-open-did-nothing-outside-dungeons.md` |
-| `byte_3E08C` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `34-ending-trigger.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `53-party-tile-and-the-arena-floor.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `byte_3E08C` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `34-ending-trigger.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `53-party-tile-and-the-arena-floor.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `byte_3E08D` | byte_3E08D 月   > 13  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08E` | byte_3E08E 日   > 28  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08F` | } else if (byte_3E08F ∈ {6, 12, 18}) {                      ; ★ 6 / 12 / 18 點 | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md`, `29-npc-behaviour-and-arrest.md`, `47-move-modes-and-time-of-day.md`, `50-hole-up-camp-sleep-repair.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `82-the-overworld-world-turn.md` |
@@ -559,12 +560,12 @@
 | `byte_3E09E` | An Tym  /  `sub_198E0`  /  `byte_3E08A = 'T'`、`byte_3E09E = 10`  / | `17-magic.md`, `32-guard-challenge.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `byte_3E09F` | byte_3E09F == 0(武器):攻擊碼 0x23 / 0x27 / 0x28 必中   ← 引擎的 AlwaysHitWeapons | `15-combat-formulas.md`, `17-magic.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `byte_3E0A0` | 傷害減半(0x0020)      → 除以 2(除非 byte_3E0A0 成立,那個旗標還沒解) | `16-combat-turns-and-ai.md` |
-| `byte_3E0A2` | if (byte_3E0A2 == 0) 走一步                      ; ★★ 無風 → 照走,不查表 | `23-wind-and-sailing.md`, `66-hexrays-truncation-audit.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `byte_3E0A2` | if (byte_3E0A2 == 0) 走一步                      ; ★★ 無風 → 照走,不查表 | `23-wind-and-sailing.md`, `66-hexrays-truncation-audit.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `byte_3E0A3` | if (byte_3E0A3 != 0x1E && byte_3E0A3 != 0x1F && byte_3E0A3 != 0x20) { puts("No effect!"); return 1; } | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `17-magic.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `31-line-of-sight.md`, `45-fire-and-mix.md`, `48-dungeon-wandering-monster-and-arena.md`, `49-command-table-and-two-empty-keys.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `54-pass-vehicle-verbs-and-the-avatar-line.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `72-ready-had-seven-missing-rules.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `75-open-did-nothing-outside-dungeons.md`, `76-jimmy-in-a-dungeon-disarms-not-unlocks.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `byte_3E0A4` | `Absorbed!` 的條件:`byte_3E08A != 'N'` 且 `byte_3DFC0 == 0` 且 `byte_3E0A4 == 0x12` | `67-corpser-and-the-sleeping-party-member.md` |
 | `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
-| `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `40-push-and-the-main-menu.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
-| `byte_3E0A7` | if (byte_3E0A7 != 4)                                   // ★ 玩家 Y 剛好是 4 就整段跳過 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `40-push-and-the-main-menu.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `byte_3E0A7` | if (byte_3E0A7 != 4)                                   // ★ 玩家 Y 剛好是 4 就整段跳過 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `byte_3E0A8` | 0x02F2  /  16  /  `byte_3E0A8..B7`  /  逐一單位元組  / | `26-yell-words-of-power-shadowlords.md` |
 | `byte_3E0AB` | `byte_3E0AB` / `byte_3E0AC`  /  載入視窗的左上角**什麼時候更新**(每步一格還是整塊跳)。引擎目前用「隊伍為中心的 32×32」近似,差異會影響怪出現在哪一側  / | `17-magic.md`, `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E0AC` | `byte_3E0AB` / `byte_3E0AC`  /  載入視窗的左上角**什麼時候更新**(每步一格還是整塊跳)。引擎目前用「隊伍為中心的 32×32」近似,差異會影響怪出現在哪一側  / | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
@@ -757,8 +758,8 @@
 | `byte_5FF8C` | switch (byte_5FF8C[mover >> 2]) {          // 移動者 → 移動模式(0–10) | `02-movement-and-tile-flags.md`, `47-move-modes-and-time-of-day.md` |
 | `byte_5FFA8` | case 5: /* 方向性通行:用 byte_5FFA8[tile] / byte_5FF6C[tile] 的方向 bit */ | `02-movement-and-tile-flags.md` |
 | `byte_60018` | 1. 擋箭的表:`byte_60018`(DOS `0x6A24`) | `20-projectiles.md` |
-| `byte_601C7` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `83-monster-attacks-and-two-different-wind-rules.md` |
-| `byte_601CB` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `83-monster-attacks-and-two-different-wind-rules.md` |
+| `byte_601C7` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `byte_601CB` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `byte_601F0` | 資料  /  `byte_601F0`(距離表)、`dword_601D0`(擋視線地形)、`dword_601E4`(發光地形)、`byte_5FF5C`(日出漸變)  / | `31-line-of-sight.md` |
 | `byte_738D8` | if (byte_738D8[al] & 2)          ; ctype 表:是小寫嗎 | `65-the-wishing-well-easter-egg.md` |
 | `word_3DDC4` | 而且做兩件事:狀態 `'D'` → `'G'`,**以及** `word_3DDC4 = word_3DDC6`(目前 HP = 最大 HP)。 | `19-levelup.md`, `30-ending.md`, `37-look-signs-and-the-sky.md` |
@@ -793,7 +794,7 @@
 | `dword_3E36C` | 它**在存檔裡**(`sub_27D24` 讀 `dword_3E36C`,0x80 = 128 B),而引擎原本只有一個 | `29-npc-behaviour-and-arrest.md` |
 | `dword_3E3DC` | dword_3E3DC  / = byte_55E50[i];                   // 2 / 4 / 8 | `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
 | `dword_3E3E8` | dword_3E3E8[地點]  / = 1 << i;                // sub_1C1AC:這座城的這個人認得汝了 | `06-conversation-script.md`, `79-four-dialogue-opcodes-were-corrupting-the-text.md` |
-| `dword_3E46C` | ≥ 0x40  /  怪物  /  `cmp byte ptr dword_3E46C[eax*8], 40h`,與生物名表的 `CreatureBase` 同源  / | `10-shop-prices-and-trade.md`, `11-map-objects.md`, `33-get-command.md`, `36-sandalwood-box-npc-objects.md`, `48-dungeon-wandering-monster-and-arena.md`, `53-party-tile-and-the-arena-floor.md`, `65-the-wishing-well-easter-egg.md`, `67-corpser-and-the-sleeping-party-member.md` |
+| `dword_3E46C` | ≥ 0x40  /  怪物  /  `cmp byte ptr dword_3E46C[eax*8], 40h`,與生物名表的 `CreatureBase` 同源  / | `10-shop-prices-and-trade.md`, `11-map-objects.md`, `33-get-command.md`, `36-sandalwood-box-npc-objects.md`, `48-dungeon-wandering-monster-and-arena.md`, `53-party-tile-and-the-arena-floor.md`, `65-the-wishing-well-easter-egg.md`, `67-corpser-and-the-sleeping-party-member.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `dword_3E470` | dword_3E470+2[slot*8] = 0 | `36-sandalwood-box-npc-objects.md` |
 | `dword_3E474` | `dword_3E474` = `dword_3E46C + 8` = 物件陣列的第 1 槽;`dword_3E47C` 是第 2 槽。 | `48-dungeon-wandering-monster-and-arena.md` |
 | `dword_3E47C` | `dword_3E474` = `dword_3E46C + 8` = 物件陣列的第 1 槽;`dword_3E47C` 是第 2 槽。 | `48-dungeon-wandering-monster-and-arena.md` |
@@ -812,7 +813,7 @@
 | `dword_478C8` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
 | `dword_4FD38` | 陸地・地表**(`byte_4FD1C` + `dword_4FD38`)—— 順序本身就是難度曲線: | `82-the-overworld-world-turn.md` |
 | `dword_4FD4C` | 水域・地表**(`byte_4FD30` + `dword_4FD4C`):Shark 28.1% / Squid 28.1% / | `82-the-overworld-world-turn.md` |
-| `dword_4FD50` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `dword_4FD50` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md`, `24-intro.md` |
 | `dword_541B4` | `dword_541B4[頁]`  /  這一頁的文字在 `STORY.DAT` 裡的**檔案位移**  / | `24-intro.md` |
 | `dword_54300` | push edi                             ; → dword_54300 | `55-transfer-from-ultima-iv.md` |
@@ -857,6 +858,9 @@
 | `loc_17A5` | jmp  short loc_17A5 | `11-map-objects.md` |
 | `loc_17B5` | jge  short loc_17B5 | `11-map-objects.md` |
 | `loc_202C` | off_48A88       dd offset loc_202C      ; DATA XREF: sub_A310+1E↑o | `67-corpser-and-the-sleeping-party-member.md`, `77-a-false-gap-and-the-failed-line.md` |
+| `loc_2E11` | `loc_2E11` 是**移動**、`loc_2E1C` 是**跳過**。重新讀敵船那一段: | `84-the-sailing-gate-and-the-wind-table.md` |
+| `loc_2E13` | loc_2E13:  push  edi            ; 槽號 | `84-the-sailing-gate-and-the-wind-table.md` |
+| `loc_2E1C` | `loc_2E11` 是**移動**、`loc_2E1C` 是**跳過**。重新讀敵船那一段: | `84-the-sailing-gate-and-the-wind-table.md` |
 | `loc_2E65` | jz      short loc_2E65 | `38-terrain-movement-cost.md` |
 | `loc_2E7C` | jnz     short loc_2E7C | `38-terrain-movement-cost.md` |
 | `loc_3F29` | jnz short loc_3F29      ; ← tile != 0 就失敗 | `18-dungeons.md` |
@@ -943,6 +947,8 @@
 | `loc_2B09D` | loc_2B09D:   (按鍵 'T') | `35-harp-and-the-secret-door.md` |
 | `loc_2B115` | ⚠ **不扣寶石。** `loc_2B115` 只檢查數量,看完寶石還在。這很反直覺, | `41-jimmy-neworder-gem-ztats.md` |
 | `loc_2BB9E` | loc_2BB9E:                  ; 地表 | `48-dungeon-wandering-monster-and-arena.md`, `50-hole-up-camp-sleep-repair.md` |
+| `loc_2CE50` | loc_2CE50:                          ; 想去的方向就是現在的船頭(不需轉向) | `84-the-sailing-gate-and-the-wind-table.md` |
+| `loc_2CE67` | jnb  short loc_2CE67            ; ★ >= 0x24(收帆的大船)→ 回 0 = 照走 | `84-the-sailing-gate-and-the-wind-table.md` |
 | `loc_2D40A` | `loc_2D40A`(上面的「走一步」)做了四件事:推時鐘、可能跑一個世界回合、 | `83-monster-attacks-and-two-different-wind-rules.md` |
 | `loc_2DBAF` | 指令分派(`sub_2ACF4`)在中間的 `loc_2DBAF`。 | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `loc_2DBF4` | 而每回合的收尾(`sub_29304(2)` 起)在 **line 80013** 的 `loc_2DBF4`。 | `81-three-mode-loops-are-mutually-exclusive.md` |

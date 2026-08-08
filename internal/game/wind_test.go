@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/wicanr2/u5-cht/internal/u5data"
@@ -62,55 +63,45 @@ func TestWindDelayTableIsSymmetric(t *testing.T) {
 	}
 }
 
-// TestSailingAgainstTheWindStalls:逆風走不動、順風走得動。
+// TestOnlyCalmStopsAShipUnderSail —— ★ 玩家的航行只有一條閘門。
 //
-// 這是 U5 航海的節奏,也是 Rel Hur 有用的原因。
-func TestSailingAgainstTheWindStalls(t *testing.T) {
+// ⚠⚠ 這條測試的前身叫 `TestSailingAgainstTheWindStalls`,釘的是
+// 「逆風走不動、橫風完全動不了、側風比順風慢」——**那整套是敵船的規則**
+// (`docs/re/84` §2)。舊版查 4×5 延遲表,而那張表只被 `sub_2D38` 讀,
+// 而 `sub_2D38` 只處理物件槽;玩家的船是 `byte_3E08C` 載具碼。
+//
+// 原版 `sub_2CCFC` 的最後五行只問兩件事:是不是揚著帆(0x20..0x23),
+// 以及風是不是 Calm。**有風就照走,不管風向。**
+func TestOnlyCalmStopsAShipUnderSail(t *testing.T) {
 	s := windState(t)
 	s.Location, s.Floor = 0, 0
+	s.Transport = u5data.VehicleSailing // 揚著帆
+
+	// 四種風都該照走 —— 包含「逆風」與「橫風」。
+	for _, w := range []int{u5data.WindNorth, u5data.WindSouth, u5data.WindEast, u5data.WindWest} {
+		s.Wind = w
+		for _, d := range [][2]int{{0, -1}, {0, 1}, {-1, 0}, {1, 0}} {
+			if !s.CanSail(d[0], d[1]) {
+				t.Errorf("風 %d(%s)往 (%+d,%+d) 走不動 —— 原版只有無風才擋",
+					w, u5data.WindNameZH[w], d[0], d[1])
+			}
+		}
+	}
+
+	// ★ 只有完全無風擋得住,而且只擋揚著帆的。
+	s.Wind = u5data.WindCalm
+	s.Messages = nil
+	if s.CanSail(0, -1) {
+		t.Error("揚著帆又無風竟然走得動")
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgBecalmed) {
+		t.Errorf("無風時沒印訊息:%q", s.Messages)
+	}
+
+	// 收帆的大船(0x24..0x27)不受風影響 —— 原版 `cmp byte_3E08C, 24h; jnb → 照走`。
 	s.Transport = u5data.VehicleShip
-	// 朝北走(dy = −1):北風順、南風逆。
-	s.Wind = u5data.WindNorth
-	moved := 0
-	for i := 0; i < 30; i++ {
-		if s.CanSail(0, -1) {
-			moved++
-		}
-	}
-	if moved == 0 {
-		t.Error("順風 30 拍一步都走不了")
-	}
-	// 橫風才是真的動不了。
-	s.Wind = u5data.WindEast
-	s.windTimer = 0
-	for i := 0; i < 30; i++ {
-		if s.CanSail(0, -1) {
-			t.Fatal("橫風竟然走得動")
-		}
-	}
-	// 側風走得動但比順風慢。
-	s.Wind = u5data.WindNorth
-	s.windTimer = 0
-	fast := 0
-	for i := 0; i < 60; i++ {
-		if s.CanSail(0, -1) {
-			fast++
-		}
-	}
-	// 同軸線的反向風走得動,但比順風慢(延遲 3 vs 2)。
-	s.Wind = u5data.WindSouth
-	s.windTimer = 0
-	slow := 0
-	for i := 0; i < 60; i++ {
-		if s.CanSail(0, -1) { // 朝北 + 南風 = 同軸線但較慢
-			slow++
-		}
-	}
-	if fast == 0 || slow == 0 {
-		t.Errorf("順風或側風走不動:順 %d、側 %d", fast, slow)
-	}
-	if slow >= fast {
-		t.Errorf("側風走了 %d 步、順風 %d 步 —— 順風該比較快", slow, fast)
+	if !s.CanSail(0, -1) {
+		t.Error("收帆的船在無風時也走不動了 —— 那是划的,不吃風")
 	}
 }
 
