@@ -422,3 +422,112 @@ func TestDrunkStaggerUsesAllFourDirections(t *testing.T) {
 		t.Errorf("方向表有 %d 筆,原版是 4 筆", len(DrunkKeys))
 	}
 }
+
+// TestSwampHasTwoSeparatePoisonRolls —— ★ 沼澤有兩顆骰子,不是一顆。
+//
+//	sub_10BDC(踏進去,由移動後的分派呼叫)  random(1, 30)
+//	sub_1318 (每回合站著)                  random(0, 29)
+//
+// 兩者條件完全相同,**只有範圍差一格**,而那個差異改變機率:
+// 敏捷 29 的人只有「踏進去」那次毒得到。
+func TestSwampHasTwoSeparatePoisonRolls(t *testing.T) {
+	if SwampArrivalPoisonHi == SwampPoisonRollMax {
+		t.Fatal("兩顆骰子的上限被寫成一樣了 —— 原版是 30 與 29")
+	}
+	if SwampArrivalPoisonLo != 1 {
+		t.Errorf("踏進去那顆的下限是 %d,原版是 1", SwampArrivalPoisonLo)
+	}
+
+	// 敏捷 29:每回合那顆(0..29)永遠毒不到,踏進去那顆(1..30)有 1/30。
+	s := upkeepScene(t)
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Dex = 29
+	}
+	for i := 0; i < 600; i++ {
+		s.Roster[0].Status = u5data.StatusGood
+		s.poisonPartyBySwamp(0, SwampPoisonRollMax)
+		if s.Roster[0].Status == u5data.StatusPoisoned {
+			t.Fatal("敏捷 29 被每回合那顆(0..29)毒到了 —— 上限 29 不可能大於 29")
+		}
+	}
+	poisoned := 0
+	for i := 0; i < 600; i++ {
+		s.Roster[0].Status = u5data.StatusGood
+		s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+		if s.Roster[0].Status == u5data.StatusPoisoned {
+			poisoned++
+		}
+	}
+	if poisoned == 0 {
+		t.Error("敏捷 29 連踏進去那顆(1..30)都毒不到 —— 上限該是 30")
+	}
+
+	// 敏捷 30 兩顆都免疫。
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Dex = 30
+	}
+	for i := 0; i < 300; i++ {
+		s.Roster[0].Status = u5data.StatusGood
+		s.poisonPartyBySwamp(0, SwampPoisonRollMax)
+		s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+		if s.Roster[0].Status == u5data.StatusPoisoned {
+			t.Fatal("敏捷 30 該對兩顆骰子都免疫")
+		}
+	}
+}
+
+// TestSwampPoisonSkipsTheDeadAndTheAlreadyPoisoned —— 兩支原版函式都有這兩個 cmp。
+func TestSwampPoisonSkipsTheDeadAndTheAlreadyPoisoned(t *testing.T) {
+	s := upkeepScene(t)
+	if s.PartySize < 2 {
+		t.Skip("需要兩個人以上")
+	}
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Dex = 0 // 敏捷 0 → 一定中毒(除非被跳過)
+	}
+	s.Roster[0].Status = u5data.StatusDead
+	s.Roster[1].Status = u5data.StatusGood
+	s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+	if s.Roster[0].Status != u5data.StatusDead {
+		t.Errorf("死人被沼澤毒成了 %q", string(s.Roster[0].Status))
+	}
+	if s.Roster[1].Status != u5data.StatusPoisoned {
+		t.Errorf("敏捷 0 的活人沒中毒,狀態是 %q", string(s.Roster[1].Status))
+	}
+}
+
+// TestSwampOnlyPoisonsOnFoot —— 兩支都查 `byte_3E08C == 0x1C`。
+func TestSwampOnlyPoisonsOnFoot(t *testing.T) {
+	s := upkeepScene(t)
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Dex = 0
+		s.Roster[i].Status = u5data.StatusGood
+	}
+	// ⚠ 踏進去那顆骰子**只在大地圖擲**(原版 `sub_2D9D0` 開頭
+	// `cmp byte_3E0A3, 0; jnz → 跳過`);每回合那顆沒有這個限制。
+	// 所以這條測試需要**真的世界地圖** —— `upkeepScene` 只載場景,
+	// 少了這一步 `SetTileAt` 會無聲失敗、測試變成永遠 skip 的空殼
+	// (同 `fireScene` 的註解;那個坑本專案踩過)。
+	s.Location, s.Floor = 0, 0
+	w, err := u5data.LoadFlatMap(os.Getenv("U5_GAMEDATA") + "/UNDER.DAT")
+	if err != nil {
+		t.Skipf("載不到平面地圖:%v", err)
+	}
+	s.World, s.Under = w, w
+	if s.X == 0 && s.Y == 0 {
+		s.X, s.Y = 64, 64
+	}
+	if !s.SetTileAt(s.X, s.Y, TileSwamp) {
+		t.Fatal("寫不進世界地圖 —— 這條測試沒有在驗任何東西")
+	}
+	s.Transport = 0x12 // 騎馬(載具 = 物件 + 2)
+	s.swampPoisonOnArrival()
+	if s.Roster[0].Status == u5data.StatusPoisoned {
+		t.Error("騎著馬也被沼澤毒到了 —— 原版只在步行時判")
+	}
+	s.Transport = u5data.VehicleWalk
+	s.swampPoisonOnArrival()
+	if s.Roster[0].Status != u5data.StatusPoisoned {
+		t.Error("步行踏進沼澤卻沒中毒")
+	}
+}

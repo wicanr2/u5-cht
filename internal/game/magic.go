@@ -121,7 +121,7 @@ func (s *State) Cast(caster, spell int) MagicResult {
 		s.Log("成功!")
 		return MagicSuccess
 	}
-	s.Log("失敗!")
+	s.Log(MsgFailed)
 	return MagicFailed
 }
 
@@ -513,7 +513,10 @@ func (s *State) spellAttack(caster, code int) bool {
 	// `sub_B484` 只擲那一顆骰,`sub_189BC`(黑棘 / 不列顛王 / 暗影領主免疫)
 	// 是操控類咒語才查的。混用會讓 Xen Corp 打不動劇情人物,而原版打得動。
 	if !u5data.AttackAlwaysHits(code) && s.SpellResisted(self, target) {
-		s.Log(s.unitName(&c.Units[target]) + "擋下了咒語。")
+		// ★ 原版咒語落空印的是一句**不具名**的 `Failed!`(`sub_1F570` 的
+		// `byte_3E09F != 0` 那一支),不是「某人擋下了咒語」——
+		// 後者把因果講成目標的功勞,而原版沒有那個意思(`docs/re/74`)。
+		s.Log(MsgFailed)
 		return true
 	}
 	// 命中後的特例先於傷害(`sub_B9A8` 的兩個 `cmp byte_3E0AD`)。

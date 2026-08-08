@@ -312,7 +312,9 @@ func (s *State) resolveAttack(attacker, target int) {
 		weapon = ch.Equipment().Weapon
 	}
 	if !s.attackHits(a, t, weapon) {
-		s.Log(an + "揮空了。")
+		// 武器落空報名字(原版 `sub_1F570` 的 `byte_3E09F == 0` 那一支:
+		// `sub_1F528(攻擊者)` 印名字 + `" missed!"`)。
+		s.Log(an + MsgMissed)
 		return
 	}
 	// 小魔怪偷食物:命中之後有 3/4 機率不造成傷害,改偷糧食。

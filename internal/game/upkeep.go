@@ -237,17 +237,9 @@ func (s *State) terrainEffects() {
 		// ★ 掉下去的這一回合不算吃飯(原版 `if (ebx == 0) sub_2A50C()`)。
 		return
 	case tile == TileSwamp && s.Transport == u5data.VehicleWalk:
-		for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
-			st := s.Roster[i].Status
-			if st == u5data.StatusDead || st == u5data.StatusPoisoned {
-				continue
-			}
-			// ⚠ **大於**敏捷才中毒 —— 敏捷 30 以上完全免疫。
-			if s.Roll(0, SwampPoisonRollMax) > int(s.Roster[i].Dex) {
-				s.Log(s.Roster[i].Name + MsgPoisonedBySwamp)
-				s.Roster[i].Status = u5data.StatusPoisoned
-			}
-		}
+		// ⚠ 這是**每回合**那一顆骰子(0..29)。踏進去的那一步另有一顆
+		// (1..30,`swampPoisonOnArrival`)—— 兩顆都是原版的,別合併。
+		s.poisonPartyBySwamp(0, SwampPoisonRollMax)
 	case tile == TileLava || tile == TileFireplace:
 		s.Log(MsgBurning)
 		s.damageWholeParty()
@@ -310,4 +302,62 @@ func (s *State) DrunkStagger() (Direction, bool) {
 	s.Drunk--
 	s.Log(MsgHic)
 	return DrunkKeys[s.Roll(0, len(DrunkKeys)-1)], true
+}
+
+// 踏進沼澤的那一次中毒(原版 `sub_10BDC`,由移動後的分派 `sub_2D9D0` 呼叫)
+//
+// ★★ **沼澤有兩個中毒判定,不是一個。**
+//
+//	sub_2D9D0(移動之後)→ sub_10BDC     擲 random(1, 30),roll > 敏捷 → 中毒
+//	sub_1318 (每回合)  → 自己那一段    擲 random(0, 29),roll > 敏捷 → 中毒
+//
+// 兩者的條件完全相同(腳下 tile == 4、`byte_3E08C == 0x1C` 步行、
+// 跳過 'D' 與 'P'、逐個隊員各擲一次、印 `Poisoned!`),**只有骰子的範圍差一格**。
+//
+// ⇒ **踏進沼澤的那一步會被擲兩次**(先 `sub_10BDC`,同一回合再 `sub_1318`),
+// 之後每站一回合擲一次。所以「走進去」比「站著」危險一倍。
+//
+// ⚠ 兩顆骰子的範圍不同幾乎可以確定是原作者的手誤(1..30 vs 0..29)——
+// 但那個差異**改變機率**:敏捷 29 的人只有 `sub_10BDC` 那次毒得到
+// (`sub_1318` 最大只擲到 29,而 29 > 29 不成立);敏捷 30 兩邊全免疫。
+// 照原樣實作,不「統一」成同一顆(`CLAUDE.md` §3.0:不自行平衡)。
+//
+// ⚠⚠ 這一支是**先有 `sub_1318` 那一半、後來才發現另一半**的:
+// `docs/re/70` 寫沼澤中毒時只讀了 `sub_1318`,而 `sub_10BDC` 在
+// `docs/re/66` 的截斷清單上獨立列著,兩者當時沒被聯想到一起。
+// **同一個機制被兩支函式各做一半,是這個執行檔的常見形狀**(見 `docs/re/72`
+// 的兩顆戒指骰子)—— 找到一處之後要問「還有誰做同一件事」。
+
+// SwampArrivalPoisonLo / Hi 是踏進沼澤那次的骰範圍(原版 `sub_28E14(1, 1Eh)`)。
+const (
+	SwampArrivalPoisonLo = 1
+	SwampArrivalPoisonHi = 30
+)
+
+// swampPoisonOnArrival 是踏進沼澤那一次的中毒判定(原版 `sub_10BDC`)。
+func (s *State) swampPoisonOnArrival() {
+	if s.InScene() || s.InDungeon() || s.InCombat() {
+		return
+	}
+	if s.TileAt(s.X, s.Y) != TileSwamp || s.Transport != u5data.VehicleWalk {
+		return
+	}
+	s.poisonPartyBySwamp(SwampArrivalPoisonLo, SwampArrivalPoisonHi)
+}
+
+// poisonPartyBySwamp 是兩支共用的本體:逐個隊員擲一次,擲贏敏捷就中毒。
+//
+// 跳過死人與已經中毒的人(原版兩支都是 `cmp dl, 'D'` / `cmp dl, 'P'`)。
+func (s *State) poisonPartyBySwamp(lo, hi int) {
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		st := s.Roster[i].Status
+		if st == u5data.StatusDead || st == u5data.StatusPoisoned {
+			continue
+		}
+		// ⚠ **大於**敏捷才中毒 —— 兩支原版函式都是 `jle → 跳過`。
+		if s.Roll(lo, hi) > int(s.Roster[i].Dex) {
+			s.Log(s.Roster[i].Name + MsgPoisonedBySwamp)
+			s.Roster[i].Status = u5data.StatusPoisoned
+		}
+	}
 }

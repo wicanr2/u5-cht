@@ -767,6 +767,8 @@ func (s *State) moveInWorld(d Direction) {
 	if s.TileAt(nx, ny)&0xFE == TrollBridgeTile {
 		s.crossBridge()
 	}
+	// ★ 踏進沼澤要**再**擲一次中毒 —— 見 `swampPoisonOnArrival` 的說明。
+	s.swampPoisonOnArrival()
 	// 踩到瀑布就掉下去;世界上只有一個瀑布通往幽冥界
 	//(原版 `sub_2D9D0` 的 `tile & 0xFC == 0xD4` → `sub_10A1C`)。
 	if s.TileAt(s.X, s.Y)&0xFC == FallTileGroup {
