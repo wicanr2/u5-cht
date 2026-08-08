@@ -180,6 +180,23 @@ func (s *State) extraWorldTurn() bool {
 			s.spawnWanderingCreature()
 		}
 	}
+	// ★ 倒著掃槽 0x1F..1(槽 0 是隊伍),讓每一個「算生物」的槽對隊伍動手。
+	// ⚠ 判準用 `u5data.IsCreatureTile`(依 `ObjKind` 位元組)**不是**
+	// `MapObject.IsCreature()` —— 兩者的範圍不同,分歧點在 0x40(`docs/re/82` §3)。
+	//
+	// ⬜ 原版在這裡還有 `if (esi == 0) sub_2D38(槽)`(能不能動的閘門)與
+	// 第二趟的清場,兩者都還沒做(`docs/re/83` §2、`WORKLIST §5.1b`)。
+	if set := s.currentObjects(); set != nil && !s.InScene() && !s.InDungeon() {
+		for slot := len(set.Objects) - 1; slot >= 1; slot-- {
+			if !u5data.IsCreatureTile(set.Objects[slot].Raw[u5data.ObjKind]) {
+				continue
+			}
+			if s.objectAttacks(slot) && s.InCombat() {
+				// 進了戰鬥就停下 —— 後面的槽這一回合不再動手。
+				break
+			}
+		}
+	}
 	s.advanceNPCs()
 	s.syncNPCObjects()
 	return s.InCombat() != before

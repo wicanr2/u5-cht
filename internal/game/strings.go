@@ -327,6 +327,15 @@ const (
 	MsgPassSeeker      = "「通行罷,求道者!」"
 	MsgNotOnSacredQuest = "「汝並未身負神聖試煉!」"
 	MsgPassageDenied   = "「不得通行!」"
+	// 大地圖上的東西碰到隊伍(原版 `sub_25F0` / `sub_24DC`,見 `docs/re/83`)
+	//
+	// ⚠ `"\nAttacked!\n"` **共用上面那個 `MsgAttacked`** —— 原版是同一個字串,
+	// 而場景裡 NPC 動手(`npcai.go`)印的也是它。一句原文只該有一份譯文,
+	// 否則兩處會慢慢漂成不同的說法。
+	MsgRangedAttack = "遠處飛來一擊!"
+	// ★ 漩渦不是生物是地理特徵(`docs/re/83`);遊戲內的傳聞早就講過它
+	// (`DWELLING.TLK#2#e11`:「有人說被漩渦吸下去的船、後來擱淺在地底什麼地方」)。
+	MsgWhirlpool = "漩渦!"
 	// "Hic!" —— 喝醉之後按鍵變成隨機走一步(原版 `sub_1158`)。
 	MsgHic = "嗝!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"

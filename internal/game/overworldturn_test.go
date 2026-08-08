@@ -31,6 +31,25 @@ func overworldScene(t *testing.T) *State {
 	if s.UnderObjects == nil {
 		s.UnderObjects = &u5data.ObjectSet{}
 	}
+	// 戰鬥地圖:`BeginCombat` 沒有它就**安靜回 false**,而那會讓「怪貼上來
+	// 該開戰」的測試紅得像規則寫錯了 —— 又是「成因在前置條件」。
+	if s.CombatMaps == nil {
+		if cm, err := u5data.LoadCombatMaps("../../gamedata/BRIT.CBT"); err == nil {
+			s.CombatMaps = cm
+		} else {
+			t.Skipf("讀不到 BRIT.CBT:%v", err)
+		}
+	}
+	if s.Creatures == nil {
+		if ct, err := u5data.LoadCreatureTable("../../gamedata"); err == nil {
+			s.Creatures = ct
+		}
+	}
+	if s.Stats == nil {
+		if st, err := u5data.LoadCombatStats("../../gamedata"); err == nil {
+			s.Stats = st
+		}
+	}
 	s.X, s.Y = 64, 64
 	s.Transport = u5data.VehicleWalk
 	if !s.SetTileAt(s.X, s.Y, tileGrass) {
