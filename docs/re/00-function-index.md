@@ -558,7 +558,7 @@
 | `byte_3E093` | if ((n % 3) > byte_3E093) 走一步 else { byte_3E093 = 0; 收尾 } | `23-wind-and-sailing.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
 | `byte_3E095` | byte_3E095 = byte_41142[日 * 2]      ← 特拉梅爾 Trammel | `22-moongates.md` |
 | `byte_3E096` | byte_3E096 = byte_41143[日 * 2]      ← 費盧卡 Felucca | `22-moongates.md` |
-| `byte_3E097` | sub_2BBB8(&byte_3E097, 1, 10h)                ; 計數器累加到 0x10 | `86-tile-0xDC-is-an-open-moongate.md` |
+| `byte_3E097` | 淡出計數器 `byte_3E097`  /  `game.State.MoongateFrame`  /  ✅ 開關生效;⬜ 繪圖還沒用它當動畫格  / | `86-tile-0xDC-is-an-open-moongate.md` |
 | `byte_3E098` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md`, `19-levelup.md`, `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
 | `byte_3E09B` | ⬜ `byte_3E09B >= 100` 的語意(乞丐業報的節流條件)。WORKLIST 上原本記 | `70-hunger-poison-and-the-vanishing-rings.md`, `79-four-dialogue-opcodes-were-corrupting-the-text.md` |
 | `byte_3E09C` | `byte_3E09C`  /  `game.State.RestCooldown` + `(*State).tickHourly`  / | `51-closing-four-known-gaps.md` |

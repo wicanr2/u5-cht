@@ -96,5 +96,34 @@ cmp     byte ptr [eax], 0DCh   ; eax = 地圖 tile 指標 → **月門**
 | tile 0xDC | `u5data.MoongateOpenTile` | ✅(原名 `CreatureVanishTile`,語意當時未定) |
 | `sub_DEE4` 的時段 | `u5data.MoongateOpenAtHour` | ✅ 接進 `MoongateAt` ⇒ **白天沒有月門** |
 | `sub_2870` 的月門吞噬 | `game.(*State).stepObject` | ✅ |
-| `sub_DE74` | `game.(*State).MoongateAt` 的座標比對 | 🔶 沒查載入視窗範圍(引擎沒有那對變數) |
-| 把 tile 寫進地圖緩衝 + 淡出 | — | ⬜ 引擎用「座標 + 時段」判定,效果相同但畫面上看不到門 |
+| `sub_DE74` | `game.(*State).moongateWritesHere` | ✅ 含 32×32 視窗檢查(用「隊伍為中心」近似) |
+| 把 tile 寫進地圖緩衝 | `game.(*State).RefreshMoongateTiles` | ✅ **月門現在畫得出來** |
+| 淡出計數器 `byte_3E097` | `game.State.MoongateFrame` | ✅ 開關生效;⬜ 繪圖還沒用它當動畫格 |
+
+## 5. 落地時的三個決定
+
+### (a) 只留一個真相來源
+
+`EnterMoongateHere` 改成**只讀腳下那一格的 tile**(與 `sub_E084` 一致),
+而「月門存在」的唯一來源是 `RefreshMoongateTiles` 寫進地圖的那一格。
+
+⚠ 此前它查的是「座標 + 時段」,而 tile 是另一條路 —— **兩個真相來源遲早會漂**。
+順帶刪掉 `MoongateAt`(拆開之後沒有非測試呼叫者,而資料本來就在 `s.Moongates`)。
+`TestEnteringReadsTheTileNotTheCoordinates` 用兩個反例釘住它:
+埋藏點上是草地 → 不傳送;隨便一格寫上月門 tile → 照樣傳送。
+
+### (b) 節奏是近似,不是原版
+
+原版的計數器**每次重畫**升降一格(`sub_29D64` 一個回合可能被叫好幾次),
+引擎改成**每回合一次**(`tick()`)⇒ 淡出從「不到一秒」變成「約 16 回合」。
+**這是唯一沒辦法照抄的地方**,已列進 A 階段對 DOSBox 的核對清單。
+
+### (c) 關門寫死草地,會蓋掉原本的地形
+
+原版 `mov esi, 5` 是寫死的:月門關上時那一格一律寫回 **tile 5(草地)**,
+不管原本是什麼。⇒ 把月石埋在沙漠或雪地,門關上之後那一格會變成草地。
+照原樣做(`CLAUDE.md §3.0` 不自行修正),而且它可觀察 —— 值得列進 A 階段。
+
+⚠ 另一個可觀察的後果來自 `sub_DE74` 的視窗檢查:**離開視窗時原版不會把那一格
+寫回草地**,所以遠處的月門 tile 會留在地圖上直到玩家再走近。
+順序保護了它(回到視窗內時先重寫,才可能踏上去),所以不是 bug。

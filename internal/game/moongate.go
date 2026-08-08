@@ -69,45 +69,21 @@ func (s *State) CastGreatGate(phase int) bool {
 	return s.TravelByMoongate(phase)
 }
 
-// MoongateAt 回報世界座標上有沒有**開著的**月門。
-//
-// ✅ 「哪幾個小時、tile 是什麼」已經逆完了(`docs/re/86`,原版 `sub_DEE4`):
-//
-//	夜裡(20:00–04:59)→ 把 tile 0xDC 寫進**八顆月石埋藏的座標**
-//	白天               → 計數器遞減,歸零才寫回草地(tile 5)
-//
-// ★★ 座標就是月石的埋藏點 —— **月門長在月石被埋的地方**,那是「埋月石
-// 有什麼用」的答案。而 `sub_DE74` **完全不看月相**:它只查那顆月石在不在
-// 當前的地點 / 樓層 / 視窗裡。
-//
-// ⇒ 三件事各由不同的東西決定:**開不開**看時間、**在哪裡**看月石埋在哪、
-// **去哪裡**看月相(`TravelByMoongate`)。
-//
-// ⬜ 仍未做:把 tile 真的寫進地圖緩衝(原版每次重畫都寫),以及天亮後
-// 那 0x10 次重畫的淡出。引擎用「座標 + 時段」判定,效果相同但畫面上看不到門。
-func (s *State) MoongateAt(x, y int) (int, bool) {
-	if s.BaseSave == nil {
-		return 0, false
-	}
-	// ★ 白天沒有月門(原版 `sub_DEE4` 天亮之後把那一格寫回草地)。
-	if !u5data.MoongateOpenAtHour(s.Clock.Hour) {
-		return 0, false
-	}
-	for i := range s.Moongates {
-		d := s.Moongates[i]
-		if d.Known() && d.Location == 0 && d.X == x && d.Y == y {
-			return i, true
-		}
-	}
-	return 0, false
-}
+// ⚠ 這裡原本有一支 `MoongateAt(x, y)`。`EnterMoongateHere` 改成讀 tile 之後
+// 它就沒有任何非測試呼叫者了 —— 而「座標是不是埋藏點」的資料本來就在
+// `s.Moongates` 裡,不需要包一層。已刪:留著會在下一輪盤點被算成「已完成」,
+// 而且它曾經是**第二個真相來源**(同時查座標與時段),那正是要拆掉的東西。
 
 // EnterMoongateHere 踏上月門時的處理。回傳有沒有真的傳送。
+//
+// ★ 判準與原版一致:**只讀腳下那一格的 tile**(`sub_E084` 的
+// `sub_DB10(隊伍X, 隊伍Y)` + `cmp byte ptr [eax], 0DCh`)。
+// 月門存不存在那一格,是 `RefreshMoongateTiles` 寫進去的結果。
 func (s *State) EnterMoongateHere() bool {
 	if s.InScene() || s.InDungeon() {
 		return false
 	}
-	if _, ok := s.MoongateAt(s.X, s.Y); !ok {
+	if s.TileAt(s.X, s.Y) != u5data.MoongateOpenTile {
 		return false
 	}
 	return s.TravelByMoongate(s.MoonPhaseNow())

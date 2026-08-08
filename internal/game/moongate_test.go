@@ -138,27 +138,53 @@ func TestGreatGateRefusesUnderSail(t *testing.T) {
 	}
 }
 
-// TestMoongatesOnlyOpenAtNight —— ★ 月門只在 20:00–04:59 出現。
+// TestMoongateTileIsWrittenAtNightAndErasedByDay —— ★★ 月門是寫進地圖的一格。
 //
-// 原版 `sub_DEE4` 每次重畫都把 tile 0xDC 寫進**八顆月石埋藏的座標**;
-// 白天則遞減一個計數器,歸零就寫回草地(tile 5)。⇒ 白天沒有月門
-// (`docs/re/86`)。
-func TestMoongatesOnlyOpenAtNight(t *testing.T) {
+// 原版 `sub_DEE4` 每次重畫都跑:夜裡把 tile 0xDC 寫進**月石埋藏的座標**,
+// 白天把計數器降到 0 之後寫回草地(tile 5)。⇒ 「月門存在」的唯一來源是
+// 地圖上那一格,不是「座標 + 時段」的判斷(`docs/re/86`)。
+func TestMoongateTileIsWrittenAtNightAndErasedByDay(t *testing.T) {
 	s := moonState(t)
 	if s.BaseSave == nil {
 		t.Skip("沒有底稿存檔")
 	}
 	s.Location, s.Floor = 0, 0
 	g := s.Moongates[0]
-	for h := 0; h < 24; h++ {
-		s.Clock.Hour = h
-		_, ok := s.MoongateAt(g.X, g.Y)
-		want := u5data.MoongateOpenAtHour(h)
-		if ok != want {
-			t.Errorf("%02d 點:月門在不在 = %v,預期 %v", h, ok, want)
-		}
+	// 站到那顆月石旁邊,月門才在載入視窗內(原版 `sub_DE74` 的範圍檢查)。
+	s.X, s.Y = g.X-2, g.Y
+
+	// 夜裡:那一格該變成月門。
+	s.Clock.Hour = u5data.MoongateNightFrom
+	s.RefreshMoongateTiles()
+	if got := s.TileAt(g.X, g.Y); got != u5data.MoongateOpenTile {
+		t.Fatalf("夜裡那一格是 0x%02X,預期月門 0x%02X", got, u5data.MoongateOpenTile)
 	}
-	// 邊界逐一釘住 —— 判準是「>= 20 或 < 5」。
+
+	// ⚠ 要先把計數器養滿才驗得到殘留 —— 只開一回合的門,天一亮就該關,
+	// **而那正是原版行為**(計數器 1 → 遞減一次就歸零)。
+	// 第一版沒養就直接驗殘留,紅燈看起來像實作錯了。
+	for i := 0; i < MoongateFrameMax; i++ {
+		s.RefreshMoongateTiles()
+	}
+	if s.MoongateFrame != MoongateFrameMax {
+		t.Fatalf("計數器養到 %d,預期上限 %d", s.MoongateFrame, MoongateFrameMax)
+	}
+
+	// ★ 白天不是立刻關 —— 計數器要先降到 0。
+	s.Clock.Hour = 12
+	s.RefreshMoongateTiles()
+	if got := s.TileAt(g.X, g.Y); got != u5data.MoongateOpenTile {
+		t.Error("天一亮月門就消失了 —— 原版是計數器歸零才寫回草地")
+	}
+	for i := 0; i < MoongateFrameMax+2; i++ {
+		s.RefreshMoongateTiles()
+	}
+	if got := s.TileAt(g.X, g.Y); got != u5data.MoongateClosedTile {
+		t.Errorf("計數器歸零之後那一格是 0x%02X,預期草地 0x%02X",
+			got, u5data.MoongateClosedTile)
+	}
+
+	// 時段判準的邊界(>= 20 或 < 5)。
 	for _, tc := range []struct {
 		hour int
 		open bool
@@ -168,6 +194,64 @@ func TestMoongatesOnlyOpenAtNight(t *testing.T) {
 		if got := u5data.MoongateOpenAtHour(tc.hour); got != tc.open {
 			t.Errorf("%02d 點 → %v,預期 %v", tc.hour, got, tc.open)
 		}
+	}
+}
+
+// TestEnteringReadsTheTileNotTheCoordinates —— ★★ 只有一個真相來源。
+//
+// 原版 `sub_E084` 只做一件事:讀腳下那一格的 tile。所以
+//
+//	月石的埋藏座標**上沒有月門 tile** → 踏上去什麼都不會發生
+//	不是埋藏點的格子**有月門 tile**   → 踏上去照樣被傳送
+//
+// ⚠ 此前 `EnterMoongateHere` 查的是「座標 + 時段」,而 tile 是另一條路 ——
+// **兩個真相來源遲早會漂**。這條測試就是防止它漂回去。
+func TestEnteringReadsTheTileNotTheCoordinates(t *testing.T) {
+	s := moonState(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	s.Location, s.Floor = 0, 0
+	g := s.Moongates[0]
+
+	// (a) 站在埋藏點上,但那一格是草地 → 不該傳送。
+	s.X, s.Y = g.X, g.Y
+	if !s.SetTileAt(g.X, g.Y, u5data.MoongateClosedTile) {
+		t.Fatal("寫不進世界地圖")
+	}
+	if s.EnterMoongateHere() {
+		t.Error("埋藏點上沒有月門 tile 卻傳送了 —— 判準該是 tile 不是座標")
+	}
+
+	// (b) 隨便一格寫上月門 tile → 該傳送。
+	fx, fy := g.X+7, g.Y+7
+	s.X, s.Y = fx, fy
+	if !s.SetTileAt(fx, fy, u5data.MoongateOpenTile) {
+		t.Fatal("寫不進世界地圖")
+	}
+	if !s.EnterMoongateHere() {
+		t.Error("有月門 tile 卻沒傳送 —— 原版只讀那一格")
+	}
+}
+
+// TestMoongateOnlyWritesInTheLoadedWindow —— `sub_DE74` 的範圍檢查。
+//
+// ⚠ 這一條有可觀察的後果:**離開視窗時原版不會把那一格寫回草地**,
+// 所以遠處的月門 tile 會留在地圖上直到玩家再走近。照原樣做。
+func TestMoongateOnlyWritesInTheLoadedWindow(t *testing.T) {
+	s := moonState(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	s.Location, s.Floor = 0, 0
+	g := s.Moongates[0]
+	// 站得很遠 → 不該寫。
+	s.X, s.Y = g.X+80, g.Y+80
+	before := s.TileAt(g.X, g.Y)
+	s.Clock.Hour = u5data.MoongateNightFrom
+	s.RefreshMoongateTiles()
+	if s.TileAt(g.X, g.Y) != before {
+		t.Error("站在 80 格外也把月門寫進地圖了 —— `sub_DE74` 有 32×32 的範圍檢查")
 	}
 }
 

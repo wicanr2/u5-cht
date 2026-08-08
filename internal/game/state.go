@@ -229,6 +229,12 @@ type State struct {
 	WorldTurns int
 	// gates 是 `sub_2E24` 開頭那兩個持久切換位元(`byte_4FDD5` / `byte_4FDD7`)。
 	gates worldTurnGates
+	// MoongateFrame 是月門的動畫格(原版 `byte_3E097`,0..0x10)。
+	//
+	// 夜裡累加、白天遞減;**歸零才**把那一格寫回草地 ⇒ 日出後月門會殘留。
+	// ⚠ 原版那個位元組**會進存檔**而且繪圖會讀它(`docs/re/86`),
+	// 引擎目前只用它當開關,⬜ 存檔位移與動畫都還沒做。
+	MoongateFrame int
 	// lastVacatedX / Y 是「這一輪剛移動的那個東西離開的格子」
 	// (原版 `byte_4FD94` / `byte_4FD95`)。★ 是**全域**一份不是每槽一份,
 	// 只由 `stepObject` 寫、只由 `notJustVacated` 讀(`docs/re/85`)。
@@ -640,6 +646,9 @@ func (s *State) tick() {
 	}
 	// 打開的門每回合倒數,歸零就自己關上(原版 `sub_1A54` 的那一段)。
 	s.tickDoor()
+	// ★ 月門是**寫進地圖緩衝的一格**,由這一支維護(原版 `sub_DEE4`,
+	// 在重畫時跑)。⚠ 引擎改成每回合一次 —— 節奏差異見 `moongatetile.go`。
+	s.RefreshMoongateTiles()
 }
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。
