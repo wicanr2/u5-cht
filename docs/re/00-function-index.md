@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **931** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **937** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -36,14 +36,18 @@
 | `sub_1A54` | 主要函式  /  `sub_0`(切換器)、`sub_2DD44`→`sub_2D9D0`(大地圖)、`sub_1A54`→`sub_1318`(場景)、`sub_5378`→`sub_5150`(地牢)、`sub_2A… | `32-guard-challenge.md`, `35-harp-and-the-secret-door.md`, `66-hexrays-truncation-audit.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `75-open-did-nothing-outside-dungeons.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_1DC8` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md` |
 | `sub_1E74` | 主要函式  /  `sub_1E74`(配物件槽)、`sub_268`(放掉)、`sub_218`(記永久移除)、`sub_2E0`(反查)、`sub_1DC`(在不在場)  / | `33-get-command.md`, `34-ending-trigger.md`, `36-sandalwood-box-npc-objects.md`, `57-crown-and-sceptre-placement.md` |
-| `sub_1F98` | 擲一次遭遇(`sub_1F98` 給門檻,`random(1,30)` 低於門檻就 `sub_2218` 生怪) | `38-terrain-movement-cost.md` |
-| `sub_2218` | `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0` | `38-terrain-movement-cost.md` |
+| `sub_1F98` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
+| `sub_2008` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
+| `sub_203C` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
+| `sub_215C` | sub_215C()                            ; 挑候選座標 → word_3E086 / word_3E088 | `82-the-overworld-world-turn.md` |
+| `sub_2218` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
+| `sub_22B0` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `82-the-overworld-world-turn.md` |
 | `sub_22F0` | ★ **這次找回來的**  /  `sub_2CCFC` 轉向 + `Hull weak!`、`sub_2D9D0` 的 `Rough seas!`、以及它們共同呼叫的 `sub_22F0` 沉船  / | `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `80-implemented-but-unreachable.md` |
 | `sub_23FC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `11-map-objects.md`, `66-hexrays-truncation-audit.md` |
 | `sub_24DC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `66-hexrays-truncation-audit.md` |
-| `sub_25F0` | `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0` | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md` |
-| `sub_2D38` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md` |
-| `sub_2E24` | IDA 位址:`sub_2D0BC`(分級與扣款)、`sub_2E24`(一個世界回合)、`sub_29304`(推時鐘) | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
+| `sub_25F0` | `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0` | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md` |
+| `sub_2D38` | `sub_2D38`  /  風 / 水流漂流(引擎已有同名函式用在航行延遲表 —— **同一支被兩種用途呼叫**,要確認語意)  / | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md` |
+| `sub_2E24` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md` |
 | `sub_2F48` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_3010` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_31F0` | `byte_3F3D8` 的語意**未解**。取用它的 `sub_31F0` 只抽 0x90 / 0x60 / 0x0F, | `48-dungeon-wandering-monster-and-arena.md` |
@@ -154,7 +158,7 @@
 | `sub_10928` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md` |
 | `sub_10A1C` | 同樣手法在 `sub_10A1C` 的墜落動畫裡出現過(存舊值 → 設 0 → 重畫 → 還原), | `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md` |
 | `sub_10B3C` | `sub_10B3C` 進地下世界時當場塞進物件槽,座標寫死在程式裡。王冠與權杖用同樣的方法卻怎麼都找不到: | `33-get-command.md`, `57-crown-and-sceptre-placement.md` |
-| `sub_10BC4` | ⬜ **`tile == 0x8F`(熔岩)在大地圖走 `sub_10BC4`**:印 `Burning!` + `sub_2A4D0`。 | `81-three-mode-loops-are-mutually-exclusive.md` |
+| `sub_10BC4` | ✅ **`tile == 0x8F`(熔岩)在大地圖走 `sub_10BC4`**:印 `Burning!` + `sub_2A4D0`。 | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_10BDC` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `74-two-swamp-dice-and-an-unnamed-failure.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_10C34` | ✅ 早就從組語逆過,截斷沒造成損失  /  `sub_21108` 酒單(`tavern.go`)、`sub_1D394` 聖壇與 `ALAKAZAM`(`shrine.go`)、`sub_14CAC`/`sub_14B… | `19-levelup.md`, `66-hexrays-truncation-audit.md` |
 | `sub_10FEC` | `sub_10FEC` 的 `@`  /  `u5data.TimeOfDay` + `i18n.TimeOfDay`(中文)  / | `05-text-compression.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `47-move-modes-and-time-of-day.md` |
@@ -394,10 +398,10 @@
 | `sub_2B2AC` | T  /  Talk  /  地表 `sub_2B2AC`;地點 ≤ 0x20 → `Talk-Funny, no response!`;其餘 `sub_1B658`  / | `35-harp-and-the-secret-door.md`, `49-command-table-and-two-empty-keys.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2B360` | if (sub_2B360(x, y - 1, floor) != 0xFC) return; // ← 正北一格不是暗影君主:**沉默** | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `28-shadowlords-and-blackthorn.md`, `50-hole-up-camp-sleep-repair.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2B3DC` | 主要函式  /  `sub_172C4`(F 開砲,**244 行**)、`sub_2B3DC`(查某一格上的物件)、`sub_2A4D0`(全隊傷害)、`sub_2E0`/`sub_218`/`sub_268`(NPC… | `12-npc-movement.md`, `69-the-overworld-cannon-did-nothing.md` |
-| `sub_2B57C` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `65-the-wishing-well-easter-egg.md` |
+| `sub_2B57C` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `65-the-wishing-well-easter-egg.md`, `82-the-overworld-world-turn.md` |
 | `sub_2B64C` | 主要函式  /  `sub_15374`(Open 指令本體)、`sub_152B8`(地牢的開箱)、`sub_15108`(物件層的開箱)、`sub_2B64C`(把 tile 寫回去)、`sub_1A54`(主迴圈的… | `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
 | `sub_2B67C` | 主要函式  /  `sub_22F0`(船身損傷)、`sub_2CCFC`(轉向)、`sub_2D9D0`(海上遭遇)、`sub_2A4D0`(全隊傷害)、`sub_2B67C`(誰能行動)  / | `37-look-signs-and-the-sky.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md` |
-| `sub_2B6C8` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `38-terrain-movement-cost.md`, `57-crown-and-sceptre-placement.md`, `65-the-wishing-well-easter-egg.md`, `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
+| `sub_2B6C8` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `38-terrain-movement-cost.md`, `57-crown-and-sceptre-placement.md`, `65-the-wishing-well-easter-egg.md`, `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md`, `82-the-overworld-world-turn.md` |
 | `sub_2B710` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `15-combat-formulas.md`, `67-corpser-and-the-sleeping-party-member.md` |
 | `sub_2B724` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `15-combat-formulas.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2B740` | ⬜ `sub_2B740(n)`(沼澤中毒後呼叫)= `if (byte_3E0B4 != 0) 重畫 n 次`。 | `74-two-swamp-dice-and-an-unnamed-failure.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
@@ -427,7 +431,7 @@
 | `sub_2D478` | `sub_1EFC8`(清單瀏覽器)、`sub_CAC` / `sub_4074` / `sub_2D478`(Attack 三支)  / | `49-command-table-and-two-empty-keys.md`, `60-command-echo-and-menu-keys.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md` |
 | `sub_2D72C` | 分派看的是地形,不是座標。** `sub_2D72C` 依腳下 tile 決定進哪裡 | `03-scene-entry-and-tile-semantics.md`, `27-codex-and-the-shrine-chamber.md` |
-| `sub_2D998` | ⬜ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69` | `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
+| `sub_2D998` | ✅ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69` | `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2D9D0` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2DD44` | 主要函式  /  `sub_0`(切換器)、`sub_2DD44`→`sub_2D9D0`(大地圖)、`sub_1A54`→`sub_1318`(場景)、`sub_5378`→`sub_5150`(地牢)、`sub_2A… | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2DDB0` | 主要函式  /  `sub_29D64`(重畫)、`sub_2E0E8`(罩子入口)、`sub_2DDB0`(flood fill)、`sub_2E1D0`(擋不擋)、`sub_2E8D0`(距離)、`sub_29304… | `31-line-of-sight.md` |
@@ -534,12 +538,12 @@
 | `byte_3E058` | byte_3E050(8)  byte_3E058(8)  byte_3E060(8 藥草)  … | `13-save-writing.md`, `22-moongates.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `byte_3E060` | (`byte_3E000 ↔ 0x024A`、`byte_3E060 ↔ 0x02AA`,兩端夾住中間 0x60 B): | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md`, `22-moongates.md`, `33-get-command.md`, `58-rune-input-cast-and-mix.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `byte_3E06B` | ⬜ `sub_10BDC` 走的是 `byte_3E06B`(隊伍人數)而不是 `CombatPartySlots` 的 6 —— | `07-save-format.md`, `28-shadowlords-and-blackthorn.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
-| `byte_3E08A` | `Absorbed!` 的條件:`byte_3E08A != 'N'` 且 `byte_3DFC0 == 0` 且 `byte_3E0A4 == 0x12` | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `26-yell-words-of-power-shadowlords.md`, `32-guard-challenge.md`, `38-terrain-movement-cost.md`, `44-use-item.md`, `67-corpser-and-the-sleeping-party-member.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `71-the-use-list-had-29-empty-slots.md`, `80-implemented-but-unreachable.md` |
+| `byte_3E08A` | `Absorbed!` 的條件:`byte_3E08A != 'N'` 且 `byte_3DFC0 == 0` 且 `byte_3E0A4 == 0x12` | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `26-yell-words-of-power-shadowlords.md`, `32-guard-challenge.md`, `38-terrain-movement-cost.md`, `44-use-item.md`, `67-corpser-and-the-sleeping-party-member.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `71-the-use-list-had-29-empty-slots.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E08B` | mov     al, byte ptr word_3E086     ← 把**隊伍的 x 座標低位元組**寫進 byte_3E08B | `37-look-signs-and-the-sky.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `75-open-did-nothing-outside-dungeons.md` |
-| `byte_3E08C` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `34-ending-trigger.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `53-party-tile-and-the-arena-floor.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md` |
+| `byte_3E08C` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `34-ending-trigger.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `53-party-tile-and-the-arena-floor.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E08D` | byte_3E08D 月   > 13  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08E` | byte_3E08E 日   > 28  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
-| `byte_3E08F` | } else if (byte_3E08F ∈ {6, 12, 18}) {                      ; ★ 6 / 12 / 18 點 | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md`, `29-npc-behaviour-and-arrest.md`, `47-move-modes-and-time-of-day.md`, `50-hole-up-camp-sleep-repair.md`, `70-hunger-poison-and-the-vanishing-rings.md` |
+| `byte_3E08F` | } else if (byte_3E08F ∈ {6, 12, 18}) {                      ; ★ 6 / 12 / 18 點 | `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `22-moongates.md`, `29-npc-behaviour-and-arrest.md`, `47-move-modes-and-time-of-day.md`, `50-hole-up-camp-sleep-repair.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E090` | if (byte_3E08F == byte_3E090) return                        ; 這個小時已經結算過 | `70-hunger-poison-and-the-vanishing-rings.md` |
 | `byte_3E091` | byte_3E091 分   += minutes;  > 59 → 減 60 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E092` | 每 10 個單位行動 = 遊戲內 1 分鐘**(`byte_3E092` 數到 10 → `sub_29304(1)`)。 | `16-combat-turns-and-ai.md` |
@@ -555,12 +559,12 @@
 | `byte_3E0A2` | sub_2A984(風)   設 byte_3E0A2,把變化計時器 byte_3E093 歸零 | `23-wind-and-sailing.md`, `66-hexrays-truncation-audit.md` |
 | `byte_3E0A3` | if (byte_3E0A3 != 0x1E && byte_3E0A3 != 0x1F && byte_3E0A3 != 0x20) { puts("No effect!"); return 1; } | `03-scene-entry-and-tile-semantics.md`, `04-npc-schedule-and-clock.md`, `10-shop-prices-and-trade.md`, `17-magic.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `31-line-of-sight.md`, `45-fire-and-mix.md`, `48-dungeon-wandering-monster-and-arena.md`, `49-command-table-and-two-empty-keys.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `54-pass-vehicle-verbs-and-the-avatar-line.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `72-ready-had-seven-missing-rules.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `75-open-did-nothing-outside-dungeons.md`, `76-jimmy-in-a-dungeon-disarms-not-unlocks.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `byte_3E0A4` | `Absorbed!` 的條件:`byte_3E08A != 'N'` 且 `byte_3DFC0 == 0` 且 `byte_3E0A4 == 0x12` | `67-corpser-and-the-sleeping-party-member.md` |
-| `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
-| `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `40-push-and-the-main-menu.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md` |
-| `byte_3E0A7` | if (byte_3E0A7 != 4)                                   // ★ 玩家 Y 剛好是 4 就整段跳過 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
+| `byte_3E0A5` | 樓層增減(`sub_758`)  /  `byte_3E0A5 = 1` / `= -1`  /  `inc` / `dec byte_3E0A5`  /  照抄的話只能在 1F 與 B1F 之間跳  / | `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md` |
+| `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `40-push-and-the-main-menu.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `82-the-overworld-world-turn.md` |
+| `byte_3E0A7` | if (byte_3E0A7 != 4)                                   // ★ 玩家 Y 剛好是 4 就整段跳過 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E0A8` | 0x02F2  /  16  /  `byte_3E0A8..B7`  /  逐一單位元組  / | `26-yell-words-of-power-shadowlords.md` |
-| `byte_3E0AB` | 地圖上的距離是 `byte_3E0AB + 0x20`(上限 0x100),`byte_3E0AB` 還沒追到, | `17-magic.md`, `38-terrain-movement-cost.md` |
-| `byte_3E0AC` | 清掉離視窗(`byte_3E0AB`/`byte_3E0AC`)超過 0x1F 格的。 | `38-terrain-movement-cost.md` |
+| `byte_3E0AB` | ★ 距離用 `& 0xFF` 算,所以是**環繞感知**的;基準是 `byte_3E0AB`/`byte_3E0AC` | `17-magic.md`, `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
+| `byte_3E0AC` | ★ 距離用 `& 0xFF` 算,所以是**環繞感知**的;基準是 `byte_3E0AB`/`byte_3E0AC` | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E0AD` | 三個攻擊咒語的傷害也還沒逆到底(`sub_189E4` 只把攻擊碼寫進 `byte_3E0AD`, | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `byte_3E0AE` | movzx eax, byte_3E0AE                    ; 目前行動的單位 | `34-ending-trigger.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `67-corpser-and-the-sleeping-party-member.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `byte_3E0B0` | sub_42CC   (戰鬥)     … cmp byte_3E0B0, 4Dh ; jnz …  → call sub_135FC | `34-ending-trigger.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md` |
@@ -671,8 +675,10 @@
 | `byte_4FC54` | `byte_4FC54` 的前四個位元組是 **`3, 4, 2, 1`** —— 四個方向鍵的鍵碼 | `70-hunger-poison-and-the-vanishing-rings.md` |
 | `byte_4FC80` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
 | `byte_4FC8D` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
-| `byte_4FDD5` | 用的是另一個位元 `byte_4FDD5`,一起做了(`game.worldTurnGates`)。 | `38-terrain-movement-cost.md` |
-| `byte_4FDD7` | 「`byte_4FDD7` 與 `sub_2E24` 的其他呼叫點共不共用?」——**共用**。 | `38-terrain-movement-cost.md` |
+| `byte_4FD30` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
+| `byte_4FD35` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
+| `byte_4FDD5` | if (byte_3E08A == 'Q') { byte_4FDD5 ^= 1; if (set) return 0 }   ; Rel Tym 隔次 | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
+| `byte_4FDD7` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_4FEEE` | 正面(`sub_36C0`,查 `byte_4FEEE[種類]`): | `18-dungeons.md` |
 | `byte_4FF90` | `byte_4FF90` / `byte_4FF98` 兩張表選圖,畫的是 **`ITEMS.16`** 而不是 `DNG*.16`, | `18-dungeons.md` |
 | `byte_4FF98` | `byte_4FF90` / `byte_4FF98` 兩張表選圖,畫的是 **`ITEMS.16`** 而不是 `DNG*.16`, | `18-dungeons.md` |
@@ -754,8 +760,8 @@
 | `word_3DFB4` | if (word_3DFB4 == 0) {                                      ; ★ 存糧 0 | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `33-get-command.md`, `70-hunger-poison-and-the-vanishing-rings.md` |
 | `word_3DFB6` | `word_3DFB6` 是**金錢**(`docs/re/11` 的買馬那段:`sub word_3DFB6, ax ; 扣錢`)。 | `10-shop-prices-and-trade.md`, `11-map-objects.md`, `13-save-writing.md`, `33-get-command.md`, `65-the-wishing-well-easter-egg.md`, `68-troll-bridge-and-collision.md` |
 | `word_3E084` | word_3E084 年 | `04-npc-schedule-and-clock.md` |
-| `word_3E086` | sub_2B67C()                                  ; 找第一個能行動的人 → word_3E086 | `16-combat-turns-and-ai.md`, `37-look-signs-and-the-sky.md`, `40-push-and-the-main-menu.md`, `49-command-table-and-two-empty-keys.md`, `68-troll-bridge-and-collision.md`, `69-the-overworld-cannon-did-nothing.md`, `72-ready-had-seven-missing-rules.md` |
-| `word_3E088` | `sub_15DD4` 每次行動後重數兩邊。⚠ 它用的兩個全域 `word_3E086` / `word_3E088` | `16-combat-turns-and-ai.md`, `40-push-and-the-main-menu.md`, `49-command-table-and-two-empty-keys.md` |
+| `word_3E086` | sub_215C()                            ; 挑候選座標 → word_3E086 / word_3E088 | `16-combat-turns-and-ai.md`, `37-look-signs-and-the-sky.md`, `40-push-and-the-main-menu.md`, `49-command-table-and-two-empty-keys.md`, `68-troll-bridge-and-collision.md`, `69-the-overworld-cannon-did-nothing.md`, `72-ready-had-seven-missing-rules.md`, `82-the-overworld-world-turn.md` |
+| `word_3E088` | sub_215C()                            ; 挑候選座標 → word_3E086 / word_3E088 | `16-combat-turns-and-ai.md`, `40-push-and-the-main-menu.md`, `49-command-table-and-two-empty-keys.md`, `82-the-overworld-world-turn.md` |
 | `word_3E770` | rec = &word_3E770[npc*16]                      // 執行期 NPC 記錄 | `12-npc-movement.md`, `36-sandalwood-box-npc-objects.md` |
 | `word_3E77A` | for i in 0..31: word_3E77A[i*16] = 區域緩衝[i]   ; 對話號碼搬進執行期記錄 | `04-npc-schedule-and-clock.md` |
 | `word_3E77C` | sub_2E58C(word_3E77C[npc*16]);                 // 開打 —— 與撞上野外怪物同一支 | `29-npc-behaviour-and-arrest.md`, `36-sandalwood-box-npc-objects.md` |
@@ -931,9 +937,9 @@
 | `loc_2DBAF` | 指令分派(`sub_2ACF4`)在中間的 `loc_2DBAF`。 | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `loc_2DBF4` | 而每回合的收尾(`sub_29304(2)` 起)在 **line 80013** 的 `loc_2DBF4`。 | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `loc_2DC34` | jnz     short loc_2DC34 | `68-troll-bridge-and-collision.md` |
-| `loc_2DC5F` | ⬜ **`(0xE9, 0xEB)` 的「Pass, Seeker!」關卡**(`sub_2D9D0` `loc_2DC5F`): | `81-three-mode-loops-are-mutually-exclusive.md` |
+| `loc_2DC5F` | ✅ **`(0xE9, 0xEB)` 的「Pass, Seeker!」關卡**(`sub_2D9D0` `loc_2DC5F`): | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `loc_2DCC5` | 大地圖  /  `sub_2DD44` → `sub_2D9D0`  /  **2**(`sub_29304(2)`)  /  `sub_2D9D0` 自己那一串  /  `loc_2DCC5`  / | `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
-| `loc_2DD2F` | ⬜ **每個大地圖回合都跑一個世界回合。** `loc_2DD2F: call sub_2E24` 是**無條件**的。 | `81-three-mode-loops-are-mutually-exclusive.md` |
+| `loc_2DD2F` | ✅ **每個大地圖回合都跑一個世界回合。** `loc_2DD2F: call sub_2E24` 是**無條件**的。 | `81-three-mode-loops-are-mutually-exclusive.md` |
 | `loc_2E074` | loc_2E074:  var_41D = 0xFF        ; 超出半徑 → 連寫都不寫 | `31-line-of-sight.md` |
 | `loc_3185B` | jnz     short loc_3185B | `03-scene-entry-and-tile-semantics.md` |
 | `loc_3197C` | loc_3197C: | `03-scene-entry-and-tile-semantics.md` |
