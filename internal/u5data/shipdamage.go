@@ -93,9 +93,21 @@ const DrownDamageMax = 8
 
 // RoughSeasTile 是會掀起「Rough seas!」的水 tile(`sub_2D9D0`:`cmp esi, 1`)。
 //
-// ⚠ 只記原版比的那個值,不解釋成「深水 / 中水」—— tile 0..3 都是水,
-// 而哪一個是哪一種深度沒有第二份證據。
+// ✅ **是深水**:`internal/i18n/look_text.go` 的 `look#1` 就是「深水」,
+// 而 `look#<N>` 的鍵直接是 tile 編號(`i18n.LookKey`)。
+// 同一批對照還把 `sub_2CE70` 的另外三個地形值認出來(淺灘 / 碼頭 / 仙人掌),
+// 四個全部與訊息語意相符 —— 那才是這條的第二份證據。
 const RoughSeasTile = 1
+
+// `sub_2CE70`(通行判定 + 撞擊)比對的三個地形。
+const (
+	// TileShallowWater 淺灘:揚著帆衝進去會「BREAKING UP!」。
+	TileShallowWater = 3
+	// TileCactus 仙人掌:撞上去「OUCH!」並讓全隊受傷。
+	TileCactus = 0x2F
+	// TileDock 碼頭:撞上去是「Docked!」—— 靠岸,不是撞擊。
+	TileDock = 0x47
+)
 
 // ShipTakesDamage 回報這個載具碼會不會吃船身損傷。
 //

@@ -122,3 +122,59 @@ func (s *State) turnShipInstead(d Direction) bool {
 	// ★ 揚著帆 + 無風 = 動不了。原版 `cmp byte_3E0A2, 0; jnz →照走`。
 	return s.Wind == u5data.WindCalm
 }
+
+// 撞上東西:`Blocked!` / `COLLISION!` / `Docked!` / `OUCH!`(原版 `sub_2CE70`)
+//
+// 這一支是**通行判定 + 撞擊處理**合在一起(回傳「過不過得去」),
+// 所以它同時是 `sub_22F0` 的第二個觸發點 —— `docs/re/66` 當時只知道
+// 「有這條路,觸發條件沒讀」。讀完之後四個地形值全部對得上語意:
+//
+//	tile 3    淺灘   → "BREAKING UP!"   ★ 揚著帆衝進淺灘,船身裂開
+//	tile 0x47 碼頭   → "Docked!"        ★ 靠岸:載具碼 += 4(揚帆組 → 收帆組)
+//	tile 0x2F 仙人掌 → "OUCH!" + 全隊受傷
+//	其餘             → "COLLISION!"(揚帆)或 "Blocked!"(沒揚帆)
+//
+// 四個都用 `internal/i18n/look_text.go` 的 `look#<tile>` 查得出中文名,
+// 而且每一個都與訊息**語意相符** —— 這比逐個位址對照更有說服力。
+// 順帶把 `RoughSeasTile = 1` 也認出來了:`look#1` 是**深水**,
+// 所以小艇與魔毯是在深水上遇到風浪。
+//
+// 原版的順序有一個容易寫錯的地方:
+//
+//	if (地形 == 3)       印 "BREAKING UP!"    → 接著仍走「受損」那條
+//	else if (地形 != 47h) 印 "COLLISION!"     → 接著也走「受損」
+//	if (地形 == 47h) { 印 "Docked!"; 載具 += 4; 收帆 }
+//	else             { 音效; sub_22F0(); 收帆 }
+//
+// 也就是**淺灘會印兩件事**(裂開 + 受損),而碼頭**一句都不印撞擊**。
+
+// blockedMove 是走不過去時的處理(原版 `sub_2CE70` 的後半)。
+func (s *State) blockedMove(nx, ny int) {
+	tile := s.TileAt(nx, ny)
+	if u5data.VehicleKind(s.Transport) != u5data.VehicleSailing {
+		// 沒揚帆:一句 Blocked,而仙人掌會扎人。
+		s.Log(MsgBlocked)
+		if tile == u5data.TileCactus {
+			s.Log(MsgOuch)
+			s.damageWholeParty()
+		}
+		return
+	}
+	// 揚著帆撞上東西。
+	switch {
+	case tile == u5data.TileShallowWater:
+		s.Log(MsgBreakingUp)
+	case tile != u5data.TileDock:
+		s.Log(MsgCollision)
+	}
+	if tile == u5data.TileDock {
+		s.Log(MsgDocked)
+		// ★ 載具碼 += 4:揚帆那一組(0x20..0x23)回到收帆那一組(0x24..0x27),
+		// 朝向自然保留 —— 原版就是一個 `add byte_3E08C, 4`。
+		s.Transport += 4
+		return
+	}
+	s.DamageShip()
+	// 撞完自動收帆(原版 `mov byte_3E167, 0`)。
+	s.Transport = u5data.VehicleShip | (s.Transport & 0x03)
+}

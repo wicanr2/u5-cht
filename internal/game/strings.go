@@ -237,6 +237,22 @@ const (
 	MsgArmedSeparator = "、"
 	MsgArmedColon     = ":"
 	MsgBareHands      = "空手"
+	// 撞擊(原版 `sub_2CE70`,見 `docs/re/66` 追記)
+	MsgBreakingUp = "船身裂開!"
+	MsgCollision  = "撞上了!"
+	MsgDocked     = "靠岸!"
+	MsgOuch       = "哎唷!"
+	// "Rowing!" —— 收帆的船每走一步都會印(原版 `sub_2CE70` 開頭)。
+	MsgRowing = "划行!"
+
+	// 橋下的食人妖(原版 `sub_3010` / `sub_2F48`,見 `troll.go`)
+	MsgTrollsUnderBridge = "汝見橋下有食人妖!"
+	MsgSneaksAcross      = "悄悄潛行而過……"
+	MsgTrollsEvaded      = "躲過了食人妖!"
+	MsgCaught            = "被逮住了!"
+	// "%dgp toll!" —— 數字是 99 − 力量×3。
+	MsgTrollToll  = "過路費 %d 金!"
+	MsgDostThouPay = "汝要付嗎?"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

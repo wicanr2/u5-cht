@@ -1,6 +1,7 @@
 package game
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -8,6 +9,9 @@ import (
 )
 
 // shipScene 造一艘停在海上的船。
+//
+// ⚠ 要載一張真的世界地圖,否則 `TileAt` 全回 0、`SetTileAt` 無效 ——
+// 而失敗訊息會長得像「撞擊沒判對」,把人指向錯的地方(同 `fire_test.go` 的註記)。
 func shipScene(t *testing.T, hull int) *State {
 	t.Helper()
 	s := newCreateState(t)
@@ -16,6 +20,11 @@ func shipScene(t *testing.T, hull int) *State {
 	s.Transport = u5data.VehicleShip // 0x24:收帆的船,朝北
 	s.ShipHull, s.ShipSkiffs = hull, 0
 	s.Inventory.Carpets = 0
+	if dir := os.Getenv("U5_GAMEDATA"); dir != "" {
+		if w, err := u5data.LoadFlatMap(dir + "/UNDER.DAT"); err == nil {
+			s.World, s.Under = w, w
+		}
+	}
 	s.Messages = nil
 	return s
 }
@@ -289,5 +298,90 @@ func TestWholePartyDamageIsOneToEight(t *testing.T) {
 				t.Fatalf("第 %d 位掉了 %d 血,超出 1..%d", j, lost, u5data.DrownDamageMax)
 			}
 		}
+	}
+}
+
+// TestCollisionOutcomesByTerrain 逐地形釘住撞擊的四種結果。
+func TestCollisionOutcomesByTerrain(t *testing.T) {
+	cases := []struct {
+		tile    byte
+		sailing bool
+		want    []string
+		absent  []string
+		why     string
+	}{
+		{u5data.TileDock, true, []string{MsgDocked},
+			[]string{MsgCollision, MsgBreakingUp, MsgShipSunk}, "碼頭是靠岸,不印撞擊"},
+		{u5data.TileShallowWater, true, []string{MsgBreakingUp},
+			[]string{MsgCollision}, "★ 淺灘印裂開,不印 COLLISION"},
+		{0x0A, true, []string{MsgCollision},
+			[]string{MsgBreakingUp, MsgDocked}, "其他地形印 COLLISION"},
+		{u5data.TileCactus, false, []string{MsgBlocked, MsgOuch},
+			[]string{MsgCollision}, "沒揚帆撞仙人掌"},
+		{0x0A, false, []string{MsgBlocked},
+			[]string{MsgOuch, MsgCollision}, "沒揚帆撞普通障礙"},
+	}
+	for _, c := range cases {
+		s := shipScene(t, 99)
+		if c.sailing {
+			s.Transport = u5data.VehicleSailing | byte(North)
+		} else {
+			s.Transport = u5data.VehicleWalk
+		}
+		// 把要撞的那一格換成指定地形。
+		s.X, s.Y = 10, 10
+		if !s.SetTileAt(11, 10, c.tile) {
+			t.Skip("寫不進世界地圖")
+		}
+		s.Messages = nil
+		s.blockedMove(11, 10)
+		joined := strings.Join(s.Messages, "|")
+		for _, w := range c.want {
+			if !strings.Contains(joined, w) {
+				t.Errorf("地形 0x%02X(%s):少了 %q,實際 %q", c.tile, c.why, w, s.Messages)
+			}
+		}
+		for _, w := range c.absent {
+			if strings.Contains(joined, w) {
+				t.Errorf("地形 0x%02X(%s):不該有 %q,實際 %q", c.tile, c.why, w, s.Messages)
+			}
+		}
+	}
+}
+
+// TestDockingLowersTheSailsAndKeepsFacing:靠岸是 `add byte_3E08C, 4`。
+func TestDockingLowersTheSailsAndKeepsFacing(t *testing.T) {
+	for _, d := range []Direction{North, East, South, West} {
+		s := shipScene(t, 99)
+		s.Transport = u5data.VehicleSailing | byte(d)
+		s.X, s.Y = 10, 10
+		if !s.SetTileAt(11, 10, u5data.TileDock) {
+			t.Skip("寫不進世界地圖")
+		}
+		s.blockedMove(11, 10)
+		if s.Transport != u5data.VehicleShip|byte(d) {
+			t.Errorf("朝向 %v:靠岸後載具是 0x%02X,預期 0x%02X",
+				d, s.Transport, u5data.VehicleShip|byte(d))
+		}
+	}
+}
+
+// TestCollisionDamagesTheHullAndLowersSails:撞完要掉耐久並自動收帆。
+func TestCollisionDamagesTheHullAndLowersSails(t *testing.T) {
+	s := shipScene(t, 99)
+	s.Transport = u5data.VehicleSailing | byte(East)
+	s.X, s.Y = 10, 10
+	if !s.SetTileAt(11, 10, 0x0A) {
+		t.Skip("寫不進世界地圖")
+	}
+	s.blockedMove(11, 10)
+	if s.ShipHull >= 99 {
+		t.Errorf("撞完耐久還是 %d —— 該掉血", s.ShipHull)
+	}
+	if u5data.VehicleKind(s.Transport) != u5data.VehicleShip {
+		t.Errorf("撞完載具是 0x%02X —— 該自動收帆", s.Transport)
+	}
+	if s.Transport&0x03 != byte(East) {
+		t.Errorf("撞完朝向變了:0x%02X", s.Transport)
 	}
 }

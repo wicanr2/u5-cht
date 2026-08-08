@@ -692,8 +692,14 @@ func (s *State) moveInWorld(d Direction) {
 		}
 	}
 	if u5data.TileBlocksWalking(int(s.TileAt(nx, ny))) {
-		s.Log(MsgBlocked)
+		// 撞上東西不只是一句「去路受阻」—— 揚著帆會撞壞船、碼頭是靠岸、
+		// 仙人掌會扎人(原版 `sub_2CE70`,見 `shipdamage.go`)。
+		s.blockedMove(nx, ny)
 		return
+	}
+	// 收帆的船每走一步都印「划行!」(原版 `sub_2CE70` 開頭那一句)。
+	if u5data.VehicleKind(s.Transport) == u5data.VehicleShip {
+		s.Log(MsgRowing)
 	}
 	// ★ 大船先判「轉向」:想去的方向與船頭不同就只轉向,這一步用掉了
 	// (原版 `sub_2D174` → `sub_2CCFC`,回傳非 0 就不移動)。
@@ -712,6 +718,10 @@ func (s *State) moveInWorld(d Direction) {
 	// 粗糙地形要多付世界回合與時間(原版 `sub_2D0BC`)。
 	// ⚠ 位置在 tick 之後、月門之前 —— 原版 `sub_2D174` 就是這個順序。
 	s.payTerrainCost(int(s.TileAt(nx, ny)))
+	// 走上橋有 1/8 遇到橋下的食人妖(原版 `sub_2D9D0` 的 `tile & 0xFE == 0x6A`)。
+	if s.TileAt(nx, ny)&0xFE == TrollBridgeTile {
+		s.crossBridge()
+	}
 	// 踏上月門就被捲走(原版 `sub_E084`)。
 	s.EnterMoongateHere()
 	// 載具的動詞與朝向(原版 `sub_7C0`)。⚠ 朝向位元同時是開砲判舷側
