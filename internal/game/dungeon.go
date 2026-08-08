@@ -70,15 +70,44 @@ func (s *State) EnterDungeon(n int, fromBelow bool) bool {
 	return true
 }
 
-// LeaveDungeon 離開地牢回到大地圖。
+// LeaveDungeon 離開地牢(原版 `sub_3FE4`)。
+//
+// ⚠⚠ **兩個錯**(`docs/re/78`):
+//
+//  1. **它永遠回地表。** 原版 `if (byte_3E0A5 != 0) { 樓層 = 0FFh; 印 "Underworld!" }`
+//     —— **離開時在第幾層決定出到哪個世界**:第 1 層(樓層 0)→ 不列顛尼亞,
+//     其他層 → **地底世界**。這是 U5 的既定地理:**地牢最底層通到地底世界**。
+//  2. **它沒有還原世界座標。** 原版從兩張以地點編號索引的表取:
+//     `byte_410F3[地點]` → X、`byte_4111B[地點]` → Y。少了這一步,隊伍會帶著
+//     地牢的 8×8 層內座標回到 256×256 的世界地圖上 —— 也就是被丟到
+//     世界的左上角附近。這正是 `CLAUDE.md` §6.1 那條「debug hook 會遮住真 bug」
+//     的形狀:測試從沒檢查過離開之後人在哪裡。
 func (s *State) LeaveDungeon() {
-	if s.Dungeon == nil {
+	d := s.Dungeon
+	if d == nil {
 		return
+	}
+	// ★ 樓層決定出到哪個世界 —— 在清掉 Dungeon 之前先讀。
+	toUnderworld := d.Level != 0
+	// 世界座標回到那座地牢的入口(原版的兩張表 = `u5data.DungeonEntrances`)。
+	if d.Index >= 0 && d.Index < len(u5data.DungeonEntrances) {
+		e := u5data.DungeonEntrances[d.Index]
+		s.X, s.Y = e.X, e.Y
 	}
 	s.Dungeon = nil
 	s.Location = 0
-	s.Log("汝回到了地面。")
+	s.Log(MsgExitTo)
+	if toUnderworld {
+		s.Floor = UnderworldFloor
+		s.Log(MsgUnderworld)
+		return
+	}
+	s.Floor = 0
+	s.Log(MsgBritannia)
 }
+
+// UnderworldFloor 是地底世界的樓層值(原版 `mov byte_3E0A5, 0FFh`,補數 = −1)。
+const UnderworldFloor = -1
 
 // DungeonTileAt 取地牢裡某一格。
 func (s *State) DungeonTileAt(x, y int) byte {
@@ -267,8 +296,13 @@ func (s *State) DungeonKlimb(up bool) {
 			s.Log(MsgNothingToClimb)
 			return
 		}
+		// ★★ **最底層再往下就是地底世界**(原版 `sub_4074` 的
+		// `cmp al, 7; jnb → sub_3FE4`,以及 `sub_100F8` 的 case 6
+		// `cmp byte_3E0A5, 7`)。引擎原本印「再下去就沒有路了。」——
+		// 那句話是我自己加的,而它把 U5 的地理封起來了:
+		// **八座地牢的底層都通到地底世界**。
 		if d.Level >= u5data.DungeonLevels-1 {
-			s.Log("再下去就沒有路了。")
+			s.LeaveDungeon()
 			return
 		}
 		d.Level++
@@ -307,21 +341,30 @@ func (s *State) DungeonChangeLevel(delta int) bool {
 	if d == nil {
 		return false
 	}
-	next := d.Level + delta
-	if next < 0 || next >= u5data.DungeonLevels {
-		s.Log("此處無路可去。")
-		return false
-	}
-	if u5data.DungeonKind(s.Dungeons.At(d.Index, next, d.X, d.Y)) != u5data.DungeonPassage {
-		s.Log("此處無路可去。")
-		return false
-	}
-	d.Level = next
+	// ★ 原版 `sub_3F34` **開頭就印方向**,在任何判斷之前 ——
+	// 所以連「無路可去」那條也會先看到 "Up!" / "Down!"。
 	if delta > 0 {
 		s.Log(MsgDown)
 	} else {
 		s.Log(MsgUp)
 	}
+	// ★★ 兩個邊界都是「離開地牢」,不是「無路可去」(原版 `sub_3F34`
+	// 回 1 → 呼叫端 `call sub_3FE4`):
+	//
+	//	delta > 0 且樓層 == 7  →  離開 → **地底世界**
+	//	delta < 0 且樓層 == 0  →  離開 → 不列顛尼亞
+	//
+	// 也就是 Des Por 在最底層、Uus Por 在第一層都會把隊伍送出地牢。
+	if (delta > 0 && d.Level == u5data.DungeonLevels-1) || (delta < 0 && d.Level == 0) {
+		s.LeaveDungeon()
+		return true
+	}
+	next := d.Level + delta
+	if u5data.DungeonKind(s.Dungeons.At(d.Index, next, d.X, d.Y)) != u5data.DungeonPassage {
+		s.Log("此處無路可去。")
+		return false
+	}
+	d.Level = next
 	s.spawnDungeonMonster()
 	s.dungeonTurnEnd()
 	return true

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/wicanr2/u5-cht/internal/u5data"
@@ -254,4 +255,110 @@ func TestDungeonSpellsWorkOnlyInDungeons(t *testing.T) {
 		}
 	}
 	t.Skip("找不到上下都是純通道的位置")
+}
+
+// ─── 離開地牢(原版 `sub_3FE4`,`docs/re/78`)──────────────────────────
+
+// TestLeavingFromTheBottomLandsInTheUnderworld —— ★★ 這是 U5 的既定地理。
+//
+// `sub_3FE4`:`if (byte_3E0A5 != 0) { 樓層 = 0FFh; 印 "Underworld!" }` ——
+// **離開時在第幾層決定出到哪個世界**。而 `sub_4074` / `sub_100F8` / `sub_3F34`
+// 三處都在「最底層再往下」時呼叫它 ⇒ **八座地牢的底層都通到地底世界**。
+//
+// ⚠ 引擎原本在最底層往下印「再下去就沒有路了。」—— 那句話是我自己加的,
+// 而它把整條通路封起來了。
+func TestLeavingFromTheBottomLandsInTheUnderworld(t *testing.T) {
+	s := dungeonState(t)
+	if !s.EnterDungeon(0, false) {
+		t.Skip("進不了地牢")
+	}
+	d := s.Dungeon
+	d.Level = u5data.DungeonLevels - 1
+	// ⚠ Klimb 在地牢裡**確實需要梯子**(`sub_417C` 的 `edi == 0x20/0x30/0x60`)——
+	// 邊界那條是在 `sub_3F34` 裡,排在梯子檢查之後。所以要先擺一格下行梯,
+	// 不然失敗訊息會是「此處無梯可攀」,看起來像邊界規則沒生效。
+	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonLadderDown)
+	s.Messages = nil
+	s.DungeonKlimb(false) // 往下
+	if s.InDungeon() {
+		t.Fatalf("最底層往下該離開地牢:%q", s.Messages)
+	}
+	if s.Floor != UnderworldFloor {
+		t.Errorf("樓層是 %d,預期 %d(地底世界)", s.Floor, UnderworldFloor)
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgUnderworld) {
+		t.Errorf("沒印「%s」:%q", MsgUnderworld, s.Messages)
+	}
+}
+
+// TestLeavingFromTheTopLandsInBritannia —— 第一層往上回地表,樓層歸 0。
+func TestLeavingFromTheTopLandsInBritannia(t *testing.T) {
+	s := dungeonState(t)
+	if !s.EnterDungeon(0, false) {
+		t.Skip("進不了地牢")
+	}
+	s.Dungeon.Level = 0
+	// 腳下要有梯子才爬得上去 —— 找一格上行梯。
+	if !findDungeonTile(t, s, u5data.DungeonLadderUp) {
+		t.Skip("找不到上行梯")
+	}
+	s.Dungeon.Level = 0
+	s.Messages = nil
+	s.DungeonKlimb(true)
+	if s.InDungeon() {
+		t.Fatalf("第一層往上該離開地牢:%q", s.Messages)
+	}
+	if s.Floor != 0 {
+		t.Errorf("樓層是 %d,預期 0(地表)", s.Floor)
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgBritannia) {
+		t.Errorf("沒印「%s」:%q", MsgBritannia, s.Messages)
+	}
+}
+
+// TestLeavingADungeonRestoresTheWorldPosition —— ★ 原版從兩張表取入口座標。
+//
+// `byte_410F3[地點]` → X、`byte_4111B[地點]` → Y。少了這一步,隊伍會帶著
+// 地牢的 8×8 層內座標回到 256×256 的世界地圖上 —— 被丟到世界左上角附近。
+// **原本沒有任何測試檢查過離開之後人在哪裡。**
+func TestLeavingADungeonRestoresTheWorldPosition(t *testing.T) {
+	for n := 0; n < u5data.DungeonCount; n++ {
+		s := dungeonState(t)
+		if !s.EnterDungeon(n, false) {
+			t.Skip("進不了地牢")
+		}
+		s.Dungeon.X, s.Dungeon.Y = 3, 4 // 層內座標,絕對不該外洩到世界座標
+		s.LeaveDungeon()
+		want := u5data.DungeonEntrances[n]
+		if s.X != want.X || s.Y != want.Y {
+			t.Errorf("%s:離開之後在 (%d, %d),預期入口 (%d, %d)",
+				want.NameZH, s.X, s.Y, want.X, want.Y)
+		}
+	}
+}
+
+// TestDesPorAtTheBottomAlsoLeaves —— Des Por / Uus Po 的邊界與 Klimb 同一條。
+//
+// 原版 `sub_3F34` 在兩個邊界回 1,呼叫端(施法的跳表)接著 `call sub_3FE4`。
+func TestDesPorAtTheBottomAlsoLeaves(t *testing.T) {
+	s := dungeonState(t)
+	if !s.EnterDungeon(0, false) {
+		t.Skip("進不了地牢")
+	}
+	s.Dungeon.Level = u5data.DungeonLevels - 1
+	s.Messages = nil
+	if !s.DungeonChangeLevel(1) {
+		t.Fatalf("最底層往下該成功(= 離開):%q", s.Messages)
+	}
+	if s.InDungeon() {
+		t.Error("Des Por 在最底層沒把隊伍送出地牢")
+	}
+	if s.Floor != UnderworldFloor {
+		t.Errorf("樓層是 %d,預期地底世界 %d", s.Floor, UnderworldFloor)
+	}
+	// ★ 而且「Down!」要先印 —— 原版 `sub_3F34` 開頭就印,在判界之前。
+	joined := strings.Join(s.Messages, "|")
+	if !strings.Contains(joined, MsgDown) {
+		t.Errorf("沒先印「%s」:%q", MsgDown, s.Messages)
+	}
 }
