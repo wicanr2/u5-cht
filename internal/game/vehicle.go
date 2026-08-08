@@ -44,6 +44,8 @@ func (s *State) Board() {
 		if !s.mustBeOnFoot() {
 			return
 		}
+		// 原版 `sub_16F08` 印 "skiff\n" 之後換曲 2(`docs/re/87`)。
+		s.playSong(SongShip)
 		s.mount(slot, tile, "汝登上了小艇。")
 	case tile&0xFC == u5data.VehicleShip:
 		// 上大船的限制與其他不同:原版 `sub_16DC8` 的跳表允許
@@ -68,6 +70,8 @@ func (s *State) Board() {
 			s.Log(MsgNoSkiffs)
 		}
 		s.ShipHull, s.ShipSkiffs = o.Hull(), skiffs
+		// 原版 `sub_16F08` 印 "Ship\n" 之後換曲 2 —— 與小艇同一首。
+		s.playSong(SongShip)
 		s.mount(slot, tile, "汝登上了船。")
 	default:
 		s.Log(MsgWhat)

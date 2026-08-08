@@ -64,6 +64,9 @@ func (s *State) EnterDungeon(n int, fromBelow bool) bool {
 	}
 	s.Dungeon = d
 	s.Location = loc
+	// 原版 `sub_2D564`(洞穴 / 礦坑 / 地牢的入口)換曲 9;
+	// `sub_31DC0` 也用「地點碼 ≥ 0x21 → 9」開局(`docs/re/87`)。
+	s.playSong(SongDungeon)
 	s.Log("汝踏入了幽深的地底。")
 	s.spawnDungeonMonster()
 	s.onDungeonTile()
@@ -96,6 +99,11 @@ func (s *State) LeaveDungeon() {
 	}
 	s.Dungeon = nil
 	s.Location = 0
+	// ⚠ 原版 `sub_3FE4` 這裡 push 的是**字面 1**(不列顛尼亞),
+	// 即使下一行就要印 "Underworld!" 也一樣 —— 從地牢底層出到幽冥界時,
+	// 音樂會是地表的那一首。照原樣做(`CLAUDE.md §3.0`),
+	// 已列進 A 階段對 DOSBox 的核對清單(`docs/re/87` §5)。
+	s.playSong(SongBritannia)
 	s.Log(MsgExitTo)
 	if toUnderworld {
 		s.Floor = UnderworldFloor

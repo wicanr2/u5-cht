@@ -479,6 +479,15 @@ DOSBox 設定的實測基準見 `~/.claude/knowledge-base/retro/dosbox-game-conf
 ⚠ 差點把 `U5_SE.TBL` 的解析器重寫一遍 —— `snd.go` 早就有,而且處理了檔尾的
 `0x1A`(DOS Ctrl-Z EOF),我那份沒有、跑起來會直接失敗。**先 grep 自己的程式碼。**
 
+✅ **八個換曲點已落地**(`docs/re/87` §5):進場景 7、離場地表 1 / **幽冥界 0x0A**、
+進地牢 9、離開地牢 1、月門 1、開戰 3、勝利 0、上船 / 上小艇 2。
+★★ 「幽冥界另有一首」是從 `sub_86C` 的離場分支挖出來的
+(`byte_3E0A3 == 19h` 印 "Underworld!" 配曲 0x0A,否則 "Britannia!" 配曲 1)。
+⚠ `sub_177AC`(下載具)**刻意不接**:兩個呼叫點沒讀完,而 `dismount` 在場景裡
+也會被呼叫(在城裡下馬)⇒ 接錯會在城裡放大地圖的曲子。有位址,沒讀完就不做。
+⚠ `song` 刻意不匯出:曲號 **0 是勝利曲**,而 `State` 到處是結構常值 ⇒
+匯出的話零值會被當成「正在播勝利曲」。`TestFreshStateHasNoSong` 釘住這個陷阱。
+
 ⬜ C 階段剩下的:`internal/audio`(不存在)、`.EUP` → 可播音訊
 (`../u1-cht/tools/render_eup_music.py` 可複用,但那是自製 2-op FM 近似,
 不是原版音色 —— EUP 檔頭 0x254..0x6D2 疑為音色定義,尚未解)、兩條 CDDA 轉檔、

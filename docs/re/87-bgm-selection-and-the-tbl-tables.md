@@ -171,9 +171,23 @@ default → 曲 1
 | 曲號 0..14 的上限 | `u5data.BGMSongCount` | ✅(與表列數互相驗證) |
 | `sub_31DC0` 開局選曲 | `u5data.StartupSong` | ✅ |
 | `U5_SE.TBL` + 25 個 `.SND` | `u5data.LoadSoundTable` / `LoadSoundSet` | ✅ **早就做完了**(見 §6) |
+| `sub_2D72C` 進場景 → 曲 7 | `Enter()` | ✅ |
+| `sub_86C` 離場 → 地表 1 / 幽冥界 0x0A | `leaveScene()` + `overworldSong()` | ✅ |
+| `sub_2D564` 進地牢 → 曲 9 | `EnterDungeon()` | ✅ |
+| `sub_3FE4` 離開地牢 → 字面 1 | `LeaveDungeon()` | ✅(含「出到幽冥界也放地表曲」的原版怪處) |
+| `sub_DF84` 月門傳送 → 字面 1 | `TravelByMoongate()` | ✅ |
+| `sub_A9EC` 進戰鬥 → 3 / 勝利 → 0 | `beginCombatFrom()` / `beginRoomCombat()` / `checkCombatOver()` | ✅ |
+| `sub_16F08` 上船 / 上小艇 → 曲 2 | `Board()` | ✅(馬與魔毯不換) |
+| 曲號的讀取介面 | `CurrentSong()` / `PreviousSong()` | ✅(⚠ 目前只有測試引用,見下) |
+| `sub_177AC` 下載具 → 字面 1 ×2 | — | ⬜ **刻意不接**:兩個呼叫點還沒逐一讀,而 `dismount` 在**場景裡**也會被呼叫(在城裡下馬)⇒ 接錯會在城裡放大地圖的曲子。有位址,沒讀完就不做(`CLAUDE.md §3.0`) |
+| `sub_165C8` 紮營 / `sub_21D48` Rest → 4,之後回 `[ebp+var_8]` | — | ⬜ 「放完回到剛才那首」的機制未讀 |
+| `sub_1DA10` 聖壇 → 1 與 4 兩處 | — | ⬜ 兩處條件未分辨 |
+| `sub_1678` / `sub_C778` → 曲 7 | — | ⬜ 與 `sub_2D72C` 可能重複,未確認 |
+| `sub_12B20` → 0x0E、`sub_135FC` → 0x0D / 9、`sub_32244` → 0x0A | — | ⬜ 過場 / 開場,引擎沒有對應流程 |
 | `sub_3181C` 的六聲道淡出 | — | ⬜ 引擎不做 FM 合成,淡出改成音量包絡 |
-| `.EUP` → 可播的音訊 | — | ⬜ **C 階段主體**;`../u1-cht/tools/render_eup_music.py` 可複用 |
-| 換場景時換曲 | — | ⬜ 需要 `internal/audio` |
+| `.EUP` → 可播的音訊 | — | ⬜ **C 階段主體**;`../u1-cht/tools/render_eup_music.py` 可複用,但那是**自製 2-op FM 近似**,不是原版音色(EUP 檔頭 0x254..0x6D2 疑為音色定義,未解)|
+| 兩條 CDDA → ogg | — | ⬜ |
+| 播放本體 | `internal/audio` | ⬜ **套件還不存在** |
 
 ## 6. ⚠⚠ 兩個「差點重做一遍」與一個假綠燈
 
@@ -207,3 +221,14 @@ default → 曲 1
 
 ⇒ 順手加的一條紀律:**看到 `--- SKIP` 不要當成「沒資料所以跳過」就算了** ——
 先問「這台機器上明明有資料,為什麼跳過」。
+
+## 7. 引擎的分工:`internal/game` 只決定曲號
+
+`State.song` / `prevSong` 對應原版的 `dword_65334` / `dword_65338`,
+讀取走 `CurrentSong()` / `PreviousSong()`;音訊由 `internal/audio` 拿這個值去播。
+⇒ **headless 完全不需要音效裝置**,曲號切換可以在單元測試裡驗
+(同 `render` 不綁 GPU 的理由,`docs/engineering-notes.md`)。
+
+⚠ **`song` 刻意不匯出。** 曲號 **0 是勝利那一首**,而 `State` 到處被寫成
+結構常值(這個專案沒有 `State` 的建構子)⇒ 匯出的話**零值會被當成
+「正在播勝利曲」**。`TestFreshStateHasNoSong` 把這個陷阱釘住。

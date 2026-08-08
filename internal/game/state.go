@@ -235,6 +235,16 @@ type State struct {
 	// ⚠ 原版那個位元組**會進存檔**而且繪圖會讀它(`docs/re/86`),
 	// 引擎目前只用它當開關,⬜ 存檔位移與動畫都還沒做。
 	MoongateFrame int
+	// song 是現在該播第幾首(原版 `dword_65334`),prevSong 是前一首
+	// (原版 `dword_65338`)。★ `internal/game` 只決定曲號,音訊由
+	// `internal/audio` 負責 —— headless 完全不需要音效裝置。
+	//
+	// ⚠ **刻意不匯出**:曲號 0 是「勝利」那一首,而 `State` 到處被寫成
+	// 結構常值(沒有建構子)⇒ 匯出的話零值會被當成「正在播勝利曲」。
+	// 讀取走 `CurrentSong()`,它在還沒選曲時回 `SongNone`。
+	song     int
+	prevSong int
+	songSet  bool
 	// lastVacatedX / Y 是「這一輪剛移動的那個東西離開的格子」
 	// (原版 `byte_4FD94` / `byte_4FD95`)。★ 是**全域**一份不是每槽一份,
 	// 只由 `stepObject` 寫、只由 `notJustVacated` 讀(`docs/re/85`)。
@@ -961,6 +971,8 @@ func (s *State) Enter() {
 	// (NPC 還在原本走到的位置上,只是玩家換層了)。
 	s.initRuntimeNPCs()
 	s.syncNPCObjects()
+	// 原版 `sub_2D72C` 依腳下 tile 分派進場景時換曲(`docs/re/87`)。
+	s.playSong(SongTown)
 	s.Log("進入" + loc.DisplayName() + "。")
 }
 
@@ -988,6 +1000,10 @@ func (s *State) leaveScene() {
 		return
 	}
 	underworld := s.Location == UnderworldLocation
+	// ★★ 原版在這裡分兩首:`byte_3E0A3 == 19h` 印 "Underworld!" 配曲 0x0A,
+	// 否則印 "Britannia!" 配曲 1(`docs/re/87` §4)。**判準是地點碼**,
+	// 所以要在下面把 `s.Location` 清成 0 **之前**決定。
+	s.playSong(s.overworldSong())
 	s.X, s.Y = loc.X, loc.Y
 	s.Location = 0
 	s.scene = nil
@@ -1053,6 +1069,9 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 			s.Log("讀檔:回不到原本的場景(" + err.Error() + "),改由大地圖開始。")
 		}
 	}
+	// 原版 `sub_6730` 在載完地圖之後跑一次 `sub_31DC0` 挑開場曲(`docs/re/87` §3)。
+	// ⚠ 位置照原版:**在場景載回來之後**,所以存檔在城裡時看到的是城裡的座標。
+	s.StartupSong()
 }
 
 // Party 回傳目前隊伍 —— 名冊的前 PartySize 名。

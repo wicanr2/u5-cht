@@ -236,6 +236,8 @@ func (s *State) beginCombatFrom(o *u5data.MapObject, slot int) bool {
 
 	s.Combat = c
 	s.Prompt = PromptCombat
+	// 原版 `sub_A9EC`(戰鬥迴圈)一進來就換曲 3(`docs/re/87`)。
+	s.playSong(SongCombat)
 	s.Log("「" + c.EnemyName + "」來襲!")
 	s.Log("(戰場 #" + strconv.Itoa(idx) + ")")
 	s.advanceCombat()
@@ -252,6 +254,8 @@ func (s *State) beginRoomCombat(m *u5data.CombatMap, idx int, mode byte) bool {
 	// 寫死成房間模式會讓遊蕩怪物與紮營也變成離不開的死戰。
 	c := &Combat{Map: m, MapIndex: idx, fromSlot: -1, Turn: -1,
 		savedX: s.X, savedY: s.Y, EnemyName: "房間裡的東西", Mode: mode}
+	// 地牢房間 / 遊蕩怪 / 紮營三種場合都走 `sub_A9EC`,所以一樣換曲 3。
+	s.playSong(SongCombat)
 	for i := range c.LastAttacker {
 		c.LastAttacker[i] = -1
 	}
@@ -573,6 +577,8 @@ func (s *State) checkCombatOver() bool {
 	switch {
 	case enemies == 0:
 		s.Log("勝利!")
+		// 原版 `sub_A9EC` 印完 `"\nVICTORY!\n"` 才換曲 0(`docs/re/87`)。
+		s.playSong(SongVictory)
 		c.Over, c.Won = true, true
 	case party == 0:
 		s.Log("敗北!")
