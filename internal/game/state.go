@@ -379,13 +379,16 @@ type State struct {
 	ShipRigged bool
 	// Pick 是進行中的選單(Prompt == PromptPick 時有效)。
 	Pick *Picker
-	// HasBadge 是有沒有黑棘的黑徽章(原版 `byte_3DFCC`)。
+	// HasBadge / HasSpyglass / HasSextant / HasWatch 是四個道具的持有旗標。
 	//
-	// ⚠ 這一格的存檔位移**還沒釘死**:`sub_1E8D4` 的道具清單讀的是
-	// `byte_3DFCC`,而 0x0216..0x0218 三格對三個變數還沒逐一分派完
-	// (見 `u5data/save.go` 那一段的說明)。所以它目前只在記憶體裡,
-	// 存讀檔不保留 —— 留白比對錯位移好。
-	HasBadge bool
+	// ✅ **位移釘死了**(`docs/re/79`):`byte_3DFC8` 望遠鏡 0x0214、
+	// `byte_3DFCA` 六分儀 0x0216、`byte_3DFCB` 懷錶 0x0217、
+	// `byte_3DFCC` 徽章 0x0218。此前這裡寫「還沒釘死,所以存讀檔不保留」——
+	// 現在四個都進存檔了,而 U 的清單也改成照旗標列(不再無條件列出)。
+	HasBadge    bool
+	HasSpyglass bool
+	HasSextant  bool
+	HasWatch    bool
 	// Conv 是進行中的對話(Prompt == PromptTalk 時有效)。
 	Conv *u5data.Conversation
 	// Shop 是進行中的交易(Prompt == PromptShop 時有效)。
@@ -1004,6 +1007,12 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 		s.Shards[i] = sv.Shards[i] != 0
 	}
 	s.SandalwoodBox = sv.SandalwoodBox != 0
+	s.HasSpyglass = sv.Spyglass != 0
+	s.HasSextant = sv.Sextant != 0
+	s.HasWatch = sv.Watch != 0
+	// ⚠ 徽章(0x0218)還沒接進 `u5data.Save` 的欄位 —— 位移已釘死
+	// (`docs/re/79`),但 `HasBadge` 目前仍只在記憶體裡。列成 ⬜ 而不是
+	// 悄悄用一個沒驗過的欄位。
 	s.Regalia = sv.Regalia
 	// 地下世界的寶珠與碎片是**載入時當場擺**的,不在任何資料檔裡
 	//(原版 `sub_10B3C`,由地圖載入呼叫)。

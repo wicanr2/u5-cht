@@ -53,6 +53,24 @@ const (
 	OpKarmaDown = 0x8A
 	// OpCallGuards 叫衛兵(sub_C10 掃 32 個 NPC 槽找 tile 0x70 那批)。
 	OpCallGuards = 0x8B
+	// OpDemandGold 向玩家索取金幣(`sub_1C1E8` 的 0x85 → `sub_1B854`)。
+	//
+	// ★ **金額是緊接的三個 ASCII 數字**,寫在對話文字裡:原版把後續三個位元組
+	// 收進 `byte_55F1A[1..3]`,湊滿三個才呼叫 `sub_1B854` 解析成三位數
+	// (`(b1&7Fh −'0')×100 + (b2&7Fh −'0')×10 + (b3&7Fh −'0')`)。
+	// 付不出來印 `"Thou hast not enough gold!"` 並繼續對話。
+	OpDemandGold = 0x85
+	// OpGiveThing 是 NPC 給玩家一樣東西(0x86 → `sub_1B964(下一個位元組)`)。
+	//
+	// 參數 < 0x40 → 背包裝備那一格 +1(上限 99);
+	// 'A'..'K' → 十一種資源,見 `GiveThingKind`。
+	OpGiveThing = 0x86
+	// OpJumpIfKnown 是「這個 NPC 已經認得汝的話,跳到某個回答」
+	// (0x8C → `sub_1C1C8(下一個位元組)` 測 `dword_3E3E8[地點] & (1 << 位元)`)。
+	//
+	// ★ 測的就是 `OpAskName` 寫進去的那個遮罩。第二個參數是目標回答編號,
+	// **0xFF 代表「不跳,直接繼續」**。
+	OpJumpIfKnown = 0x8C
 	// OpNewline 換行(原版把字面的 0x8D 轉成 0x8A)。
 	OpNewline = 0x8D
 	// OpToggleEmphasis 切換強調(byte_55F1A ^= 0x80,影響後續字元的輸出屬性)。
@@ -62,6 +80,11 @@ const (
 	// OpAskFirst..OpAskLast 是 15 個「向玩家提問並讀取回答」的指令(sub_1C0AC)。
 	OpAskFirst = 0x91
 	OpAskLast  = 0x9F
+	// OpJumpIfKarma 是「業報到某個門檻才跳到某個回答」(0xFE)。
+	//
+	// 收兩個位元組:`if (byte_3E098 >= b1) byte_55F32 = b2` 再進提問流程。
+	// ★ 業報**不足**時什麼都不做(不跳、也不印別的話)。
+	OpJumpIfKarma = 0xFE
 	// OpEndConversation 結束整段對話。
 	OpEndConversation = 0xFF
 
@@ -85,7 +108,47 @@ type Effects struct {
 	SameAsNext  bool // 這一則只是「同下一則」的別名
 	WaitForKey  bool // 有停頓 / 等待按鍵
 	HasEmphasis bool // 用到強調切換
+
+	// DemandGold 是 NPC 索取的金額(0x85);0 代表沒有索取。
+	//
+	// ⚠ 三個數字都是 '0' 時金額就是 0,與「沒有索取」在數值上無法區分 ——
+	// 所以另有 `Demands` 旗標。原版沒有這個問題(它是走另一條控制流)。
+	DemandGold int
+	Demands    bool
+	// GiveThing 是 NPC 給的東西的代碼(0x86 的參數);`Gives` 為真才有效。
+	GiveThing byte
+	Gives     bool
+	// JumpIfKnownBit / JumpIfKnownTo 是 0x8C 的兩個參數。
+	// `JumpIfKnownTo` 為 0xFF 代表「條件成立就直接繼續對話」。
+	JumpIfKnownBit byte
+	JumpIfKnownTo  byte
+	HasKnownJump   bool
+	// JumpIfKarmaAt / JumpIfKarmaTo 是 0xFE 的兩個參數。
+	JumpIfKarmaAt byte
+	JumpIfKarmaTo byte
+	HasKarmaJump  bool
 }
+
+// 0x86 給東西的十一種資源代碼(原版 `sub_1B964` 的 `switch (arg − 'A')`)。
+//
+// ⚠ 三個「信物旗標」是**直接寫 0xFF**,不是 +1 —— 它們是有/沒有,不是數量。
+// 而三個位址的對應照 `docs/re/77` 更正過的表:
+// `byte_3DFC8` 望遠鏡、`byte_3DFCA` 六分儀、`byte_3DFCC` 徽章。
+const (
+	GiveFood     = 'A' // 糧食 +1(上限 9999)
+	GiveGold     = 'B' // 金幣 +1(上限 9999)
+	GiveKeys     = 'C' // 鑰匙 +1(上限 99)
+	GiveGems     = 'D' // 寶石 +1
+	GiveTorches  = 'E' // 火把 +1
+	GiveGrapple  = 'F' // 抓鉤 +1(byte_3DFBB)
+	GiveCarpet   = 'G' // 魔毯 +1(byte_3DFBC)
+	GiveSextant  = 'H' // 六分儀(byte_3DFCA = 0xFF)
+	GiveSpyglass = 'I' // 望遠鏡(byte_3DFC8 = 0xFF)
+	GiveBadge    = 'J' // 徽章(byte_3DFCC = 0xFF)
+	GiveSkullKey = 'K' // 骷髏鑰匙 +1(byte_3DFBD)
+	// GiveEquipmentMax 是「參數小於這個值就是背包裝備的索引」。
+	GiveEquipmentMax = 0x40
+)
 
 // Entry 是一組「關鍵字 → 回應」。
 type Entry struct {
@@ -263,8 +326,51 @@ func (c *Conversation) render(raw []byte) (string, Effects) {
 	pendingSpace := false
 	onlyOps := true
 
-	for _, ch := range raw {
+	// ⚠ **索引迴圈,不是 range** —— 四個 opcode(0x85 / 0x86 / 0x8C / 0xFE)
+	// **會吃掉後面的位元組當參數**。原本的 `for _, ch := range raw` 沒辦法前進,
+	// 於是那些參數會被當成文字或詞典 token 展開 ⇒ **對話文字被污染**:
+	// 0x85 本身落進 `ch >= DictLiteralMin` 被印成控制字元 0x05,
+	// 而它的三個 ASCII 數字(0x30..0x39)全部小於 0x81,被當成詞典索引查表,
+	// 於是「向汝索取 100 金幣」會展開成三個不相干的常用詞。
+	for i := 0; i < len(raw); i++ {
+		ch := raw[i]
+		// take 取接下來 n 個參數位元組並讓迴圈跳過它們。
+		take := func(n int) []byte {
+			if i+n >= len(raw) {
+				args := raw[i+1:]
+				i = len(raw)
+				return args
+			}
+			args := raw[i+1 : i+1+n]
+			i += n
+			return args
+		}
 		switch {
+		case ch == OpDemandGold:
+			// 三個 ASCII 數字。`& 0x7F` 是因為 `.TLK` 的文字最高位被設起來。
+			if d := take(3); len(d) == 3 {
+				fx.DemandGold = int(d[0]&0x7F-'0')*100 +
+					int(d[1]&0x7F-'0')*10 + int(d[2]&0x7F-'0')
+				fx.Demands = true
+			}
+			continue
+		case ch == OpGiveThing:
+			if a := take(1); len(a) == 1 {
+				fx.GiveThing, fx.Gives = a[0]&0x7F, true
+			}
+			continue
+		case ch == OpJumpIfKnown:
+			if a := take(2); len(a) == 2 {
+				fx.JumpIfKnownBit, fx.JumpIfKnownTo = a[0]&0x7F, a[1]
+				fx.HasKnownJump = true
+			}
+			continue
+		case ch == OpJumpIfKarma:
+			if a := take(2); len(a) == 2 {
+				fx.JumpIfKarmaAt, fx.JumpIfKarmaTo = a[0]&0x7F, a[1]
+				fx.HasKarmaJump = true
+			}
+			continue
 		case ch == OpAvatarName:
 			if pendingSpace {
 				b.WriteByte(' ')

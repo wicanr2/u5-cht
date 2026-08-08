@@ -297,11 +297,92 @@ func (s *State) applyEffects(fx u5data.Effects) {
 	if fx.AsksName {
 		s.askName()
 	}
+	if fx.Demands {
+		s.demandGold(fx.DemandGold)
+	}
+	if fx.Gives {
+		s.giveThing(fx.GiveThing)
+	}
+	// ★ 兩個條件跳轉:條件不成立時**什麼都不做**(不跳、不印別的話)。
+	//
+	// ⚠ 跳到「第 N 則回答」需要一個「照編號取回答」的入口,而引擎目前的
+	// `RespondAt` 是照關鍵字找的。條件本身已經算得出來(下面兩個 Log),
+	// **跳轉的落點還沒接** —— 誠實印出來而不是假裝跳了(`docs/re/79` 的 ⬜)。
+	if fx.HasKnownJump && s.KnowsThyName(int(fx.JumpIfKnownBit)) {
+		s.Log(MsgTalkJumpNotWired)
+	}
+	if fx.HasKarmaJump && s.Karma >= int(fx.JumpIfKarmaAt) {
+		s.Log(MsgTalkJumpNotWired)
+	}
 	if fx.AsksPlayer {
 		s.ask(fx.AskCode)
 	}
 	if fx.EndTalk {
 		s.EndConversation()
+	}
+}
+
+// demandGold 是對話裡的索取金幣(原版 opcode 0x85 → `sub_1B854`)。
+//
+// ★ 金額寫在對話文字裡,是緊接 opcode 的**三個 ASCII 數字**。
+//
+// 付不出來:印「Thou hast not enough gold!」並**繼續對話**(原版接著呼叫
+// `sub_1BF08` 回到「Your interest?」)。付得出來就扣錢。
+//
+// ★★ 而扣完錢之後有一段**乞丐的業報獎勵**:
+//
+//	if (物件[這個 NPC].kind & 0FCh == 6Ch && byte_3E09B >= 100) {
+//	    byte_3E09B = 0
+//	    業報 +1(上限 99)
+//	    if (金幣 == 0) 業報 +2      ; ★ 把身上的錢全部給光,再加 2
+//	}
+//
+// ⚠ `byte_3E09B >= 100` 那個閘門的語意還沒定(WORKLIST 上仍是 ⬜),
+// 所以**業報那一段先不做** —— 做了會變成「每次給錢都加業報」,
+// 而原版明顯有一個節流條件。缺一段比多一段錯的好。
+func (s *State) demandGold(amount int) {
+	if s.Inventory.Gold < amount {
+		s.Log("「" + MsgNotEnoughGold + "」")
+		return
+	}
+	s.Inventory.Gold -= amount
+}
+
+// giveThing 是對話裡「NPC 給汝一樣東西」(原版 opcode 0x86 → `sub_1B964`)。
+//
+// 參數小於 0x40 就是**背包裝備的索引**(那一格 +1、上限 99);
+// 'A'..'K' 是十一種資源。★ 三個信物是**直接設成有**,不是 +1。
+func (s *State) giveThing(code byte) {
+	inv := &s.Inventory
+	if code < u5data.GiveEquipmentMax {
+		if int(code) < len(inv.Items) {
+			inv.Items[code] = addCap(inv.Items[code], 1, u5data.CarryLimit)
+		}
+		return
+	}
+	switch code {
+	case u5data.GiveFood:
+		inv.Food = addCap(inv.Food, 1, u5data.GoldLimit)
+	case u5data.GiveGold:
+		inv.Gold = addCap(inv.Gold, 1, u5data.GoldLimit)
+	case u5data.GiveKeys:
+		inv.Keys = addCap(inv.Keys, 1, u5data.CarryLimit)
+	case u5data.GiveGems:
+		inv.Gems = addCap(inv.Gems, 1, u5data.CarryLimit)
+	case u5data.GiveTorches:
+		inv.Torches = addCap(inv.Torches, 1, u5data.CarryLimit)
+	case u5data.GiveGrapple:
+		inv.Grapple = addCap(inv.Grapple, 1, u5data.CarryLimit)
+	case u5data.GiveCarpet:
+		inv.Carpets = addCap(inv.Carpets, 1, u5data.CarryLimit)
+	case u5data.GiveSkullKey:
+		inv.OddKeys = addCap(inv.OddKeys, 1, u5data.CarryLimit)
+	case u5data.GiveSextant:
+		s.HasSextant = true
+	case u5data.GiveSpyglass:
+		s.HasSpyglass = true
+	case u5data.GiveBadge:
+		s.HasBadge = true
 	}
 }
 

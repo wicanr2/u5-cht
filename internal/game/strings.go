@@ -178,6 +178,11 @@ const (
 	MsgShopNotImplemented = "(買賣流程尚未實作 —— 缺物品表與價格表)"
 	// "\"I cannot help thee with that." —— 打了 NPC 不認得的關鍵字。
 	MsgDoesNotUnderstand = "「此事我幫不上汝。」"
+	// "Thou hast not enough gold!" —— 對話裡的索取金幣付不出來(opcode 0x85)。
+	MsgNotEnoughGold = "汝的金幣不夠!"
+	// 兩個條件跳轉(0x8C / 0xFE)的條件算得出來,但「跳到第 N 則回答」
+	// 還沒有入口 —— 誠實說明而不是假裝跳了(`docs/re/79`)。
+	MsgTalkJumpNotWired = "(對話的條件跳轉尚未接上 —— 條件成立,但跳不到那一則)"
 	// "\"My name is " —— 問 NAME 時的固定開頭。
 	MsgMyNameIs = "吾名"
 	// "\"With language like that, how did you become an Avatar?"

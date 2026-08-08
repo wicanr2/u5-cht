@@ -75,7 +75,23 @@ const (
 	SaveSceptreOffset = 0x020F // byte_3DFC1 權杖
 	// 0x0214..0x0219 是 `byte_3DFC8`..`byte_3DFCD` 六個單位元組,
 	// 同樣兩端釘死(前為 0x0210 起 4 B 的碎片,後為已驗的檀香木盒 0x0219)。
-	SavePlansOffset = 0x0215 // byte_3DFC9 圖紙
+	//
+	// ✅ **六格全數定名了**(`docs/re/79`)。兩條互不相干的證據:
+	//
+	//  1. `sub_1E8D4`(建 U 的清單)把它們抄成 +32..+37,而 `sub_1A5E8` 的跳表
+	//     case 標註直接給出名字:`aSpyglass` = 32、`aPlans` = 33、
+	//     `aSextant` = 34、`aWatchThePocket` = 35、`aBadge` = 36、木盒 = 37。
+	//  2. `sub_1B964`(對話 opcode 0x86「給汝一樣東西」)裡三個信物是
+	//     **直接寫 0xFF**:`'H'` → `byte_3DFCA`、`'I'` → `byte_3DFC8`、
+	//     `'J'` → `byte_3DFCC`。與上面逐一相符。
+	//
+	// ⇒ 望遠鏡 / 六分儀 / 懷錶的持有旗標**不再是「位移未釘死」**
+	// (`docs/re/44` §4 的那條 ⬜ 結案)。
+	SaveSpyglassOffset = 0x0214 // byte_3DFC8 望遠鏡
+	SavePlansOffset    = 0x0215 // byte_3DFC9 圖紙
+	SaveSextantOffset  = 0x0216 // byte_3DFCA 六分儀
+	SaveWatchOffset    = 0x0217 // byte_3DFCB 懷錶
+	SaveBadgeOffset    = 0x0218 // byte_3DFCC 黑徽章
 	// SaveItemsOffset 起 48 B,索引就是裝備編號(sub_11AF0 的 byte_3DFD0[裝備編號])。
 	SaveItemsOffset = 0x021A
 	// 卷軸 / 藥水 / 月石:與記憶體佈局同序,而且**兩端都有錨點**。
@@ -372,6 +388,14 @@ type Save struct {
 	Regalia Regalia
 	// SandalwoodBox 是有沒有那只檀香木盒(byte_3DFCD)—— 真結局的條件。
 	SandalwoodBox byte
+	// Spyglass / Sextant / Watch 是三件航海道具的持有旗標
+	// (byte_3DFC8 / byte_3DFCA / byte_3DFCB,位移見上面的說明)。
+	//
+	// ⚠ 這三格此前是「位移未釘死」所以 U 的清單**無條件列出**它們
+	// (`docs/re/44` §4)。現在釘死了(`docs/re/79`),改成照旗標列。
+	Spyglass byte
+	Sextant  byte
+	Watch    byte
 	// ShadowlordAt[i] 是第 i 個暗影君主盤據的地點編號(0 = 不在城裡,0xFF = 已消滅)。
 	ShadowlordAt [ShadowlordCount]byte
 	// ShadowlordHere 是現在被召喚出來的那一個(0xFF = 沒有)。
@@ -476,6 +500,9 @@ func ParseSave(raw []byte) (*Save, error) {
 
 	copy(s.Shards[:], raw[SaveShardsOffset:])
 	s.SandalwoodBox = raw[SaveSandalwoodBoxOffset]
+	s.Spyglass = raw[SaveSpyglassOffset]
+	s.Sextant = raw[SaveSextantOffset]
+	s.Watch = raw[SaveWatchOffset]
 	copy(s.ShadowlordAt[:], raw[SaveShadowlordAtOffset:])
 	s.ShadowlordHere = raw[SaveShadowlordHereOffset]
 	s.ShrineQuest = raw[SaveShrineQuestOffset]
@@ -648,6 +675,9 @@ func (s *Save) Encode() ([]byte, error) {
 
 	copy(out[SaveShardsOffset:], s.Shards[:])
 	out[SaveSandalwoodBoxOffset] = s.SandalwoodBox
+	out[SaveSpyglassOffset] = s.Spyglass
+	out[SaveSextantOffset] = s.Sextant
+	out[SaveWatchOffset] = s.Watch
 	copy(out[SaveShadowlordAtOffset:], s.ShadowlordAt[:])
 	out[SaveShadowlordHereOffset] = s.ShadowlordHere
 	out[SaveShrineQuestOffset] = s.ShrineQuest

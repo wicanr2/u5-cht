@@ -433,13 +433,11 @@ func (s *State) usableEntries() []PickEntry {
 	add(s.Regalia.Plans, MsgItemPlans, UsePlans)
 	add(s.HasBadge, MsgItemBadge, UseBadge)
 	add(s.SandalwoodBox, MsgItemWoodenBox, UseWoodenBox)
-	// ⚠ 望遠鏡 / 六分儀 / 懷錶的持有旗標存檔位移還沒釘死(`docs/re/44` §4),
-	// 所以**先無條件列出來**。列了但沒有比不列好:效果本身是照原版做的,
-	// 缺的只是「有沒有」那一格 —— 而藏起來會讓玩家以為這幾樣沒實作。
-	out = append(out,
-		PickEntry{Label: label(UseSpyglass, MsgItemSpyglass), Value: UseSpyglass},
-		PickEntry{Label: label(UseSextant, MsgItemSextant), Value: UseSextant},
-		PickEntry{Label: label(UseWatch, MsgItemWatch), Value: UseWatch})
+	// ✅ 望遠鏡 / 六分儀 / 懷錶的存檔位移**已釘死**(`docs/re/79`),
+	// 所以改成照旗標列 —— 此前是「位移沒對出來所以無條件列出」。
+	add(s.HasSpyglass, MsgItemSpyglass, UseSpyglass)
+	add(s.HasSextant, MsgItemSextant, UseSextant)
+	add(s.HasWatch, MsgItemWatch, UseWatch)
 	return out
 }
 

@@ -338,3 +338,119 @@ func TestUntranslatedTalkStaysEnglish(t *testing.T) {
 	}
 	t.Skip("這個地點的外觀敘述都翻完了 —— 這是好事")
 }
+
+// ─── 對話 opcode 的引擎端(`docs/re/79`)──────────────────────────────
+
+// TestDemandGoldTakesTheMoneyOrRefuses —— opcode 0x85 的兩條路。
+func TestDemandGoldTakesTheMoneyOrRefuses(t *testing.T) {
+	s := upkeepScene(t)
+	s.Inventory.Gold = 250
+	s.Messages = nil
+	s.demandGold(100)
+	if s.Inventory.Gold != 150 {
+		t.Errorf("付了 100 之後剩 %d,預期 150", s.Inventory.Gold)
+	}
+	if strings.Contains(strings.Join(s.Messages, "|"), MsgNotEnoughGold) {
+		t.Error("付得出來卻說錢不夠")
+	}
+	// 付不出來:印那句話,而且**一枚都不扣**。
+	s.Messages = nil
+	s.demandGold(999)
+	if s.Inventory.Gold != 150 {
+		t.Errorf("付不出來卻扣了錢:剩 %d", s.Inventory.Gold)
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgNotEnoughGold) {
+		t.Errorf("沒印「%s」:%q", MsgNotEnoughGold, s.Messages)
+	}
+	// ★ 剛好夠要付得出來(原版 `cmp edi, eax; jg` 是「大於」才拒絕)。
+	s.Messages = nil
+	s.demandGold(150)
+	if s.Inventory.Gold != 0 {
+		t.Errorf("剛好夠卻沒付:剩 %d", s.Inventory.Gold)
+	}
+}
+
+// TestGiveThingCoversAllElevenResourcesAndEquipment —— opcode 0x86。
+func TestGiveThingCoversAllElevenResourcesAndEquipment(t *testing.T) {
+	s := upkeepScene(t)
+	// 裝備:參數就是背包索引。
+	before := s.Inventory.Items[0x17]
+	s.giveThing(0x17)
+	if s.Inventory.Items[0x17] != before+1 {
+		t.Errorf("裝備 0x17 沒 +1:%d → %d", before, s.Inventory.Items[0x17])
+	}
+
+	type check struct {
+		code byte
+		name string
+		get  func() int
+	}
+	inv := &s.Inventory
+	checks := []check{
+		{u5data.GiveFood, "糧食", func() int { return inv.Food }},
+		{u5data.GiveGold, "金幣", func() int { return inv.Gold }},
+		{u5data.GiveKeys, "鑰匙", func() int { return inv.Keys }},
+		{u5data.GiveGems, "寶石", func() int { return inv.Gems }},
+		{u5data.GiveTorches, "火把", func() int { return inv.Torches }},
+		{u5data.GiveGrapple, "抓鉤", func() int { return inv.Grapple }},
+		{u5data.GiveCarpet, "魔毯", func() int { return inv.Carpets }},
+		{u5data.GiveSkullKey, "骷髏鑰匙", func() int { return inv.OddKeys }},
+	}
+	for _, c := range checks {
+		was := c.get()
+		s.giveThing(c.code)
+		if got := c.get(); got != was+1 {
+			t.Errorf("%s(%q)沒 +1:%d → %d", c.name, string(c.code), was, got)
+		}
+	}
+	// ★ 三個信物是**直接設成有**,不是 +1。
+	s.HasSextant, s.HasSpyglass, s.HasBadge = false, false, false
+	s.giveThing(u5data.GiveSextant)
+	s.giveThing(u5data.GiveSpyglass)
+	s.giveThing(u5data.GiveBadge)
+	if !s.HasSextant || !s.HasSpyglass || !s.HasBadge {
+		t.Errorf("三個信物沒設起來:六分儀 %v 望遠鏡 %v 徽章 %v",
+			s.HasSextant, s.HasSpyglass, s.HasBadge)
+	}
+}
+
+// TestTheThreeNauticalFlagsSurviveASaveRoundTrip —— 位移釘死了才做得到。
+//
+// `docs/re/44` §4 原本記「望遠鏡 / 六分儀 / 懷錶的持有旗標存檔位移還沒釘死,
+// 所以 U 的清單無條件列出來」。現在釘死了(`docs/re/79`),所以:
+// 存得進去、讀得回來,而清單也照旗標列。
+func TestTheThreeNauticalFlagsSurviveASaveRoundTrip(t *testing.T) {
+	s := upkeepScene(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	s.HasSpyglass, s.HasSextant, s.HasWatch = true, false, true
+	sv, err := s.ExportSave(s.BaseSave)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := sv.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := u5data.ParseSave(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Spyglass == 0 || back.Sextant != 0 || back.Watch == 0 {
+		t.Errorf("旗標沒 round-trip:望遠鏡 %#x 六分儀 %#x 懷錶 %#x",
+			back.Spyglass, back.Sextant, back.Watch)
+	}
+	// 而且清單要照旗標列。
+	s.HasSpyglass, s.HasSextant, s.HasWatch = true, false, false
+	seen := map[int]bool{}
+	for _, e := range s.usableEntries() {
+		seen[e.Value] = true
+	}
+	if !seen[UseSpyglass] {
+		t.Error("有望遠鏡卻沒列出來")
+	}
+	if seen[UseSextant] || seen[UseWatch] {
+		t.Error("沒有的東西還列在清單上 —— 此前是無條件列出,現在該照旗標")
+	}
+}

@@ -74,6 +74,10 @@ func (s *State) ExportSave(base *u5data.Save) (*u5data.Save, error) {
 	if s.SandalwoodBox {
 		out.SandalwoodBox = 1
 	}
+	// 四個持有旗標(位移見 `docs/re/79`)。原版用 0xFF 當「有」。
+	out.Spyglass = flagByte(s.HasSpyglass)
+	out.Sextant = flagByte(s.HasSextant)
+	out.Watch = flagByte(s.HasWatch)
 	// ⚠ 只覆蓋前三格 —— 第 4 個位元組原版沒用,底稿裡有什麼就留什麼。
 	for i := range s.Shards {
 		out.Shards[i] = 0
@@ -174,4 +178,12 @@ func FindSaveObjects() (surface, under *u5data.ObjectSet) {
 		return nil, nil
 	}
 	return s, u
+}
+
+// flagByte 把布林值寫成原版的旗標位元組(0xFF = 有)。
+func flagByte(v bool) byte {
+	if v {
+		return 0xFF
+	}
+	return 0
 }
