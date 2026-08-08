@@ -187,14 +187,25 @@ func (s *State) extraWorldTurn() bool {
 	// ⬜ 原版在這裡還有 `if (esi == 0) sub_2D38(槽)`(能不能動的閘門)與
 	// 第二趟的清場,兩者都還沒做(`docs/re/83` §2、`WORKLIST §5.1b`)。
 	if set := s.currentObjects(); set != nil && !s.InScene() && !s.InDungeon() {
+		acted := false
 		for slot := len(set.Objects) - 1; slot >= 1; slot-- {
 			if !u5data.IsCreatureTile(set.Objects[slot].Raw[u5data.ObjKind]) {
 				continue
 			}
-			if s.objectAttacks(slot) && s.InCombat() {
-				// 進了戰鬥就停下 —— 後面的槽這一回合不再動手。
-				break
+			if s.objectAttacks(slot) {
+				if s.InCombat() {
+					// 進了戰鬥就停下 —— 後面的槽這一回合不再動手。
+					break
+				}
+				// ★ 出事的那一槽**不再移動**(原版 `if (esi == 0) sub_2D38(槽)`)。
+				// ⚠ 而且 `esi` 是**累加**的:一旦有任何一槽出事,
+				// 後面的槽也全部不再移動。照原樣。
+				acted = true
 			}
+			if acted {
+				continue
+			}
+			s.objectMoveGate(slot)
 		}
 	}
 	s.advanceNPCs()

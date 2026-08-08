@@ -229,6 +229,10 @@ type State struct {
 	WorldTurns int
 	// gates 是 `sub_2E24` 開頭那兩個持久切換位元(`byte_4FDD5` / `byte_4FDD7`)。
 	gates worldTurnGates
+	// lastVacatedX / Y 是「這一輪剛移動的那個東西離開的格子」
+	// (原版 `byte_4FD94` / `byte_4FD95`)。★ 是**全域**一份不是每槽一份,
+	// 只由 `stepObject` 寫、只由 `notJustVacated` 讀(`docs/re/85`)。
+	lastVacatedX, lastVacatedY int
 	// rng 是戰鬥骰子。留空時用固定種子 —— headless 與測試要可重現;
 	// 遊戲啟動時 cmd/u5cht 換成時間種子。
 	rng *rand.Rand

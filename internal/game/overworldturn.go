@@ -97,6 +97,41 @@ func (s *State) overworldTurnEnd() {
 	}
 	// ★★ 無條件的一個世界回合:怪物移動 + 遭遇擲骰。
 	s.extraWorldTurn()
+	// ★ 揚著帆時風向還會多燒幾個世界回合(原版 `sub_2D2D0`)。
+	s.sailRhythm()
+}
+
+// 揚帆時風向多燒的世界回合(原版 `sub_2D2D0` 的 `n % 3` 迴圈)
+//
+//	n = 1 + (帆向與風向不同的分量數)      ; 1 同向 / 2 反向 / 3 垂直
+//	跑 (n % 3) 次:{ 推時鐘;跑一個世界回合;重畫 }
+//
+// ⇒ **同向 1 次、反向 2 次、垂直 0 次。**
+//
+// ★★ 它加的是**時間與怪物的行動機會**,不是位移 —— 那一段組語裡沒有任何一行
+// 寫隊伍座標(`docs/re/84` §2)。所以「逆風」的代價是「同一步花兩倍時間、
+// 怪多走一輪」,而不是「走不動」。走不走得動只看有沒有風(`CanSail`)。
+//
+// ⚠ 無風時原版**跳過查表直接走一步**(`if (byte_3E0A2 == 0) goto 走一步`),
+// 但揚帆又無風根本進不到這裡 —— `CanSail` 在移動階段就擋掉了。
+// 兩者不衝突:這一支處理的是「有風而且動得了」之後的節奏。
+func (s *State) sailRhythm() {
+	if u5data.VehicleKind(s.Transport) != u5data.VehicleSailing || s.Wind == u5data.WindCalm {
+		return
+	}
+	wx, wy := u5data.WindDelta(s.Wind)
+	sx, sy := Direction(s.Transport & 0x03).Delta()
+	n := 1
+	if wx != sx {
+		n++
+	}
+	if wy != sy {
+		n++
+	}
+	for i := 0; i < n%3; i++ {
+		s.AdvanceTime(OverworldMinutesPerTurn)
+		s.extraWorldTurn()
+	}
 }
 
 // underworldEarthquake 是幽冥界的地震(原版 `sub_2D998`)。

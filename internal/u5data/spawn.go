@@ -284,3 +284,26 @@ var SpawnSlotPasses = []SpawnSlotPass{
 	{0x30, 0x7F, false, "任何其他"},
 	{0x00, 0xFF, false, "隨便一個"},
 }
+
+// CreatureVanishTile 是「走上去就消失」的那一格(原版 `sub_2870` 尾段
+// `cmp byte ptr [eax], 0DCh` → 種類碼與 tile 都歸零)。
+//
+// ⬜ 那是什麼地形還沒查(要抽 FM Towns 的 `EGA*.TIL` 才看得到圖)。
+// 照編號實作、語意留白。
+const CreatureVanishTile = 0xDC
+
+// 免疫地形延遲的四種(原版 `sub_2870` 的四個 `cmp eax, …; jz def_295C`)。
+//
+// ★ 四種都會飛 —— 龍、蝙蝠、惡魔、Mongbat。這不是巧合,是設計:
+// 沼澤與山地拖不慢飛行生物。
+const (
+	FlyerDragon  = 0xDC
+	FlyerBat     = 0x94
+	FlyerDaemon  = 0xD8
+	FlyerMongbat = 0xF0
+)
+
+// CreatureIgnoresTerrain 回報這一種吃不吃地形延遲。
+func CreatureIgnoresTerrain(kind byte) bool {
+	return kind == FlyerDragon || kind == FlyerBat || kind == FlyerDaemon || kind == FlyerMongbat
+}

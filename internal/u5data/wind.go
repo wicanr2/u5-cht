@@ -225,3 +225,23 @@ func ShipFacingForDirection(dx, dy int) int {
 		return ShipFacingE
 	}
 }
+
+// ShipFacingForDelta 把一步的位移換成船的朝向碼(原版 `sub_2870` 的四個 cmp)。
+//
+//	(0, −1) → 北 0    (+1, 0) → 東 1    (0, +1) → 南 2    (−1, 0) → 西 3
+//
+// ⚠ 與 `ShipFacingForDirection` 的差別:那一支對「非四方向」的輸入會落到
+// 東,這一支照原版的順序逐一比對,對不上就回北(原版的 `ebx` 初值 0)。
+func ShipFacingForDelta(dx, dy int) int {
+	switch {
+	case dx == 0 && dy == -1:
+		return ShipFacingN
+	case dx == 1 && dy == 0:
+		return ShipFacingE
+	case dx == 0 && dy == 1:
+		return ShipFacingS
+	case dx == -1 && dy == 0:
+		return ShipFacingW
+	}
+	return ShipFacingN
+}

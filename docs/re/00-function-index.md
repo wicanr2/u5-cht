@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **953** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **958** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -46,10 +46,13 @@
 | `sub_23FC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `11-map-objects.md`, `66-hexrays-truncation-audit.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
 | `sub_24DC` | `sub_24DC` 的接觸三條  /  `game.(*State).contactParty`  /  ✅ 含漩渦、流沙、小艇例外  / | `66-hexrays-truncation-audit.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
 | `sub_25F0` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md` |
+| `sub_2778` | 主要函式  /  `sub_2B24`(追人)、`sub_2A54`(隨機遊走)、`sub_2870`(真的挪一格)、`sub_2778`(進得去嗎)、`sub_27CC`(剛空出來的格子)  / | `85-monsters-move-and-terrain-slows-them.md` |
+| `sub_27CC` | 主要函式  /  `sub_2B24`(追人)、`sub_2A54`(隨機遊走)、`sub_2870`(真的挪一格)、`sub_2778`(進得去嗎)、`sub_27CC`(剛空出來的格子)  / | `85-monsters-move-and-terrain-slows-them.md` |
 | `sub_27F0` | if (sub_27F0(槽) == 0) return 動        ; ⬜ 未讀 | `83-monster-attacks-and-two-different-wind-rules.md` |
-| `sub_2A54` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
-| `sub_2B24` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `84-the-sailing-gate-and-the-wind-table.md` |
-| `sub_2D38` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `sub_2870` | 主要函式  /  `sub_2B24`(追人)、`sub_2A54`(隨機遊走)、`sub_2870`(真的挪一格)、`sub_2778`(進得去嗎)、`sub_27CC`(剛空出來的格子)  / | `85-monsters-move-and-terrain-slows-them.md` |
+| `sub_2A54` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `85-monsters-move-and-terrain-slows-them.md` |
+| `sub_2B24` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `84-the-sailing-gate-and-the-wind-table.md`, `85-monsters-move-and-terrain-slows-them.md` |
+| `sub_2D38` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `85-monsters-move-and-terrain-slows-them.md` |
 | `sub_2E24` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2F48` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_3010` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
@@ -431,7 +434,7 @@
 | `sub_2D014` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `68-troll-bridge-and-collision.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2D0BC` | 移動成本分級  /  `"Slow progress!"` / `"Very slow!"` 在 `sub_2D0BC`,尚未讀  / | `02-movement-and-tile-flags.md`, `38-terrain-movement-cost.md`, `40-push-and-the-main-menu.md` |
 | `sub_2D174` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
-| `sub_2D2D0` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `68-troll-bridge-and-collision.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `sub_2D2D0` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `68-troll-bridge-and-collision.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `85-monsters-move-and-terrain-slows-them.md` |
 | `sub_2D478` | `sub_1EFC8`(清單瀏覽器)、`sub_CAC` / `sub_4074` / `sub_2D478`(Attack 三支)  / | `49-command-table-and-two-empty-keys.md`, `60-command-echo-and-menu-keys.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md` |
 | `sub_2D72C` | 分派看的是地形,不是座標。** `sub_2D72C` 依腳下 tile 決定進哪裡 | `03-scene-entry-and-tile-semantics.md`, `27-codex-and-the-shrine-chamber.md` |
@@ -674,7 +677,7 @@
 | `byte_41960` | `byte_418E8`/`byte_418F0`(隊伍散開的位置)與 `byte_41950`/`byte_41960` | `48-dungeon-wandering-monster-and-arena.md`, `50-hole-up-camp-sleep-repair.md` |
 | `byte_41988` | if (byte_41988) 發聲(音階[edi] + 0x3C, 0x78, 0xC350) | `35-harp-and-the-secret-door.md` |
 | `byte_41989` | byte_41989 = 1                                        ; 不論成不成功都設 | `73-escape-is-a-key-and-it-has-two-gates.md` |
-| `byte_4198A` | if (var_24) { 印 "Door destroyed!"; 那一格寫成 0x44; byte_4198A = 1 } | `21-chests-fields-locks.md`, `31-line-of-sight.md`, `69-the-overworld-cannon-did-nothing.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `75-open-did-nothing-outside-dungeons.md` |
+| `byte_4198A` | if (var_24) { 印 "Door destroyed!"; 那一格寫成 0x44; byte_4198A = 1 } | `21-chests-fields-locks.md`, `31-line-of-sight.md`, `69-the-overworld-cannon-did-nothing.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `75-open-did-nothing-outside-dungeons.md`, `85-monsters-move-and-terrain-slows-them.md` |
 | `byte_41C18` | 2. 或查 `byte_41C18` 的 xref(`sub_6730` 開頭有 `for(i=0;i<256;i++) byte_41C18[i]=i`, | `01-tileset-and-dot16-loader.md` |
 | `byte_4FC54` | `byte_4FC54` 的前四個位元組是 **`3, 4, 2, 1`** —— 四個方向鍵的鍵碼 | `70-hunger-poison-and-the-vanishing-rings.md` |
 | `byte_4FC80` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
@@ -683,6 +686,8 @@
 | `byte_4FD28` | 陸地・幽冥界**(`byte_4FD28` + `a88`):Bat 25% / Giant Rat 21.9% / Giant Spider 21.9% / | `82-the-overworld-world-turn.md` |
 | `byte_4FD30` | 水域・地表**(`byte_4FD30` + `dword_4FD4C`):Shark 28.1% / Squid 28.1% / | `82-the-overworld-world-turn.md` |
 | `byte_4FD35` | 水域・幽冥界**(`byte_4FD35` + `dword_4FD50+1` = `00 80 80`): | `82-the-overworld-world-turn.md` |
+| `byte_4FD94` | return !(x == byte_4FD94 && y == byte_4FD95) | `85-monsters-move-and-terrain-slows-them.md` |
+| `byte_4FD95` | return !(x == byte_4FD94 && y == byte_4FD95) | `85-monsters-move-and-terrain-slows-them.md` |
 | `byte_4FDD5` | if (byte_3E08A == 'Q') { byte_4FDD5 ^= 1; if (set) return 0 }   ; Rel Tym 隔次 | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_4FDD7` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_4FEEE` | 正面(`sub_36C0`,查 `byte_4FEEE[種類]`): | `18-dungeons.md` |
@@ -813,7 +818,7 @@
 | `dword_478C8` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
 | `dword_4FD38` | 陸地・地表**(`byte_4FD1C` + `dword_4FD38`)—— 順序本身就是難度曲線: | `82-the-overworld-world-turn.md` |
 | `dword_4FD4C` | 水域・地表**(`byte_4FD30` + `dword_4FD4C`):Shark 28.1% / Squid 28.1% / | `82-the-overworld-world-turn.md` |
-| `dword_4FD50` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
+| `dword_4FD50` | 主要函式  /  `sub_25F0`(物件的攻擊)、`sub_2D38`(物件能不能動)、`sub_2D2D0`(**玩家**的自動航行)、`dword_4FD50`(敵船的風向延遲表)、`byte_601C7`/`b… | `23-wind-and-sailing.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `85-monsters-move-and-terrain-slows-them.md` |
 | `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md`, `24-intro.md` |
 | `dword_541B4` | `dword_541B4[頁]`  /  這一頁的文字在 `STORY.DAT` 裡的**檔案位移**  / | `24-intro.md` |
 | `dword_54300` | push edi                             ; → dword_54300 | `55-transfer-from-ultima-iv.md` |
