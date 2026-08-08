@@ -12,7 +12,7 @@ headless 截圖指令跑了**五小時沒有任何輸出**,`slice.png` 沒產出
 當時的架構是「繪製邏輯綁在 ebiten 上」:
 
 ```
-render.TextRenderer / render.TileSet  →  *ebiten.Image
+render.TextRenderer / tile 繪製            →  *ebiten.Image
 cmd/u5cht -headless                   →  RunGame → Draw → ReadPixels → PNG
 ```
 

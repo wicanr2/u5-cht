@@ -28,8 +28,17 @@
 
 ### 1.2 色號:資料用 IGRB,不是 EGA 的 IRGB ⚠
 
-tile 資料的 4-bit 色號,**bit1 與 bit2 是對調的**(資料 = IGRB,標準 EGA = IRGB)。
-算繪一律用 `u5data.TilePalette`(已套 remap),不要直接用 `EGAPalette`。
+**FM Towns** `EGA*.TIL` 的 4-bit 色號,**bit1 與 bit2 是對調的**
+(那份 = IGRB,標準 EGA = IRGB)。DOS 的 `TILES.16` 本來就是 IRGB,不必換。
+
+⇒ **換色號的地方在解碼器,不在算繪端**:`u5data.tileColorRemap` 在讀
+`EGA*.TIL` 時就把每個像素換成標準 EGA 色號,所以解出來的 `Tile` 一律是 IRGB,
+算繪直接用 `u5data.EGAPalette` 索引即可。
+
+⚠ 此前這裡寫著「算繪一律用 `u5data.TilePalette`(已套 remap),不要直接用
+`EGAPalette`」—— **`TilePalette` 這個符號從來不存在**,而 `EGAPalette` 正是
+正確的那一個(它自己也對過 `DATA.OVL` 0x52EE 的 palette 表)。照那句話做會
+編不過,或者把 remap 套第二次。`tools/check_doc_claims.py` 抓到的。
 
 | tile 資料色號 | 標準 EGA 色號 | 顏色 | 出現在 |
 |---|---|---|---|

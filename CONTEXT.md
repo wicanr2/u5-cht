@@ -75,8 +75,14 @@
   **映射未定前不得翻譯**;`LOOK2`/`SIGNS` 格式各自不同,另案。
 - **tileset 已破解**:FM Towns `EGA0–3.TIL` = 128 tile/檔 × 512 B,是原版 16×16 機械放大 2× 的
   32×32 4bpp packed;還原後 512 tile × 128 B = 65,536 B,等於 DOS `TILES.16` 宣稱的解壓後長度。
-  ⚠ **色號用 IGRB 不是 EGA 的 IRGB**(bit1↔bit2 對調),算繪一律用 `u5data.TilePalette`。
-  `TILES.16` 的壓縮本身仍未破(不是標準 LZW),但不擋進度。
+  ⚠ **FM Towns 那份的色號用 IGRB 不是 EGA 的 IRGB**(bit1↔bit2 對調);換色號的地方在
+  **解碼器**(`u5data.tileColorRemap`),所以算繪端直接用 `u5data.EGAPalette` 就對。
+  ⚠ 此前這裡寫「算繪一律用 `u5data.TilePalette`」—— **那個符號不存在**(已更正)。
+- **DOS `TILES.16` 的壓縮已破**:是 LZW(`internal/u5data/lzw.go`)。
+  ⚠ 此前這裡寫「仍未破(不是標準 LZW)」—— 錯在當初的驗收條件本身有洞
+  (拿沒換色號的 `EGA*.TIL` 當 oracle,對的解壓器在第 5 個位元組就被判失敗)。
+  現在的驗收是決定性的:解出來的 65,536 B 與「FM Towns 四檔降回 16×16、換色號、
+  壓回 4bpp」**逐位元組相同**(`TestDOSTilesMatchFMTowns`)。
 - **世界地圖已組出**:`BRIT.DAT` = 205 個 16×16 chunk;**chunk 索引表在 `DATA.OVL` 0x3886**
   (256 B,`0xFF` = 該位置全水,51 + 205 = 256)。`BRIT.OOL` **不是**索引表(已推翻)。
 - **逆向入口**:FM Towns `WORRIORS.EXP` → `tools/ida.sh analyze` → Hex-Rays 出 61K 行 C;

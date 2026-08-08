@@ -1,7 +1,7 @@
 # Ultima V 重製 + 繁體中文化 — 執行計畫
 
 > 由 `CLAUDE.md`(專案憲章)展開為可執行工程計畫。語彙與背景見 `CONTEXT.md`。
-> 立案 2026-08-06 ・ 最後更新 2026-08-07 ・ 維護:L.CY (anr2) + Claude
+> 立案 2026-08-06 ・ 最後更新 2026-08-08 ・ 維護:L.CY (anr2) + Claude
 
 ---
 
@@ -178,7 +178,7 @@ README 三層 voice + 手冊引用章節 + 譯名政策 + 逆向手記;`docs/man
 | 風險 | 對策 |
 |---|---|
 | 🟠 **引擎規模**:全遊戲邏輯自己寫,是三個姊妹專案中最大的 | 垂直切片優先(P2 先能走能看),逐系統補;deep modules 讓各系統可獨立驗 |
-| 🟠 **`TILES.16` 壓縮未破** | 已有兩個未壓縮 oracle(FM Towns `.TIL`、PC-98 `TILES.CH`);先用它們把畫面跑起來,不擋進度 |
+| ~~🟠 **`TILES.16` 壓縮未破**~~ | ✅ **已解**:是 LZW(`internal/u5data/lzw.go`)。驗收是決定性的 —— 解出來的 65,536 B 與 FM Towns 四檔還原後**逐位元組相同**(`TestDOSTilesMatchFMTowns`)。⚠ 當初判「不是標準 LZW」是因為 oracle 少了一層色號轉換,**驗收條件有洞會讓對的答案看起來是錯的** |
 | ~~🟡 headless 截圖(Ebiten 要 GL context)~~ | ✅ **已解**:繪製改成純 CPU(`internal/render` 不依賴 ebiten),headless 秒級且與實機畫面共用同一份 Scene。踩坑紀錄見 `docs/engineering-notes.md` |
 | 🟡 **24×24 在窄文字欄破版** | 先實測再決定,退路是 16×15;決定與量測寫進文件 |
 | 🟡 **玩家輸入比對**(Yes/No、符文、對話關鍵字)中文化後打不出來 | canonical 值維持英文,顯示「中文(英文)」(u4-cht 踩過的坑) |
