@@ -595,13 +595,23 @@ const (
 
 // partyTileFor 挑隊員在戰場上的圖。
 //
-// ⚠ **與職業無關。** 原版就只有站著與躺著兩個值 —— 我原本以為是照職業選
-// sprite,那是把「城鎮 NPC 依生物編號選圖」的規則套過來的。
+// ⚠⚠ **更正(2026-08-08,`docs/re/72`)**:此前這裡寫「**與職業無關**,原版就
+// 只有站著與躺著兩個值」—— **反了**。開戰佈陣的迴圈(`sub_C414+1D0`)寫的是
+// `byte_40C34[職業字母在 "AMBFDTPRS" 裡的位置]` = 法師 0x40 / 吟遊詩人 0x44 /
+// 戰士 0x48 / 其餘五種 0x4C(見 `u5data.PartyCombatTile`)。
+//
+// 0x1D / 0x1E 只出現在**恢復路徑**上:`sub_2ED50` 醒來寫 0x1D、`sub_2EDF8`
+// 躺下寫 0x1E、戴上隱形戒指寫 0x1D。當初只讀了那兩支寫 `+1` 的函式,
+// 沒有全檔掃「還有誰寫這個欄位」,於是把「我看到的兩個值」寫成「原版只有兩個值」。
+//
+// ★ 而 0x4C 正是 `docs/re/52` §5 記下的那個矛盾裡被「修掉」的值 ——
+// 那個猜是對的:`sub_16058`(戰鬥中的 Klimb)判「爬得過去」用 0x4C,
+// 正因為那一格站著隊員。
 func partyTileFor(ch *u5data.Character) byte {
 	if ch != nil && (ch.Status == u5data.StatusAsleep || ch.Status == u5data.StatusDead) {
 		return PartyTileLying
 	}
-	return PartyTileStanding
+	return u5data.PartyCombatTile(ch)
 }
 
 // CombatTileAt 回傳戰場上 (x, y) 該顯示什麼。

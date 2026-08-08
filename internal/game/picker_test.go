@@ -14,6 +14,11 @@ import (
 func TestReadyMenuChainsTwoPicks(t *testing.T) {
 	s := pickScene(t)
 	s.Inventory.Items[24] = 1 // Mace,讓 ReadyList 有東西
+	// ⚠ 先卸掉盔甲 —— 這條測的是**選單串接**,而新加的力量規則
+	// (`docs/re/72`)會讓建角角色的重量剛好卡在上限,於是第二層選完之後
+	// 裝不上,失敗訊息會變成「武器沒裝上」,看起來像選單壞了。
+	s.Roster[0].Raw[u5data.CharHelm] = u5data.ItemNone
+	s.Roster[0].Raw[u5data.CharArmour] = u5data.ItemNone
 
 	if !s.BeginReady() {
 		t.Fatalf("開不了選單:%q", s.Messages)

@@ -462,7 +462,30 @@ const (
 	MsgFoundPulp    = "血肉模糊的一團。"
 
 	// Ready(R)與 Wear(W)。
-	MsgCannotReady  = "那個拿不上手。"
+	MsgCannotReady = "那個拿不上手。"
+	// Ready 的七句拒絕(原版 `sub_1EC34`,`docs/re/72`)。
+	//
+	// "Thou canst not change armour in heated battle!"
+	MsgNoArmourInBattle = "戰事正酣,換不得甲!"
+	// "Thou hast no ammunition for that weapon!"
+	MsgNoAmmunition = "汝無此兵器之矢!"
+	// "Thou art not strong enough!"
+	MsgNotStrongEnough = "汝力有不足!"
+	// "Remove first thy present helm!"
+	MsgRemoveHelmFirst = "先卸下頭上那頂盔!"
+	// "Thou must first remove thine other armour!"
+	MsgRemoveArmourFirst = "先卸下身上那副甲!"
+	// "Thou must free one of thy hands first!"
+	MsgFreeAHandFirst = "先空出一隻手!"
+	// "Both hands must be free before thou canst ready that!"
+	MsgBothHandsFree = "雙手皆須空出,方能持之!"
+	// "Thou must remove thine other amulet!"
+	MsgRemoveAmuletFirst = "先取下頸上那件!"
+	// "Only one magic ring may be worn at a time!"
+	MsgOneRingOnly = "魔戒一次只能戴一只!"
+	// "\n\nRing vanishes!\n" —— ★ 穿戴那一刻的 1/16,與開戰時那次
+	// (MsgRingVanished)是**不同的骰子**。
+	MsgRingVanishes = "戒指消失了!"
 	MsgDontHaveThat = "汝沒有那件東西。"
 	MsgEquipped     = "%s 裝上了%s。"
 	MsgUnequipped   = "%s 卸下了%s。"

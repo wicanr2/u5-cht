@@ -462,15 +462,19 @@ func TestCombatKlimbNeedsAClimbableTile(t *testing.T) {
 	}
 }
 
-// 隊員在戰場上的圖是 0x1D(站)/ 0x1E(躺),**不是** 0x4C。
+// 隊員在戰場上的圖 —— ★ **依職業**,而 0x4C 就是其中一格。
 //
-// 0x4C 是 `sub_16058` 判「爬得過去」用的那一格 —— 一個 tile 不會同時是
-// 「隊伍自己」與「戰場上爬得過去的東西」。先前的 0x4C 是猜的(`docs/re/53`)。
-func TestPartyBattlefieldTileIsNotTheClimbable(t *testing.T) {
-	if PartyTileStanding == CombatClimbable || PartyTileLying == CombatClimbable {
-		t.Fatalf("隊伍的圖(0x%02X / 0x%02X)撞上了爬得過去的 tile 0x%02X",
-			PartyTileStanding, PartyTileLying, CombatClimbable)
-	}
+// ⚠⚠ 這條測試整個反轉過(`docs/re/72`)。它原本叫
+// `TestPartyBattlefieldTileIsNotTheClimbable`,主張「0x1D / 0x1E 兩個值,
+// **不是** 0x4C,因為 0x4C 是 `sub_16058` 判爬得過去的那一格」。
+//
+// 那個推論的前提是「一個 tile 不會同時是隊伍自己與爬得過去的東西」——
+// **前提本身錯了**。開戰佈陣寫的是 `byte_40C34[職業]`,而聖者那一格正是 0x4C;
+// `sub_16058` 拿 0x4C 判「爬得過去」,恰恰是因為那一格站著隊員。
+//
+// 現在這條改成釘住職業表,並保留原來那兩條**還是對的**斷言
+// (0x1D / 0x1E 相鄰、0x1D 緊接在步行的 0x1C 之後)。
+func TestPartyBattlefieldTileComesFromTheClassTable(t *testing.T) {
 	// 站著與躺著要是相鄰的兩格 —— 原版一支寫 0x1E、另一支寫 0x1D。
 	if PartyTileLying != PartyTileStanding+1 {
 		t.Errorf("0x%02X 與 0x%02X 不相鄰", PartyTileStanding, PartyTileLying)
@@ -481,11 +485,32 @@ func TestPartyBattlefieldTileIsNotTheClimbable(t *testing.T) {
 			PartyTileStanding, u5data.VehicleWalk)
 	}
 
-	ch := &u5data.Character{Status: u5data.StatusGood}
-	if got := partyTileFor(ch); got != PartyTileStanding {
-		t.Errorf("站著的隊員畫成 0x%02X", got)
+	// ★ 九個職業字母逐一對上 `byte_40C34`,而且 `CombatClimbable` 必須是
+	// 其中之一 —— 那是「前提錯了」的直接證據,不是巧合。
+	want := map[byte]byte{
+		'A': 0x4C, 'M': 0x40, 'B': 0x44, 'F': 0x48,
+		'D': 0x4C, 'T': 0x4C, 'P': 0x4C, 'R': 0x4C, 'S': 0x4C,
 	}
-	ch.Status = u5data.StatusAsleep
+	for class, tile := range want {
+		ch := &u5data.Character{Status: u5data.StatusGood, Class: class}
+		if got := partyTileFor(ch); got != tile {
+			t.Errorf("職業 %q 的圖是 0x%02X,原版是 0x%02X", string(class), got, tile)
+		}
+	}
+	if u5data.PartyCombatTile(&u5data.Character{Class: 'A'}) != byte(CombatClimbable) {
+		t.Errorf("聖者的圖該正是 `sub_16058` 判爬得過去的那格 0x%02X", CombatClimbable)
+	}
+	// 四個不同的值,不多不少。
+	seen := map[byte]bool{}
+	for _, tile := range u5data.PartyCombatTiles {
+		seen[tile] = true
+	}
+	if len(seen) != 4 {
+		t.Errorf("職業表有 %d 個不同的值,原版是 4 個(0x40/0x44/0x48/0x4C)", len(seen))
+	}
+
+	// 睡著與倒下走恢復路徑,不查職業表。
+	ch := &u5data.Character{Status: u5data.StatusAsleep, Class: 'M'}
 	if got := partyTileFor(ch); got != PartyTileLying {
 		t.Errorf("睡著的隊員畫成 0x%02X", got)
 	}
