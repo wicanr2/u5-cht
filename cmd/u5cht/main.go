@@ -41,6 +41,8 @@ type game struct {
 	dungeonKlimb bool
 	// music 把 `state.CurrentSong()` 同步到實際播放。可為 nil(沒有音樂資料)。
 	music *audio.Player
+	// sfx 播引擎排進佇列的音效。可為 nil(沒有 FM Towns 資料 / -mute)。
+	sfx *audio.SFXPlayer
 }
 
 func (g *game) Update() error {
@@ -49,6 +51,14 @@ func (g *game) Update() error {
 	// 而換曲點散在引擎各處(進城、開戰、上船…),用輪詢比到處插回呼乾淨。
 	if g.music != nil {
 		g.music.Update(g.state.CurrentSong())
+	}
+	// 音效:引擎只排隊,這裡取出來放(`internal/game/sfx.go`)。
+	if g.sfx != nil {
+		for _, idx := range g.state.TakeSFX() {
+			g.sfx.Play(idx)
+		}
+	} else {
+		g.state.TakeSFX() // ⚠ 沒有後端也要清掉,否則佇列會一直長到上限
 	}
 	// 離開語意:F10 / Ctrl+Q 才離開,ESC 永遠是取消(P5 補確認框與自動存檔)。
 	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
@@ -901,9 +911,20 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	//
 	// ⚠ 後端要在**確定有檔案**之後才建 —— `eaudio.NewContext` 一個程式只能叫
 	// 一次,而沒有 ogg 時建了它只會白佔一個音訊裝置。
+	// ⚠ `eaudio.NewContext` 一個程式只能叫一次 ⇒ 配樂與音效**共用**同一個 context。
 	var backend audio.Backend
+	var sfxPlayer *audio.SFXPlayer
 	if !*mute {
-		backend = audio.NewEbitenBackend()
+		eb := audio.NewEbitenBackend()
+		backend = eb
+		if sp, err := audio.NewSFXPlayer(*fmtowns, eb.Context()); err != nil {
+			fmt.Fprintf(os.Stderr, "⚠ 音效:%v\n", err)
+		} else {
+			sfxPlayer = sp
+			if n := len(sp.Missing()); n > 0 {
+				fmt.Fprintf(os.Stderr, "⚠ 音效:%d 個 .SND 讀不到:%v\n", n, sp.Missing())
+			}
+		}
 	}
 	var music *audio.Player
 	if mp, err := audio.New(*fmtowns, *audioDir, backend); err != nil {
@@ -920,6 +941,7 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	g := &game{
 		state: st,
 		music: music,
+		sfx:   sfxPlayer,
 		scene: &render.Scene{
 			State:        st,
 			Tiles:        bundle.Tiles,

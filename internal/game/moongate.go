@@ -49,6 +49,8 @@ func (s *State) TravelByMoongate(phase int) bool {
 		s.scene = nil
 		s.sceneObjects = nil
 	}
+	// ★ A 級證據:原版 `sub_135FC`(月門過場)用索引 0x0A = MOON2 三次(`docs/re/90`)。
+	s.PlaySFX(u5data.SFXMoongate)
 	// 原版 `sub_DF84` 傳送完呼叫 `sub_2CBEC`(視窗重新定位)再 push 字面 1。
 	s.resetLoadWindow()
 	s.playSong(SongBritannia)

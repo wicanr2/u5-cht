@@ -75,6 +75,8 @@ func (s *State) castLocation() int {
 
 // Cast 讓名冊第 caster 個角色施第 spell 個咒語。
 func (s *State) Cast(caster, spell int) MagicResult {
+	// ★ A 級證據:原版 `sub_10C34` 用索引 9 = MAHOU1(「魔法」)。
+	s.PlaySFX(u5data.SFXMagic)
 	if s.Spells == nil || spell < 0 || spell >= u5data.SpellCount {
 		return MagicFailed
 	}

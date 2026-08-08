@@ -54,6 +54,8 @@ func (s *State) pickCharacter(prompt string) int {
 // 與 `applyDamage` 的差別:那一支是戰鬥用的,要算抗性、發經驗值、通知 AI。
 // 這一支是「地圖上的東西讓你掉血」,原版就只有減血與判死。
 func (s *State) damageMember(i, dmg int) {
+	// ★ A 級證據:原版 `sub_2AC08` 用索引 7 = DAME1(「ダメージ」)。
+	s.PlaySFX(u5data.SFXDamage1)
 	if i < 0 || i >= len(s.Roster) {
 		return
 	}

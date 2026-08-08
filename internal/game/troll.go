@@ -260,6 +260,8 @@ const (
 
 // fallDownTheWaterfall 是踩到瀑布那一格(原版 `sub_10A1C`)。
 func (s *State) fallDownTheWaterfall() {
+	// ★ A 級證據:原版的墜落動畫 `sub_10A1C` 用索引 0x14 = T_OCHI1(「落ち」)。
+	s.PlaySFX(u5data.SFXFall)
 	s.Log(MsgFalls)
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		if s.Roster[i].Status == u5data.StatusDead {

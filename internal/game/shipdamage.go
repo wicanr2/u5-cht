@@ -155,6 +155,7 @@ func (s *State) turnShipInstead(d Direction) bool {
 
 // blockedMove 是走不過去時的處理(原版 `sub_2CE70` 的後半)。
 func (s *State) blockedMove(nx, ny int) {
+	s.PlaySFX(u5data.SFXBlock) // B 級證據(檔名 BLOCK.SND)
 	tile := s.TileAt(nx, ny)
 	if u5data.VehicleKind(s.Transport) != u5data.VehicleSailing {
 		// 沒揚帆:一句 Blocked,而仙人掌會扎人。

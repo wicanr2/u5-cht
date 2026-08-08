@@ -34,6 +34,11 @@ func NewEbitenBackend() *EbitenBackend {
 	return &EbitenBackend{ctx: eaudio.NewContext(SampleRate), vol: 1}
 }
 
+// Context 回傳底層的 ebiten 音訊環境,給音效共用。
+//
+// ⚠ `eaudio.NewContext` 一個程式只能叫一次 ⇒ 配樂與音效必須共用同一個。
+func (b *EbitenBackend) Context() *eaudio.Context { return b.ctx }
+
 // Play 循環播放 path。已經在播同一個檔案就什麼都不做。
 //
 // ★ **循環**是刻意的:原版的配樂會一直放到換場景為止(`sub_3181C` 只在換曲時
