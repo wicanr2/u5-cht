@@ -201,7 +201,7 @@ func TestDungeonRoomStartsCombat(t *testing.T) {
 	withMonsters := 0
 	for i := range s.DungeonRooms.Maps {
 		s.Combat = nil
-		s.beginRoomCombat(&s.DungeonRooms.Maps[i], i)
+		s.beginRoomCombat(&s.DungeonRooms.Maps[i], i, CombatModeRoom)
 		if e, _ := s.sideCounts(s.Combat); e > 0 {
 			withMonsters++
 		}

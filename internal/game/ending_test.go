@@ -253,7 +253,7 @@ func TestStandingBelowACastleGateEndsTheGame(t *testing.T) {
 	if s == nil {
 		return
 	}
-	if !s.beginRoomCombat(&s.CombatMaps.Maps[0], 0) {
+	if !s.beginRoomCombat(&s.CombatMaps.Maps[0], 0, CombatModeRoom) {
 		t.Fatal("開不了戰鬥")
 	}
 	c := s.Combat
@@ -287,7 +287,7 @@ func TestTheAbsorbCheckLooksNorthNotUnderfoot(t *testing.T) {
 	if s == nil {
 		return
 	}
-	s.beginRoomCombat(&s.CombatMaps.Maps[0], 0)
+	s.beginRoomCombat(&s.CombatMaps.Maps[0], 0, CombatModeRoom)
 	c := s.Combat
 	// 地形是城門**不算** —— 疊圖層與地形是兩層,原版查的是疊圖層。
 	c.Map.Tiles[1][5] = 0x3E

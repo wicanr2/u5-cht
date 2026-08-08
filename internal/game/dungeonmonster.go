@@ -193,7 +193,7 @@ func (s *State) beginDungeonCombat(m *DungeonMonster) bool {
 	for _, slot := range s.dungeonEnemySlots(idx) {
 		arena.EnemyKind[slot] = u5data.CreatureBase + byte(idx)*4
 	}
-	if !s.beginRoomCombat(arena, -1) {
+	if !s.beginRoomCombat(arena, -1, CombatModeDungeonMonster) {
 		return false
 	}
 	s.markArena(u5data.DungeonArenaModeWander)

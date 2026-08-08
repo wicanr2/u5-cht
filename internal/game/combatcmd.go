@@ -66,6 +66,20 @@ var combatRefusals = map[rune]struct {
 // `sub_EA0`/`sub_417C` 都不同),已另外實作在 `combatklimb.go`。
 var CombatAllowedKeys = []rune{'A', 'C', 'G', 'J', 'K', 'O', 'P', 'R', 'S', 'U', 'Y', 'Z'}
 
+// 戰場的離場模式(原版 `byte_3E0B1`)。
+const (
+	// CombatNoEscape 是「ESC 離不開這個戰場」那一位。
+	CombatNoEscape = 0x80
+	// CombatModeDungeonMonster 是地牢遊蕩怪物(原版 `sub_2E364(2, …)`)。
+	CombatModeDungeonMonster = 0x02
+	// CombatModeCampSurface 是地表紮營。
+	CombatModeCampSurface = 0x04
+	// CombatModeCampDungeon 是地牢紮營(2|4)。
+	CombatModeCampDungeon = 0x06
+	// CombatModeRoom 是地牢房間 —— ★ 全檔唯一設 0x80 的地方(`sub_42CC`)。
+	CombatModeRoom = 0x82
+)
+
 // CombatRefuse 回報這個鍵在戰鬥中被拒絕時該印什麼;第二個回傳值為 false
 // 代表這個鍵不在拒絕清單裡(可能可用,也可能是原版的 default「此為何意?」)。
 func CombatRefuse(key rune) (string, bool) {

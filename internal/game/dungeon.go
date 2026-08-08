@@ -342,7 +342,8 @@ func (s *State) enterDungeonRoom(tile byte) {
 		return
 	}
 	s.Log("進入房間……")
-	s.beginRoomCombat(&s.DungeonRooms.Maps[idx], idx)
+	// ★ 地牢房間是全遊戲唯一「ESC 離不開」的戰場(`docs/re/73`)。
+	s.beginRoomCombat(&s.DungeonRooms.Maps[idx], idx, CombatModeRoom)
 }
 
 // damageWholeParty 讓全隊受傷(原版 `sub_2A4D0`)。

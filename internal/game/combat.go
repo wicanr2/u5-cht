@@ -140,6 +140,15 @@ type Combat struct {
 	Over bool
 	// Won 記勝負,離場時決定要不要把怪物從地圖上清掉。
 	Won bool
+	// Mode 是「怎麼進到這場戰鬥的」(原版 `byte_3E0B1`,由 `sub_2E364` 的第一個
+	// 參數設定)。目前只用到 bit 0x80(不能用 ESC 離開),其餘位元是佈陣的變體:
+	//
+	//	2    地牢遊蕩怪物        4    地表紮營
+	//	6    地牢紮營(2|4)     0x82 ★ 地牢房間 —— 唯一設 0x80 的地方
+	//
+	// 全檔只有 `sub_42CC`(「Entering room...」)一處寫 0x82,所以
+	// **「離不開」是地牢房間獨有的**。見 `docs/re/73`。
+	Mode byte
 	// LastAttacker[槽] 是上一個攻擊這一槽的單位(原版 `byte_3E0B8`);
 	// −1 代表沒有。施法被打斷的判定只看這個人。
 	LastAttacker [CombatUnitSlots]int8
@@ -237,9 +246,12 @@ func (s *State) beginCombatFrom(o *u5data.MapObject, slot int) bool {
 //
 // 與撞上怪物那條的差別只在**敵人從哪來**:房間的怪物寫在地圖自己的
 // `EnemyKind` 裡(檔案位移 171),不是由撞到的物件決定。
-func (s *State) beginRoomCombat(m *u5data.CombatMap, idx int) bool {
+func (s *State) beginRoomCombat(m *u5data.CombatMap, idx int, mode byte) bool {
+	// ⚠ **mode 一定要由呼叫端給**:這一支被三種場合共用(地牢房間 0x82、
+	// 地牢遊蕩怪物 2、地牢紮營 6),而**只有房間那個帶 0x80**(離不開)。
+	// 寫死成房間模式會讓遊蕩怪物與紮營也變成離不開的死戰。
 	c := &Combat{Map: m, MapIndex: idx, fromSlot: -1, Turn: -1,
-		savedX: s.X, savedY: s.Y, EnemyName: "房間裡的東西"}
+		savedX: s.X, savedY: s.Y, EnemyName: "房間裡的東西", Mode: mode}
 	for i := range c.LastAttacker {
 		c.LastAttacker[i] = -1
 	}
@@ -801,16 +813,47 @@ func (s *State) CombatPass() {
 //
 // ⚠ 原版**沒有這個指令** —— 撤離是一格一格走出戰場邊緣。這裡保留一個
 // 快捷鍵是為了不讓玩家卡在半完成的戰鬥系統裡,訊息也照實說明。
-func (s *State) CombatFlee() {
-	if s.Combat == nil {
-		return
+func (s *State) CombatFlee() bool {
+	c := s.Combat
+	if c == nil {
+		return false
 	}
-	if s.Combat.Over {
-		s.EndCombat(s.Combat.Won)
-		return
+	s.Log(MsgEscape)
+	// ★ 兩道閘門**只在還有活著的隊員時才檢查**。全隊倒下時 ESC 一定放行 ——
+	// 那是「打輸了離場」那條路,不能被「勝負未定」卡住。
+	if s.anyLivingPartyUnit() {
+		if c.Mode&CombatNoEscape != 0 {
+			s.Log(MsgEscapeNotHere)
+			return false
+		}
+		if !c.Over {
+			s.Log(MsgEscapeNotYet)
+			return false
+		}
 	}
-	s.Log("汝撤離了戰場。(原版沒有撤離鍵 —— 要一步步走出戰場邊緣)")
-	s.EndCombat(false)
+	// 原版接著把場上**所有單位與所有物件**逐一移除(`sub_B210(−槽−1)` 與
+	// `sub_B210(槽+1)`)再離場。引擎的 `EndCombat` 直接丟掉整個 `Combat`,
+	// 等價 —— 但**戰勝時要清掉地圖上那隻怪**這件事得照 `Won` 走。
+	s.EndCombat(c.Over && c.Won)
+	return true
+}
+
+// anyLivingPartyUnit 是原版那個掃 32 槽的迴圈:`(flags & 0A0h) == 80h`
+// —— 隊員(0x80)而且沒死(0x20)。
+//
+// ⚠ 遮罩是 0xA0 不是 0x80:少了 `UnitDead` 那一位,全隊倒下之後
+// ESC 會被「勝負未定」擋住,玩家就卡在戰場上了。
+func (s *State) anyLivingPartyUnit() bool {
+	c := s.Combat
+	if c == nil {
+		return false
+	}
+	for i := range c.Units {
+		if c.Units[i].Flags&(UnitParty|UnitDead) == UnitParty {
+			return true
+		}
+	}
+	return false
 }
 
 // 命中判定

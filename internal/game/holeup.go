@@ -272,7 +272,9 @@ func (s *State) campAmbush(watch int) {
 	o := &u5data.MapObject{X: s.X, Y: s.Y, Kind: kind}
 	o.Raw[0] = kind
 	o.Raw[u5data.ObjX], o.Raw[u5data.ObjY] = byte(s.X), byte(s.Y)
-	s.beginCombatWith(o)
+	if s.beginCombatWith(o) {
+		s.Combat.Mode = CombatModeCampSurface
+	}
 }
 
 // campDungeonAmbush 是地牢裡紮營被突襲(原版走 `byte_3E0B1 = 6` 那條)。
@@ -285,7 +287,7 @@ func (s *State) campDungeonAmbush(kind byte) {
 		Facing: int(d.Facing),
 	})
 	arena.EnemyKind[0] = kind
-	if s.beginRoomCombat(arena, -1) {
+	if s.beginRoomCombat(arena, -1, CombatModeCampDungeon) {
 		s.markArena(u5data.DungeonArenaModeCamp)
 	}
 }

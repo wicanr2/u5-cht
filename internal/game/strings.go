@@ -209,6 +209,15 @@ const (
 	// ⚠ `Zzzzz...` 是**隊員**睡著時每回合都會印的 —— 少了它,玩家只會看到
 	// 自己的角色莫名其妙不動。怪物睡著走另一條路(`sub_A108`),不印這句。
 	MsgZzzzz = "呼……呼……"
+	// 戰鬥中的 ESC(原版 `sub_18380`,戰鬥指令表 case 27 = 0x1B = ESC)。
+	//
+	// ★ 原版**有**撤離鍵,而且有兩句拒絕:地牢房間永遠離不開、
+	// 其餘戰場要等勝負已定。見 `docs/re/73`。
+	//
+	//	"Escape" / "-Not here!\n" / "-Not yet!\n"
+	MsgEscape        = "撤離"
+	MsgEscapeNotHere = "—— 此處不可!"
+	MsgEscapeNotYet  = "—— 時候未到!"
 	// "ARGH!" —— 被拖屍怪拖到水下的人每回合的哀號。
 	MsgArgh = "啊啊啊!"
 	// " dragged under!" / " regurgitated!"

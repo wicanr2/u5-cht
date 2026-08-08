@@ -330,26 +330,107 @@ func TestCombatMoveStaysOnField(t *testing.T) {
 	}
 }
 
-// TestFleeLeavesCombat:撤離回到地圖,而且怪物還在(沒打贏就不該消失)。
-func TestFleeLeavesCombat(t *testing.T) {
+// TestEscapeIsRefusedUntilTheBattleIsDecided —— ★ 這條測試整個反轉了。
+//
+// ⚠⚠ 它的前身是 `TestFleeLeavesCombat`,釘住「按 ESC 就離開戰場」,
+// 而 `CombatFlee` 的註解寫著「原版沒有撤離鍵 —— 要一步步走出戰場邊緣」。
+//
+// **原版有撤離鍵。** 戰鬥指令表 `jpt_A5C8` 的 case 27 = 0x1B = ESC →
+// `sub_18380`,它印 `Escape` 然後查兩道閘門(`docs/re/73`):
+//
+//	byte_3E0B1 & 80h → "-Not here!"   ★ 只有地牢房間
+//	byte_3E0B3 == 0  → "-Not yet!"    ★ 勝負未定
+//
+// 讓玩家隨時脫離戰鬥是**遊戲難度上的差異**:U5 的戰鬥沒有免費的退出鍵,
+// 要跑就得一步步走出戰場邊緣(那條路 `sub_2F294` 是另一支)。
+func TestEscapeIsRefusedUntilTheBattleIsDecided(t *testing.T) {
 	s := combatState(t)
 	s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
 	s.Move(East)
 	if !s.InCombat() {
 		t.Skip("沒開打")
 	}
-	s.CombatFlee()
+	s.Messages = nil
+	if s.CombatFlee() {
+		t.Error("勝負未定卻讓 ESC 離場了")
+	}
+	if !s.InCombat() {
+		t.Fatal("被拒絕了卻還是離開了戰場")
+	}
+	joined := strings.Join(s.Messages, "|")
+	if !strings.Contains(joined, MsgEscape) {
+		t.Errorf("沒印「%s」:%q", MsgEscape, s.Messages)
+	}
+	if !strings.Contains(joined, MsgEscapeNotYet) {
+		t.Errorf("沒印「%s」:%q", MsgEscapeNotYet, s.Messages)
+	}
+
+	// ★ 勝負已定之後才走得掉,而且**沒打贏就不該把怪物從地圖上清掉**。
+	s.Combat.Over, s.Combat.Won = true, false
+	s.Messages = nil
+	if !s.CombatFlee() {
+		t.Fatalf("勝負已定卻還走不掉:%q", s.Messages)
+	}
 	if s.InCombat() {
-		t.Error("撤離之後還在戰鬥")
+		t.Error("離場之後還在戰鬥")
 	}
 	if s.Prompt != PromptNone {
-		t.Errorf("撤離之後 Prompt 是 %v", s.Prompt)
+		t.Errorf("離場之後 Prompt 是 %v", s.Prompt)
 	}
 	if _, _, ok := s.ObjectAt(s.X+1, s.Y); !ok {
 		t.Error("沒打贏,怪物卻從地圖上消失了")
 	}
-	if !strings.Contains(s.log(), "撤離") {
-		t.Errorf("沒有撤離訊息:\n%s", s.log())
+}
+
+// TestDungeonRoomsCanNeverBeEscaped —— bit 0x80,全檔只有 `sub_42CC` 設它。
+func TestDungeonRoomsCanNeverBeEscaped(t *testing.T) {
+	s := combatState(t)
+	s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	s.Move(East)
+	if !s.InCombat() {
+		t.Skip("沒開打")
+	}
+	s.Combat.Mode = CombatModeRoom
+	// ★ 連「勝負已定」都救不了 —— 0x80 那條排在前面。
+	s.Combat.Over, s.Combat.Won = true, true
+	s.Messages = nil
+	if s.CombatFlee() {
+		t.Error("地牢房間竟然按 ESC 就離開了")
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgEscapeNotHere) {
+		t.Errorf("沒印「%s」:%q", MsgEscapeNotHere, s.Messages)
+	}
+	if !s.InCombat() {
+		t.Error("被拒絕了卻還是離開了戰場")
+	}
+}
+
+// TestEscapeAlwaysWorksWhenTheWholePartyIsDown —— ★ 遮罩是 0xA0 不是 0x80。
+//
+// 原版那個掃 32 槽的迴圈找的是 `(flags & 0A0h) == 80h`(隊員**而且沒死**),
+// 而兩道閘門**只在找到人時才檢查**。少了 `UnitDead` 那一位,全隊倒下之後
+// ESC 會被「勝負未定」擋住,玩家就卡在戰場上 —— 那是死鎖,不是難度。
+func TestEscapeAlwaysWorksWhenTheWholePartyIsDown(t *testing.T) {
+	s := combatState(t)
+	s.CurrentObjects().Spawn(0x40, s.X+1, s.Y, s.Floor)
+	s.Move(East)
+	if !s.InCombat() {
+		t.Skip("沒開打")
+	}
+	// 全隊倒下,而且刻意連地牢房間那條都掛上 —— 兩道閘門都該跳過。
+	for i := range s.Combat.Units {
+		if s.Combat.Units[i].IsParty() {
+			s.Combat.Units[i].Flags |= UnitDead
+		}
+	}
+	s.Combat.Mode = CombatModeRoom
+	s.Combat.Over = false
+	s.Messages = nil
+	if !s.CombatFlee() {
+		t.Fatalf("全隊倒下卻走不掉 —— 這會把玩家鎖在戰場上:%q", s.Messages)
+	}
+	if s.InCombat() {
+		t.Error("該離場了卻還在戰鬥")
 	}
 }
 
