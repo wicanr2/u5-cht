@@ -59,6 +59,15 @@ GENERATED_DOCS = {"00-function-index.md"}
 # 每加一個詞就多一批**整行不檢查**的筆記。
 OVERTURNED_MARKERS = ("已被推翻", "此前這裡寫", "原本寫", "~~")
 
+# 整節不查的標題:`CONTEXT.md` 的推翻登記處**刻意**列出作廢的符號與函式名 ——
+# 那是紀錄不是引用。
+#
+# ⚠ 這與加寬 `OVERTURNED_MARKERS` 不是同一件事:那些詞可以出現在任何一行,
+# 一加就讓一大批筆記整行不檢查;這裡是**一個具名標題底下**的區段,
+# 而那個區段的定義就是「這些斷言已經死了」。新增標題前先問:
+# 該區段是不是**只**放已作廢的東西?不是就別加。
+SECTION_SKIP_HEADINGS = ("## 已被推翻的斷言",)
+
 
 def load_asm_symbols(asm: pathlib.Path) -> set[str]:
     """反組譯檔裡出現過的所有 IDA 符號。"""
@@ -119,8 +128,14 @@ def main() -> int:
         rel = doc.relative_to(ROOT)
         if doc.name in GENERATED_DOCS:
             continue
+        in_skipped_section = False
         for n, line in enumerate(doc.read_text(errors="replace").splitlines(), 1):
-            if is_overturned_context(line):
+            if line.startswith("## "):
+                # 換節就重新判斷 —— 否則跳過會一路吃到檔尾。
+                in_skipped_section = any(
+                    line.startswith(h) for h in SECTION_SKIP_HEADINGS
+                )
+            if in_skipped_section or is_overturned_context(line):
                 continue
             if asm_symbols:
                 for sym in IDA_FUNC.findall(line):

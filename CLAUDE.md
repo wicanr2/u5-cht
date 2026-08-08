@@ -15,6 +15,7 @@
 | 斷言「某欄位是 X / 這值從哪來」之前 | `rulebook/62-static-provenance-trace.md` |
 | 逆向撞牆(看不出來 / 想動態 / 想 DOSBox) | `rulebook/64-re-screenshot-oracle.md` |
 | 宣稱某階段「完成」之前 | `rulebook/65-verify-against-reference-not-internal-signals.md` |
+| **要推翻既有斷言 / 覺得「這條好像不對」之前** | `CONTEXT.md` 的**已被推翻的斷言**表(單一登記處)+ `rulebook/63` |
 | 寫 / 大改 README | `rulebook/80-retro-cht-readme-polish.md` + 本檔 §7 |
 | 決定中文字尺寸 / 畫布 | `rulebook/81-retro-cjk-hires-canvas.md` + `retro-cht/eten-bitmap-font/SKILL.md` |
 | 做打包後的可玩性驗收 | `retro-cht/retro-game-playtest/SKILL.md` |
@@ -66,7 +67,7 @@ IDA Pro 反組譯 ──┬─ ★ FM Towns WORRIORS.EXP(32-bit P3,可能可反�
 | `*.OVL`(24 個) | **裸機器碼,無 MZ 檔頭**(開頭即 `55 8B EC` = `push bp; mov bp,sp`) | IDA 需**手動當 16-bit binary 載入並指定 segment**,見 §4.2 |
 | `DATA.OVL`(48K) | 資料 overlay。含 `MS Run-Time Library ... 1988, Microsoft Corp` → **編譯器是 Microsoft C 5.x/6.0(cdecl)**;明文物品名表(`Leather Helm`…`Mystic Sword`、`Ring of Invisibility`) | 裝備/法術/物品名譯源;⚠ 呼叫慣例是 cdecl,**不是** Turbo Pascal(kb 裡的 Pascal 慣例別套過來) |
 | `*.TLK` ×4(`TOWNE` 26K / `CASTLE` 21K / `KEEP` 17K / `DWELLING` 8K) | NPC 對話。檔頭是 `(u16 offset, u16 index)` 索引表;**文字每 byte 最高位元被設為 1**(清 bit7 後即明文:`Zachariah`、`a stately, white-haired`、`Welcome, \x01,`);內嵌控制碼(`\x01` 疑為玩家名代入、`\x03`) | **對話中文化主戰場**。索引表 base 與控制碼語意需以 IDA 確認,勿猜 |
-| `STORY.DAT` `QUESTION.DAT` `KARMA.DAT` `MISCMSG.DAT` `ENDMSG.DAT` | **明文 ASCII,記錄用 NUL(0x00)分隔**;`{` 是段落起始(僅 STORY/QUESTION);**`_` 是英文斷字提示**(`be_gin`、`mys_te_ri_ous`)。實測筆數 20 / 30 / 6 / 47 / 11,**詞典 token 0 個 → 可直接翻譯** | 開場故事 / 吉普賽問答 / 業報 / 系統訊息 / 結局。⚠ 譯成中文時 `_` 要移除。<br>⚠⚠ **更正**:此前記載「`\|` 分隔」是錯的 —— `STORY.DAT` 裡 0x7C 出現 0 次。錯因是拿 `strings … \| tr '\n' '\|'` 的輸出當檔案內容(`\|` 是自己的 `tr` 加的)。**一手位元組贏二手推論** |
+| `STORY.DAT` `QUESTION.DAT` `KARMA.DAT` `MISCMSG.DAT` `ENDMSG.DAT` | **明文 ASCII,記錄用 NUL(0x00)分隔**;`{` 是段落起始(僅 STORY/QUESTION);**`_` 是英文斷字提示**(`be_gin`、`mys_te_ri_ous`)。實測筆數 20 / 30 / 6 / 47 / 11,**詞典 token 0 個 → 可直接翻譯** | 開場故事 / 吉普賽問答 / 業報 / 系統訊息 / 結局。⚠ 譯成中文時 `_` 要移除 |
 | `SHOPPE.DAT`(10,135 B) | 194 筆(NUL 分隔),但含 **862 個詞典 token**:位元組 ≥ 0x80 不是文字而是常用詞代碼(`Thanks\x86nothing!` → `\x86`="for" → "Thanks for nothing!")。字典在 **`DATA.OVL` 0x104C**,118 個常用詞(`the thou of to and that for…`,含 `Blackthorn`/`Shadowlords`/`Mantra`) | 商店對白。~~token → index 的精確映射未定~~ ✅ **已解**:token 空間 128 減掉 **10 個空槽**(8/28/50/65/67/70/72–75,由四個 `.TLK` 的 token 統計獨立佐證 —— 這幾個值一次都沒出現)。⚠ `.TLK` 與 `.DAT` 的**極性相反**(見 `internal/u5data/dict.go`)。194 段對白已全數中譯 |
 | `LOOK2.DAT`(3,622 B) / `SIGNS.DAT`(8,364 B) | 格式與上面兩類都不同:`LOOK2` 有 218 個 NUL + 大量 0x01–0x1F 控制碼;`SIGNS` 是 u16 offset 表 + 用字元畫的框線(`8lllllmllmlllll9`)+ 地名 | 觀察敘述 / 城鎮招牌。各自另案處理 |
 | `SIGNS.DAT` | 明文,但混著用字元畫的框線(`lllm`、`^_@`) | 城鎮招牌。同 u4-cht「美術內嵌字母」問題,先評估再決定譯不譯 |
@@ -133,7 +134,7 @@ IDA Pro 反組譯 ──┬─ ★ FM Towns WORRIORS.EXP(32-bit P3,可能可反�
 | 另有 `U5_E/*.JPN` 六份:`END` `ENDMSG` `KARMA` `LOOK2J` `MISCMSG` `SHOPPE` | 連系統訊息與商店都有英日對照 → **§2.1 的八類文字全部有第二語言可校** |
 | **`EGA0–EGA3.TIL` 各 65,536 B 未壓縮**;DOS `TILES.16` 的檔頭宣稱解壓後**正是 65,536** | ★ **極可能就是 DOS 壓縮 tileset 的解壓結果** → 拿它當 oracle,破 `TILES.16` 壓縮時有逐位元組對答案 |
 | `U5.FNT` 16,384 B、`TOWNS.FNT` 17,160 B | 字型檔。⚠ `U5.FNT` 以 8×16 ASCII 直索引 dump 出來**不是字形**(idx 65 是橫條紋)→ 佈局待 P1 驗,**不要假設同 DOS 版的 `IBM.CH`** |
-| **`U5_BGM.TBL` / `U5_SE.TBL` 是純文字表**(`M1.EUP 102 87 87 87 87 87`、`WALK.SND 100 3032`) | ⚠⚠ **更正(2026-08-08,`docs/re/87`)**:此前寫「場景配樂對應**免逆向直接讀表**」是**錯的**。表裡沒有任何一欄是場景 —— `U5_BGM.TBL` 是**檔名 + 六個 FM 聲道的起始音量**(換曲時一起遞減當淡出),`U5_SE.TBL` 是**檔名 + 音量 + 檔案位元組數**。「什麼時候播第幾首」寫在程式碼裡(32 個 `sub_3181C` 呼叫點 + `sub_31DC0` 的地點跳表),**要逆向**。★ 表唯一直接給的是**曲號 → 檔名**(15 列,對上 `sub_3181C` 的上限 0x0E),而檔名編號不連續(`M92`/`M152` 夾在中間)⇒ 不能用「曲號 = 檔名數字 − 1」。<br>⚠ 錯因:只看表的**形狀**就推語意,沒追「誰讀它、讀去做什麼」(`rulebook/62`) |
+| **`U5_BGM.TBL` / `U5_SE.TBL` 是純文字表**(`M1.EUP 102 87 87 87 87 87`、`WALK.SND 100 3032`) | `U5_BGM.TBL` = **檔名 + 六個 FM 聲道的起始音量**(換曲時一起遞減當淡出);`U5_SE.TBL` = **檔名 + 音量 + 檔案位元組數**。★ 表唯一直接給的是**曲號 → 檔名**(15 列,對上 `sub_3181C` 的上限 0x0E),而檔名編號不連續(`M92`/`M152` 夾在中間)⇒ 不能用「曲號 = 檔名數字 − 1」。⚠ **表裡沒有任何一欄是場景** —— 「什麼時候播第幾首」寫在程式碼裡(32 個 `sub_3181C` 呼叫點 + `sub_31DC0` 的地點跳表),已逆完(`docs/re/87`) |
 | **`M1–M152.EUP` 15 首**(EUPHONY 序列)+ 兩條 CDDA | 遊玩音樂是 EUP、非 CDDA(kb 已知陷阱);EUPHONY 格式 u1-cht 逆過,**可複用** |
 | `.TIF` 49 個,固定 154,112 B = 512 B 檔頭 + 320×240×2 B | FM Towns 16-bit 直色美術。⚠ kb 陷阱:**FillOrder=2(LSB-first)** |
 | `.SND` 25 個 | 音效。⚠ kb 陷阱:**sign-magnitude PCM**,不是 two's complement |
@@ -244,10 +245,12 @@ docker run --rm -v "$WORK:/work" -v "$ROOT/tools:/work/tools:ro" -w /work \
 | **文字語意**(翻譯時吃不準原意) | **DOS/`WORRIORS`(英)+ `U5_J/*.JPN`(日)並排** | 靠 TLK 的 index 欄逐筆對齊 |
 | PC-98 的定位 | **降為輔助** | 資料是另一套格式(`.CH`/`.DAT`、GDC 4-plane),邏輯逆向已被 FM Towns 取代;仍保留 `TILES.CH` 當第二 oracle 與 YM2203 音樂來源 |
 
-⚠ **已被一手證據推翻的假設,不要再重複**:
-- ~~「日文版有 symbol table 比較好逆」~~ → **三版全數沒有 CodeView 符號**(PC-98 `U5.EXE`、FM Towns 兩個 `.EXP` 都掃過 NB05/08/09/10/11)。日文版的優勢是**反編譯器 + 雙語執行檔 + 未壓縮素材 + 英日對照文字**,不是符號。
-- ~~「PC-98 單檔所以 IDA 一次吃完」~~ → MZ 檔頭只涵蓋 40,896 B / 216,880 B,**176 KB 在自動分析之外**。
-- ~~「`upgrade/` 有 VGA 美術」~~ → 它是 MIDI 音樂升級包,`TILES.16` 與原版 md5 相同(§2.2)。
+⚠ **三個版本都沒有 CodeView 符號**(PC-98 `U5.EXE`、FM Towns 兩個 `.EXP` 都掃過
+NB05/08/09/10/11)。日文版的優勢是**反編譯器 + 雙語執行檔 + 未壓縮素材 + 英日對照文字**,
+不是符號 —— 別花時間找符號表。
+
+> 這一族「曾經以為是這樣」的斷言全部登記在 `CONTEXT.md` 的**已被推翻的斷言**表。
+> 動手前掃一眼那張表,比在正文各處讀事件敘述快。
 
 ### 4.3 各版的共同關卡
 
@@ -311,15 +314,23 @@ char sub_CD28()                    // ← ★ 參數列是空的
 - 間接寫入(`ptr = &x` → `es:[di]=v`)不在 xref 裡。看到「讀很多、寫只有 1 處」→ 去看「取址」那幾筆。
 - IDC 崩掉會把 `.i64` 留在壞狀態,症狀是 `Failed to initialize IDA as library (error code 4)`,**看起來像 image 壞了**。判斷:拿另一個 `.i64` 跑已知可用腳本(正對照)。壞的那個刪掉重跑 analyze。
 - **讀任何 `sub_XXXX` 前先查函式索引**(`tools/gen_func_index.py` → `docs/re/00-function-index.md`)。逆向筆記過三十份之後,憑記憶一定重讀。
-- **「唯一」「只有一處」沒有全檔掃描佐證就不要寫。**
-  ⚠ **這條要擴充(2026-08-08,`docs/re/72`)**:「**只有 N 個**」與「**與 X 無關**」
-  是同一類斷言,一樣要全檔掃描。`docs/re/53` §2 寫「戰場上的隊員圖與職業無關,
-  原版只有站著 0x1D 與躺著 0x1E 兩個值」—— 它只讀了寫那個欄位的**兩支**函式,
-  沒問「還有誰寫這個欄位」。第三處(`sub_C414` 開戰佈陣)寫的是
-  `byte_40C34[職業]`,四個不同的值。**而那個結論還連帶「修掉」了一個原本猜對的值**
-  (0x4C 是聖者的圖,`sub_16058` 拿它判「爬得過去」正是因為那格站著隊員)。
-  ⇒ 回頭追矛盾是對的,但「哪一邊有證據」要用**全檔掃描**回答,
-  不能用「我手上這兩支函式」回答。
+- **「唯一」「只有 N 個」「與 X 無關」一律要全檔掃描才能寫。**
+  這三種是同一類斷言 —— 它們都在宣稱「**沒有別的**」,而「沒有別的」不能用
+  「我手上這幾支函式」回答。作法:先想出這個斷言的**指紋**(某個指令組合、
+  某個常數、某個欄位的寫入),再對整個 `.asm` 掃一遍並列出全部命中點。
+  ⇒ 回頭追矛盾是對的,但「哪一邊有證據」要用掃描結果回答。
+
+- **★ 兩條錯誤斷言會互相掩護,所以推翻一條時要順手查「當初支持它的那條」。**
+  形狀是這樣:斷言 A(「X 是唯一的例外」)讓人不會去查 B;
+  斷言 B(「B 不是例外」)又讓 A 的「唯一」看起來成立。
+  任一條單獨存在都會被下一次閱讀抓到,兩條放進同一張表就形成閉環,可以活很久。
+  ⇒ 改掉一條之後,**回去看與它同一張表 / 同一段的鄰居**。
+
+- **★ 同一個位置在不同函式裡不是同一個意思。** 要對某個參數下語意結論之前,
+  **先讀被呼叫的那支函式怎麼用它** —— 不要把「別處第一參數是索引」搬過來。
+  成本是讀幾十行組語;省下它的代價是一條假的 ⬜ 卡在筆記裡。
+  同族的還有:**IDA 自動命名(`aXxx` / `sub_Xxxx`)不是資料**、
+  **pattern match 不是資料**(檔頭 magic 對了不代表那是檔頭)。
 - `.i64` / `.asm` / 解包後 binary **全部 gitignore**。
 - 只做靜態分析與互通性研究;license 唯讀掛載、不出現在 log/截圖;**不在 container 內跑遊戲**。
 
