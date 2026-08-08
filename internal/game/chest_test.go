@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/wicanr2/u5-cht/internal/u5data"
@@ -210,5 +211,107 @@ func TestChestLootReachesTheBackpack(t *testing.T) {
 	}
 	if !got {
 		t.Error("開了四十次高等寶箱,背包一樣都沒多 —— 獎品沒接進背包")
+	}
+}
+
+// ─── 地牢裡的 J(原版 `sub_14B2C`,`docs/re/76`)────────────────────────
+
+// jimmyDungeonScene 把玩家放在一個寶箱格上,並給足鑰匙。
+func jimmyDungeonScene(t *testing.T, trap byte) *State {
+	t.Helper()
+	s := dungeonState(t)
+	if !findDungeonTile(t, s, u5data.DungeonChest) {
+		t.Skip("八座地牢裡找不到寶箱")
+	}
+	d := s.Dungeon
+	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonChest|trap)
+	s.Inventory.Keys = 50
+	s.Messages = nil
+	return s
+}
+
+// TestJimmyInADungeonDisarmsTheTrapNotALock —— ★★ 解的是陷阱,不是鎖。
+//
+// 成功之後那一格還是 0x4x(箱子),只是低三位元被清掉。
+// 所以 J 在地牢裡的用途是「先解陷阱,再用 O 開」。
+func TestJimmyInADungeonDisarmsTheTrapNotALock(t *testing.T) {
+	s := jimmyDungeonScene(t, 0x03) // 有陷阱
+	d := s.Dungeon
+	// 敏捷拉高讓它一定成功(門檻 = (樓層×2 + 30 − 敏捷)/2,骰 1..30 要大於門檻)。
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Dex = 99
+	}
+	before := s.Inventory.Keys
+	s.Jimmy()
+	got := s.DungeonTileHere()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgChestUnlocked) {
+		t.Fatalf("沒印「%s」:%q", MsgChestUnlocked, s.Messages)
+	}
+	if u5data.DungeonKind(got) != u5data.DungeonChest {
+		t.Errorf("解完之後是 0x%02X —— 該還是箱子(0x4x)", got)
+	}
+	if got&u5data.DungeonChestTrapMask != 0 {
+		t.Errorf("陷阱位元沒清掉:0x%02X", got)
+	}
+	if s.Inventory.Keys != before {
+		t.Errorf("成功了卻扣了鑰匙:%d → %d", before, s.Inventory.Keys)
+	}
+	_ = d
+}
+
+// TestJimmyWastesAKeyOnAnUntrappedChest —— ★ 沒有陷阱的箱子撬不開,鑰匙照斷。
+//
+// 判準是 `tile & 0xF7 == 0x40`(tile ∈ {0x40, 0x48})—— 低三位元為 0,
+// 沒有東西可解,所以原版直接跳到「鑰匙斷了」。寫成「沒陷阱就成功」
+// 會讓鑰匙變成萬能鑰匙。
+func TestJimmyWastesAKeyOnAnUntrappedChest(t *testing.T) {
+	for _, extra := range []byte{0, u5data.DungeonHoleAbove} {
+		s := jimmyDungeonScene(t, extra)
+		for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+			s.Roster[i].Dex = 99 // 就算敏捷拉滿也一樣
+		}
+		before := s.Inventory.Keys
+		s.Jimmy()
+		joined := strings.Join(s.Messages, "|")
+		if !strings.Contains(joined, MsgKeyBroke) {
+			t.Errorf("tile 0x%02X 該印「%s」:%q",
+				u5data.DungeonChest|extra, MsgKeyBroke, s.Messages)
+		}
+		if strings.Contains(joined, MsgChestUnlocked) {
+			t.Errorf("沒有陷阱的箱子竟然「解開」了:%q", s.Messages)
+		}
+		if s.Inventory.Keys != before-1 {
+			t.Errorf("鑰匙沒斷:%d → %d", before, s.Inventory.Keys)
+		}
+	}
+}
+
+// TestJimmyInADungeonAsksWhoBeforeCheckingKeys —— ★ 順序與門那條相反。
+//
+// 地牢這條是「選人 → 讀格子 → 查鑰匙」,所以沒鑰匙時**照樣先問**;
+// 門那條是先查鑰匙(`sub_14CAC` 的 `cmp byte_3DFB8, 0` 在問方向之前)。
+func TestJimmyInADungeonAsksWhoBeforeCheckingKeys(t *testing.T) {
+	s := jimmyDungeonScene(t, 0x03)
+	s.Inventory.Keys = 0
+	s.Messages = nil
+	s.Jimmy()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgNoKeys) {
+		t.Errorf("沒鑰匙該印「%s」:%q", MsgNoKeys, s.Messages)
+	}
+	// 而且不該把陷阱清掉。
+	if s.DungeonTileHere()&u5data.DungeonChestTrapMask == 0 {
+		t.Error("沒鑰匙卻把陷阱解掉了")
+	}
+}
+
+// TestJimmyOnAnOpenedChestSaysAlreadyOpen。
+func TestJimmyOnAnOpenedChestSaysAlreadyOpen(t *testing.T) {
+	s := jimmyDungeonScene(t, 0x03)
+	d := s.Dungeon
+	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonOpenedChestKind)
+	s.Messages = nil
+	s.Jimmy()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgAlreadyOpen) {
+		t.Errorf("開過的箱子該印「%s」:%q", MsgAlreadyOpen, s.Messages)
 	}
 }

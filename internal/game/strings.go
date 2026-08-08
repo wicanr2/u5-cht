@@ -167,6 +167,8 @@ const (
 	MsgTrapped       = "有陷阱!"
 	MsgChestOpened   = "箱子打開了。"
 	MsgAlreadyOpen   = "已經開了!"
+	// "Chest unlocked\n" —— ★ 地牢裡的 J 解掉的是**陷阱**,不是鎖(`docs/re/76`)。
+	MsgChestUnlocked = "箱子的機關解開了。"
 	MsgChestContents  = "箱中之物:"
 	// "A merchant says:\n\"Come see me at\nmy … when it's open!\""
 	MsgMerchantClosed = "「營業時再來吧。」"

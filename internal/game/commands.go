@@ -29,7 +29,15 @@ import (
 const jimmyRollMax = 29
 
 // Jimmy 是 J 指令。
+//
+// ⚠ **地牢裡是另一支程式**(原版 `sub_14CAC` 開頭就分岔到 `sub_14B2C`)——
+// 引擎原本只有門那條,而 `TileAt` 在地牢裡讀不到地牢格 ⇒ **地牢裡按 J 撬不了
+// 任何東西**。見 `docs/re/76`。
 func (s *State) Jimmy() {
+	if s.InDungeon() {
+		s.jimmyDungeonChest()
+		return
+	}
 	if s.Inventory.Keys <= 0 {
 		s.Log(MsgNoKeys)
 		return
@@ -38,6 +46,60 @@ func (s *State) Jimmy() {
 		dx, dy := d.Delta()
 		s.jimmyAt(s.X+dx, s.Y+dy)
 	})
+}
+
+// jimmyDungeonChest 是地牢裡的 J(原版 `sub_14B2C`)。
+//
+// ★★ **它撬的不是鎖,是陷阱。** 成功之後那一格是
+// `(tile & 8) | 0x40` —— 還是箱子(0x4x),只是**低三位元的陷阱被清掉了**。
+// 所以 J 在地牢裡的用途是「先解陷阱,再用 O 開」。
+//
+// ★ 三個容易寫錯的地方:
+//
+//  1. **沒有陷阱的箱子撬不開,而且鑰匙照斷。**
+//     判準是 `tile & 0xF7 == 0x40`(也就是 tile ∈ {0x40, 0x48})——
+//     那是低三位元為 0 的箱子,沒有東西可解,所以原版直接跳到「鑰匙斷了」。
+//     寫成「沒陷阱就成功」會讓玩家把鑰匙當萬能鑰匙。
+//  2. **問人在查鑰匙之前**。地牢這條的順序是「選人 → 讀格子 → 查鑰匙」,
+//     所以身上沒鑰匙時原版**照樣先問「Player:」**(門那條相反,先查鑰匙)。
+//  3. 門檻與地牢搜尋**同一條式子**(`(樓層×2 + 30 − 敏捷) / 2`),
+//     擲的是 `random(1, 30)` 且要**大於**門檻才成功。
+func (s *State) jimmyDungeonChest() {
+	d := s.Dungeon
+	// ★ 先問人 —— 原版在這裡,而不是在查鑰匙之後。
+	who := s.pickCharacter("")
+	if who < 0 {
+		return
+	}
+	tile := s.DungeonTileHere()
+	switch {
+	case tile&^u5data.DungeonHoleAbove == u5data.DungeonChest:
+		// 沒有陷阱的箱子:撬不開,鑰匙照斷。
+		if s.Inventory.Keys <= 0 {
+			s.Log(MsgNoKeys)
+			return
+		}
+		s.Log(MsgKeyBroke)
+		s.Inventory.Keys--
+	case u5data.DungeonKind(tile) == u5data.DungeonChest:
+		// 有陷阱的箱子:擲骰解陷阱。
+		if s.Inventory.Keys <= 0 {
+			s.Log(MsgNoKeys)
+			return
+		}
+		if s.Roll(1, dungeonSearchRollMax) > s.dungeonSearchThreshold(who) {
+			s.Log(MsgChestUnlocked)
+			s.Dungeons.Set(d.Index, d.Level, d.X, d.Y,
+				(tile&u5data.DungeonHoleAbove)|u5data.DungeonChest)
+			return
+		}
+		s.Log(MsgKeyBroke)
+		s.Inventory.Keys--
+	case u5data.DungeonKind(tile) == u5data.DungeonOpenedChestKind:
+		s.Log(MsgAlreadyOpen)
+	default:
+		s.Log(MsgWhat)
+	}
 }
 
 // jimmyAt 撬 (x, y) 那一格的鎖。
