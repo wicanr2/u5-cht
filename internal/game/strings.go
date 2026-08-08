@@ -110,6 +110,20 @@ const (
 	MsgSpellNoEffect = "毫無效果!"
 	MsgMagicAbsorbed = "被吸收了!"
 
+	// 轉入 Ultima IV(原版 `sub_7594` 的畫面)。
+	//
+	// ⚠ 「Keep same sex?」的 N 是**翻轉**,不是「設成女」—— 見 `game/transfer.go`。
+	MsgTransferError  = "錯誤:汝之《創世紀 IV》存檔內容有誤。"
+	MsgTransferUnable = "無法完成轉入。"
+	MsgTransferFound  = "尋得"
+	MsgIsAnAvatar     = "乃聖者。"
+	MsgIsNotAnAvatar  = "並非聖者。"
+	MsgKeepThisName   = "保留此名否?(Y/N)"
+	MsgEnterNewName   = "請輸入新名:"
+	MsgKeepSameSex    = "保留原性別否?(Y/N)"
+	MsgMale           = "男"
+	MsgFemale         = "女"
+
 	// Get 指令(原版 `sub_15A94` / `sub_154BC`)。
 	MsgNothingToGet   = "這裡沒有東西可拿。"
 	MsgOpenItFirst    = "得先打開它!"

@@ -506,3 +506,53 @@ func (s *State) AnswerYesNo(yes bool) {
 
 // AwaitingYesNo 回報是不是正在等 Y / N。
 func (s *State) AwaitingYesNo() bool { return s.Prompt == PromptYesNo }
+
+// AskText 問一行字(原版 `sub_239B4(緩衝區, 上限)`)。
+//
+// max 是收得下幾個字元;送出時把去掉頭尾空白的結果交給 then。
+// **空字串是合法的回答** —— 原版對「什麼都沒打」有自己的處理(改名時就是保留原名),
+// 所以不能在這一層擋掉。
+func (s *State) AskText(question string, max int, then func(string)) {
+	s.textReturn = s.Prompt
+	s.textThen, s.textMax = then, max
+	s.Input = ""
+	s.Prompt = PromptText
+	if question != "" {
+		s.Log(question)
+	}
+}
+
+// TypeText 收一個字元(只收可列印的 ASCII —— 原版的輸入欄也只收這些)。
+func (s *State) TypeText(r rune) {
+	if s.Prompt != PromptText || len(s.Input) >= s.textMax {
+		return
+	}
+	if r < ' ' || r > '~' {
+		return
+	}
+	s.Input += string(r)
+}
+
+// BackspaceText 退一個字元。
+func (s *State) BackspaceText() {
+	if s.Prompt == PromptText && s.Input != "" {
+		s.Input = s.Input[:len(s.Input)-1]
+	}
+}
+
+// SubmitText 送出。
+func (s *State) SubmitText() {
+	if s.Prompt != PromptText {
+		return
+	}
+	text := trimSpace(s.Input)
+	then := s.textThen
+	s.Input, s.textThen = "", nil
+	s.Prompt = s.textReturn
+	if then != nil {
+		then(text)
+	}
+}
+
+// AwaitingText 回報是不是正在等一行字。
+func (s *State) AwaitingText() bool { return s.Prompt == PromptText }

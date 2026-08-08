@@ -86,11 +86,10 @@ func (s *State) MenuChoose() bool {
 			s.Log(MsgTransferNeedsPath)
 			return false
 		}
-		if !s.TransferFromUltimaIV(s.U4SavePath) {
-			return false
-		}
+		// ⚠ **先收選單再開始轉入** —— 轉入會問兩個問題(改名 / 改性別),
+		// 而 closeMenu 會把 Prompt 設回 None。順序反了就把提問吃掉了。
 		s.closeMenu()
-		return true
+		return s.TransferFromUltimaIV(s.U4SavePath)
 	case MenuIntroduction:
 		s.closeMenu()
 		s.BeginIntro()

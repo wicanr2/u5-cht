@@ -306,6 +306,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
 		}
+	case game.PromptText:
+		hint = "打字後按 Enter,ESC 保留原值"
 	case game.PromptNumber:
 		hint = "按數字鍵,0 或 ESC 放棄"
 		if in := s.State.NumberInput(); in != "" {
@@ -330,6 +332,9 @@ func (s *Scene) drawInputLine(dst *image.NRGBA, y int) int {
 		label = "汝答:"
 	case game.PromptSpell:
 		label = "咒語:"
+	case game.PromptText:
+		// 通用文字提問(轉入 U4 的改名);問句本身已經在訊息欄裡。
+		label = "汝打:"
 	case game.PromptShrine:
 		// 美德名、真言、獻金三步共用一行 —— 問句本身已經在訊息欄裡。
 		label = "汝言:"
@@ -370,7 +375,7 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	}
 	avail := (CanvasHeight - 8 - PanelTextY) / LineHeight
 	switch s.State.Prompt {
-	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell, game.PromptBlackthorn:
+	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell, game.PromptBlackthorn, game.PromptText:
 		avail-- // 留一行給輸入列
 	case game.PromptGuard:
 		if s.State.Guard != nil && s.State.Guard.Password {

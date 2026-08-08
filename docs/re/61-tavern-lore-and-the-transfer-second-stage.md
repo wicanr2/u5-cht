@@ -170,3 +170,80 @@ INT:   → "Intellect: was …"
 引擎目前把換算結果一次印成幾行訊息(改名與改性別那兩問沒有)。
 畫面是介面工作,算式才是機制 —— 但**改名與改性別是玩家真的做得到的選擇**,
 所以那兩問算功能缺口,記在這裡。
+
+---
+
+## 追記:兩個確認問題做了
+
+上面把 `sub_7594` 的逐頁畫面列為「還沒做」,並註明「**改名與改性別是玩家真的
+做得到的選擇**,所以那兩問算功能缺口」。這兩問現在做了。
+
+### `Keep this name?`
+
+```asm
+        push    offset aKeepThisName ; "Keep this name?"
+        call    sub_23C18
+        …
+        cmp     bl, 59h ; 'Y'
+        jz      short loc_7A1E
+        cmp     bl, 4Eh ; 'N'
+        jnz     short loc_7A03      ; ← 其他鍵回去重讀
+        …
+        push    offset aEnterNewName ; "Enter new name: "
+        call    sub_23C18
+        push    8
+        push    offset byte_3DDB4
+        call    sub_239B4            ; 讀最多 **8** 個字元
+        cmp     byte_3DDB4, 0
+        jz      short loc_7A30       ; ★ 什麼都不打 → 保留原名
+```
+
+- 只收 Y / N,其他鍵**繼續等**。
+- N → 問新名字,上限 **8** 個字元。
+- **什麼都不打就保留原名**(`cmp byte_3DDB4, 0; jz`)。
+
+### `Keep same sex?` —— N 是**翻轉**,不是「設成女」
+
+```asm
+        cmp     bl, 59h ; 'Y'
+        jnz     short loc_7B92
+        cmp     byte_3DDBD, 0Bh     ; Y 且目前是男 → 印 Male
+        jz      short loc_7BA0
+loc_7B92:
+        cmp     bl, 4Eh ; 'N'
+        jnz     short loc_7BB3
+        cmp     byte_3DDBD, 0Ch     ; N 且目前是女 → 也印 Male(翻轉)
+        jnz     short loc_7BB3
+loc_7BA0:
+        push    offset aMale_1
+        mov     byte_3DDBD, 0Bh
+        jmp     short loc_7BC4
+loc_7BB3:
+        push    offset aFemale_1
+        mov     byte_3DDBD, 0Ch
+```
+
+四條路合起來就是 **Y 保留、N 翻轉**:
+
+| 目前 | 答 | 結果 |
+|---|---|---|
+| 男 0x0B | Y | 男 |
+| 男 0x0B | N | 女 |
+| **女 0x0C** | **Y** | **女** ← 寫成「Y = 男」就錯在這一格 |
+| 女 0x0C | N | 男 |
+
+⚠ 寫成「Y = 男 / N = 女」的話,**一個女角色答 Y 會變成男的**。
+`TestTransferSexAnswerFlipsRatherThanSets` 四種組合都測,第三格就是擋這個。
+
+### 落地
+
+- 新增通用文字提問 `AskText(question, max, then)` + `PromptText`
+  (原版 `sub_239B4(緩衝區, 上限)` 的對應);ESC 走「什麼都不打」那條路。
+- 轉入改成三階段:讀檔 → 印 "Found:" 那一頁 + 問兩題 → 換算並逐項報告。
+- ⚠ **主選單要先收選單再開始轉入**:`closeMenu` 會把 `Prompt` 設回 `None`,
+  順序反了就把提問吃掉了。
+
+### 仍未做
+
+`sub_7594` 那一頁一頁的**版面**(固定欄位座標、`Class remains intact` 之類的
+說明句、寫出 `A:SAVED.GAM`)。那是介面工作;機制上玩家做得到的兩個選擇已經齊了。

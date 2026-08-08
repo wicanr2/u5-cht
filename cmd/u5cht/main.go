@@ -486,6 +486,26 @@ func (g *game) Update() error {
 		return nil
 	}
 
+	// 通用「打一行字」提問(轉入 U4 的改名)。Enter 送出、ESC 等同不改。
+	if st.AwaitingText() {
+		for _, r := range ebiten.AppendInputChars(nil) {
+			st.TypeText(r)
+		}
+		switch {
+		case inpututil.IsKeyJustPressed(ebiten.KeyEnter),
+			inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter):
+			st.SubmitText()
+		case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
+			st.BackspaceText()
+		case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
+			// 原版的「什麼都不打」就是保留原值 —— ESC 走同一條路。
+			st.Input = ""
+			st.SubmitText()
+		}
+		g.dirty = true
+		return nil
+	}
+
 	// 通用 Y / N 提問(紮營的守夜之類)。ESC 等同 N,與原版一致。
 	if st.AwaitingYesNo() {
 		switch {

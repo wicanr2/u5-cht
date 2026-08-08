@@ -140,6 +140,8 @@ const (
 	PromptNumber
 	// PromptYesNo 是通用的 Y / N 提問(紮營的「欲派人守夜否?」之類)。
 	PromptYesNo
+	// PromptText 是通用的「打一行字」提問(轉入 U4 時改名之類)。
+	PromptText
 )
 
 // State 是一局遊戲的位置狀態。
@@ -159,6 +161,8 @@ type State struct {
 	CombatMaps *u5data.CombatMapSet
 	// Creatures 是生物名表,戰鬥時報敵人名字用;可為 nil。
 	Creatures *u5data.CreatureTable
+	// xfer 是「讀好了、還在問問題」的 U4 轉入(見 game/transfer.go)。
+	xfer *pendingTransfer
 	// SpecialItems 是 U 指令的短名字表(`docs/re/56`);可為 nil。
 	SpecialItems *u5data.SpecialItemTable
 	// Stats 是戰鬥數值(怪物三圍、裝備防禦 / 射程 / 類別);可為 nil。
@@ -272,6 +276,10 @@ type State struct {
 	// numDigits 是這次問的是幾位數(1 = 按下去就送出);numInput 是多位數的暫存。
 	numDigits int
 	numInput  string
+	// textThen / textMax / textReturn 是通用文字提問的狀態(見 AskText)。
+	textThen   func(string)
+	textMax    int
+	textReturn Prompt
 	yesNoThen func(bool)
 	ynReturn  Prompt
 
