@@ -22,6 +22,15 @@ func overworldScene(t *testing.T) *State {
 		t.Skipf("載不到平面地圖:%v", err)
 	}
 	s.World, s.Under = w, w
+	// ⚠ 也要給物件表:`currentObjects()` 在大地圖讀 `Objects` / `UnderObjects`,
+	// 兩個都是 nil 的話生怪與清場的測試會全部倒在「沒有物件表」上,
+	// 而那個紅燈看起來像生怪壞了 —— 又是「成因在前置條件」。
+	if s.Objects == nil {
+		s.Objects = &u5data.ObjectSet{}
+	}
+	if s.UnderObjects == nil {
+		s.UnderObjects = &u5data.ObjectSet{}
+	}
 	s.X, s.Y = 64, 64
 	s.Transport = u5data.VehicleWalk
 	if !s.SetTileAt(s.X, s.Y, tileGrass) {

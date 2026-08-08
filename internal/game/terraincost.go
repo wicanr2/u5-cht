@@ -1,5 +1,7 @@
 package game
 
+import "github.com/wicanr2/u5-cht/internal/u5data"
+
 // 地形的移動代價(原版 `sub_2D0BC`,由移動後的 `sub_2D174` 呼叫)
 //
 // 在世界地圖上走進沼澤、樹林、山丘,要付的不是「走不動」而是**時間**:
@@ -170,6 +172,14 @@ func (s *State) extraWorldTurn() bool {
 	}
 	s.WorldTurns++
 	before := s.InCombat()
+	// ★ 遭遇擲骰:`門檻 = sub_1F98()`,`random(1, 30) < 門檻` 才生。
+	// ⚠ 只在大地圖 —— 場景與地牢有自己的遊蕩怪路徑。
+	if !s.InScene() && !s.InDungeon() && !s.InCombat() {
+		threshold := u5data.EncounterThreshold(s.TileAt(s.X, s.Y), s.Clock.Hour, s.Floor != 0)
+		if s.Roll(u5data.EncounterRollLo, u5data.EncounterRollHi) < threshold {
+			s.spawnWanderingCreature()
+		}
+	}
 	s.advanceNPCs()
 	s.syncNPCObjects()
 	return s.InCombat() != before

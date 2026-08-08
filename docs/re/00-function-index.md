@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **937** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **942** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -37,16 +37,16 @@
 | `sub_1DC8` | 每月 28 天、每年 13 個月**。一般行動每回合 **1 分鐘**(`sub_1DC8` → `sub_29304(1)`); | `04-npc-schedule-and-clock.md` |
 | `sub_1E74` | 主要函式  /  `sub_1E74`(配物件槽)、`sub_268`(放掉)、`sub_218`(記永久移除)、`sub_2E0`(反查)、`sub_1DC`(在不在場)  / | `33-get-command.md`, `34-ending-trigger.md`, `36-sandalwood-box-npc-objects.md`, `57-crown-and-sceptre-placement.md` |
 | `sub_1F98` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
-| `sub_2008` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
-| `sub_203C` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
+| `sub_2008` | 5. 怪種表(`sub_203C` + `sub_2008`)—— ★★ 四張表的權重都恰好 256 | `82-the-overworld-world-turn.md` |
+| `sub_203C` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `82-the-overworld-world-turn.md` |
 | `sub_215C` | sub_215C()                            ; 挑候選座標 → word_3E086 / word_3E088 | `82-the-overworld-world-turn.md` |
 | `sub_2218` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `sub_22B0` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `82-the-overworld-world-turn.md` |
 | `sub_22F0` | ★ **這次找回來的**  /  `sub_2CCFC` 轉向 + `Hull weak!`、`sub_2D9D0` 的 `Rough seas!`、以及它們共同呼叫的 `sub_22F0` 沉船  / | `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `80-implemented-but-unreachable.md` |
 | `sub_23FC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `11-map-objects.md`, `66-hexrays-truncation-audit.md` |
 | `sub_24DC` | `sub_23FC` ×1、`sub_24DC` ×2、`sub_25F0` ×1  /  戰鬥與地形效果  / | `66-hexrays-truncation-audit.md` |
-| `sub_25F0` | `random(1,30) < 門檻` → `sub_2218`(生怪);倒掃槽 0x1F..1 用 `sub_25F0` | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md` |
-| `sub_2D38` | `sub_2D38`  /  風 / 水流漂流(引擎已有同名函式用在航行延遲表 —— **同一支被兩種用途呼叫**,要確認語意)  / | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md` |
+| `sub_25F0` | 狀態  /  ✅ **生怪整條已解並實作**(門檻 / 怪種表 / 落點 / 找槽 / 寫槽);⬜ 剩怪物移動 `sub_25F0` 與漂流 `sub_2D38`  / | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md` |
+| `sub_2D38` | 狀態  /  ✅ **生怪整條已解並實作**(門檻 / 怪種表 / 落點 / 找槽 / 寫槽);⬜ 剩怪物移動 `sub_25F0` 與漂流 `sub_2D38`  / | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `82-the-overworld-world-turn.md` |
 | `sub_2E24` | 主要函式  /  `sub_2E24`(世界回合)、`sub_1F98`(遭遇門檻)、`sub_2218`(生怪)、`sub_203C`(依地形選怪)、`sub_22B0`(這一槽是不是生物)  / | `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md` |
 | `sub_2F48` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
 | `sub_3010` | 主要函式  /  `sub_3010`(過橋)、`sub_2F48`(過路費)、`sub_2CE70`(通行判定 + 撞擊)、`sub_2D9D0`(移動後的分派)  / | `68-troll-bridge-and-collision.md` |
@@ -398,6 +398,7 @@
 | `sub_2B2AC` | T  /  Talk  /  地表 `sub_2B2AC`;地點 ≤ 0x20 → `Talk-Funny, no response!`;其餘 `sub_1B658`  / | `35-harp-and-the-secret-door.md`, `49-command-table-and-two-empty-keys.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2B360` | if (sub_2B360(x, y - 1, floor) != 0xFC) return; // ← 正北一格不是暗影君主:**沉默** | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `11-map-objects.md`, `28-shadowlords-and-blackthorn.md`, `50-hole-up-camp-sleep-repair.md`, `68-troll-bridge-and-collision.md` |
 | `sub_2B3DC` | 主要函式  /  `sub_172C4`(F 開砲,**244 行**)、`sub_2B3DC`(查某一格上的物件)、`sub_2A4D0`(全隊傷害)、`sub_2E0`/`sub_218`/`sub_268`(NPC… | `12-npc-movement.md`, `69-the-overworld-cannon-did-nothing.md` |
+| `sub_2B518` | 6. 落點與槽(`sub_215C` / `sub_2B57C` / `sub_2B518` / `sub_2B6C8`) | `82-the-overworld-world-turn.md` |
 | `sub_2B57C` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `36-sandalwood-box-npc-objects.md`, `65-the-wishing-well-easter-egg.md`, `82-the-overworld-world-turn.md` |
 | `sub_2B64C` | 主要函式  /  `sub_15374`(Open 指令本體)、`sub_152B8`(地牢的開箱)、`sub_15108`(物件層的開箱)、`sub_2B64C`(把 tile 寫回去)、`sub_1A54`(主迴圈的… | `69-the-overworld-cannon-did-nothing.md`, `75-open-did-nothing-outside-dungeons.md` |
 | `sub_2B67C` | 主要函式  /  `sub_22F0`(船身損傷)、`sub_2CCFC`(轉向)、`sub_2D9D0`(海上遭遇)、`sub_2A4D0`(全隊傷害)、`sub_2B67C`(誰能行動)  / | `37-look-signs-and-the-sky.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md` |
@@ -479,7 +480,7 @@
 | `off_41BC0` | `off_41BC0[0..7]`(疑為 `MON0–7.16`)  /  `0x1068` = 4,200 B  /  4,200  / | `01-tileset-and-dot16-loader.md` |
 | `off_41BE0` | push off_41BE0 → call sub_24A50    ← 載 .16(off_41BE0 = 表的第 16 項 "CREATE.16") | `01-tileset-and-dot16-loader.md` |
 | `off_41BE8` | (a) 插圖檔名是 DOS 的。** `off_41BE8` 存的是 `STORY1.16`…`STORY6.16` —— | `24-intro.md` |
-| `off_48A88` | off_48A88       dd offset loc_202C      ; DATA XREF: sub_A310+1E↑o | `67-corpser-and-the-sleeping-party-member.md`, `77-a-false-gap-and-the-failed-line.md`, `80-implemented-but-unreachable.md` |
+| `off_48A88` | off_48A88       dd offset loc_202C      ; DATA XREF: sub_A310+1E↑o | `67-corpser-and-the-sleeping-party-member.md`, `77-a-false-gap-and-the-failed-line.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md` |
 | `off_4D5B8` | push    offset off_4D5B8 | `63-fm-towns-sound-effects.md` |
 | `off_4FC44` | mov     eax, off_4FC44[eax*4]    ; 檔案 = {TOWNE,DWELLING,CASTLE,KEEP}[(編號-1)/8] | `03-scene-entry-and-tile-semantics.md` |
 | `off_4FC90` | `off_4FC98` 與碎片名指標表 `off_4FC90` 重疊(`0x4FC98 = 0x4FC90 + 2×4`), | `36-sandalwood-box-npc-objects.md` |
@@ -563,8 +564,8 @@
 | `byte_3E0A6` | 邊界旗標  /  每個方向一個常數(西/北 = 1,東/南 = 0)  /  `cmp byte_3E0A6, 1 / jnb` 等四組比較  /  照抄的話往東往南永遠出不了城  / | `03-scene-entry-and-tile-semantics.md`, `10-shop-prices-and-trade.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `40-push-and-the-main-menu.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E0A7` | if (byte_3E0A7 != 4)                                   // ★ 玩家 Y 剛好是 4 就整段跳過 | `03-scene-entry-and-tile-semantics.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `48-dungeon-wandering-monster-and-arena.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `65-the-wishing-well-easter-egg.md`, `71-the-use-list-had-29-empty-slots.md`, `75-open-did-nothing-outside-dungeons.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E0A8` | 0x02F2  /  16  /  `byte_3E0A8..B7`  /  逐一單位元組  / | `26-yell-words-of-power-shadowlords.md` |
-| `byte_3E0AB` | ★ 距離用 `& 0xFF` 算,所以是**環繞感知**的;基準是 `byte_3E0AB`/`byte_3E0AC` | `17-magic.md`, `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
-| `byte_3E0AC` | ★ 距離用 `& 0xFF` 算,所以是**環繞感知**的;基準是 `byte_3E0AB`/`byte_3E0AC` | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
+| `byte_3E0AB` | `byte_3E0AB` / `byte_3E0AC`  /  載入視窗的左上角**什麼時候更新**(每步一格還是整塊跳)。引擎目前用「隊伍為中心的 32×32」近似,差異會影響怪出現在哪一側  / | `17-magic.md`, `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
+| `byte_3E0AC` | `byte_3E0AB` / `byte_3E0AC`  /  載入視窗的左上角**什麼時候更新**(每步一格還是整塊跳)。引擎目前用「隊伍為中心的 32×32」近似,差異會影響怪出現在哪一側  / | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_3E0AD` | 三個攻擊咒語的傷害也還沒逆到底(`sub_189E4` 只把攻擊碼寫進 `byte_3E0AD`, | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `byte_3E0AE` | movzx eax, byte_3E0AE                    ; 目前行動的單位 | `34-ending-trigger.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `67-corpser-and-the-sleeping-party-member.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `byte_3E0B0` | sub_42CC   (戰鬥)     … cmp byte_3E0B0, 4Dh ; jnz …  → call sub_135FC | `34-ending-trigger.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `78-the-bottom-of-a-dungeon-opens-into-the-underworld.md` |
@@ -675,8 +676,10 @@
 | `byte_4FC54` | `byte_4FC54` 的前四個位元組是 **`3, 4, 2, 1`** —— 四個方向鍵的鍵碼 | `70-hunger-poison-and-the-vanishing-rings.md` |
 | `byte_4FC80` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
 | `byte_4FC8D` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
-| `byte_4FD30` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
-| `byte_4FD35` | `sub_203C`  /  依地形選怪的完整表。已讀開頭:tile 4 / 0x60–0x6F / 0xD4–0xD7 / 0xE4–0xE7 走一條路(先擲 `random(0,64) >= 0x10` 就不生 = … | `82-the-overworld-world-turn.md` |
+| `byte_4FD1C` | 陸地・地表**(`byte_4FD1C` + `dword_4FD38`)—— 順序本身就是難度曲線: | `82-the-overworld-world-turn.md` |
+| `byte_4FD28` | 陸地・幽冥界**(`byte_4FD28` + `a88`):Bat 25% / Giant Rat 21.9% / Giant Spider 21.9% / | `82-the-overworld-world-turn.md` |
+| `byte_4FD30` | 水域・地表**(`byte_4FD30` + `dword_4FD4C`):Shark 28.1% / Squid 28.1% / | `82-the-overworld-world-turn.md` |
+| `byte_4FD35` | 水域・幽冥界**(`byte_4FD35` + `dword_4FD50+1` = `00 80 80`): | `82-the-overworld-world-turn.md` |
 | `byte_4FDD5` | if (byte_3E08A == 'Q') { byte_4FDD5 ^= 1; if (set) return 0 }   ; Rel Tym 隔次 | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_4FDD7` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `38-terrain-movement-cost.md`, `82-the-overworld-world-turn.md` |
 | `byte_4FEEE` | 正面(`sub_36C0`,查 `byte_4FEEE[種類]`): | `18-dungeons.md` |
@@ -803,7 +806,9 @@
 | `dword_41990` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_1C3F8`(展開)與 `dword_41990`(槽表); | `05-text-compression.md`, `08-shops.md` |
 | `dword_41D28` | │    └─ 啟動初始化:載 towns.fnt(17,280 B → dword_41D28)與 u5.fnt(0x4000 B → dword_4FFB8); | `01-tileset-and-dot16-loader.md` |
 | `dword_478C8` | 資料  /  `dword_478C8`(音階)、`byte_4FC80`(曲子 13 音)、`byte_4FC8D`(進度)  / | `35-harp-and-the-secret-door.md` |
-| `dword_4FD50` | `sub_2D38` 查 `dword_4FD50[朝向*4 + 風]`,拿到的是「隔幾拍才動一格」: | `23-wind-and-sailing.md` |
+| `dword_4FD38` | 陸地・地表**(`byte_4FD1C` + `dword_4FD38`)—— 順序本身就是難度曲線: | `82-the-overworld-world-turn.md` |
+| `dword_4FD4C` | 水域・地表**(`byte_4FD30` + `dword_4FD4C`):Shark 28.1% / Squid 28.1% / | `82-the-overworld-world-turn.md` |
+| `dword_4FD50` | `dword_4FD50` 的第 0 個位元組 `0x22`(34),而 **222 + 34 = 256**。 | `23-wind-and-sailing.md`, `82-the-overworld-world-turn.md` |
 | `dword_4FFB8` | `u5.fnt`  /  **0x4000 = 16,384 B**  /  `dword_4FFB8`  /  `ULTIMA FONT DATA READ FAIL !!`  / | `01-tileset-and-dot16-loader.md`, `24-intro.md` |
 | `dword_541B4` | `dword_541B4[頁]`  /  這一頁的文字在 `STORY.DAT` 裡的**檔案位移**  / | `24-intro.md` |
 | `dword_54300` | push edi                             ; → dword_54300 | `55-transfer-from-ultima-iv.md` |
