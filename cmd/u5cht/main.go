@@ -661,6 +661,14 @@ func (g *game) Update() error {
 // ★ D 與 W **不是指令** —— 原版只印 `D-What?` / `W-What?`(`docs/re/49`)。
 // 這裡照樣印,而不是靜靜吃掉:玩家按錯鍵會看到跟原版一樣的回應。
 func (g *game) commandKeys(st *gamestate.State, ctrl bool) {
+	// ★ 數字鍵 0..9 是「指定行動者」(原版 `sub_2BD40`,`docs/re/97`)——
+	// **不在字母表裡**,而且要擋在字母指令之前:它收的是 '0'..'9' 十個鍵,
+	// 而那十個鍵沒有任何字母指令會用到。
+	for _, r := range ebiten.AppendInputChars(nil) {
+		if st.SetActivePlayer(r) {
+			return
+		}
+	}
 	for _, c := range commandTable {
 		if !inpututil.IsKeyJustPressed(c.key) {
 			continue

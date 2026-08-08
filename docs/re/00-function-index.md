@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **1058** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **1060** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -76,7 +76,7 @@
 | `sub_4594` | IDA 位址:`sub_5150`(每步的分派)、`sub_4460`(生成)、`sub_4594`(找落點)、 | `18-dungeons.md`, `48-dungeon-wandering-monster-and-arena.md` |
 | `sub_4834` | `sub_48F4` 在移動時攔下 `tile == 0x83`,呼叫 `sub_4834`: | `18-dungeons.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_48F4` | `sub_48F4` 在左轉與右轉前檢查 `目前這一格 & 0xF0 == 0xE0`,成立就印 | `18-dungeons.md` |
-| `sub_4B14` | `sub_4B14`(地牢迴圈的前置)、`sub_1F3A4`(Ready)、`sub_147A8` / `sub_142EC`(Search)、 | `49-command-table-and-two-empty-keys.md` |
+| `sub_4B14` | 主要函式  /  ★ `sub_2BD40`(Set Active Plr)、`sub_E19C`(選隊員,見 `docs/re/95`)、`sub_4B14`(按鍵分派的 default)  / | `49-command-table-and-two-empty-keys.md`, `97-set-active-player.md` |
 | `sub_4C6C` | 3. `sub_4C6C` 唯一豁免移動的索引是 **0x1B = 27 = Reaper** —— U5 裡它是紮了根的 | `48-dungeon-wandering-monster-and-arena.md` |
 | `sub_4DC8` | 睡眠與毒**不是全隊一律中**:`sub_4DC8` / `sub_4E58` 逐人擲 `random(1,30)`, | `17-magic.md`, `18-dungeons.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_4E58` | 睡眠與毒**不是全隊一律中**:`sub_4DC8` / `sub_4E58` 逐人擲 `random(1,30)`, | `17-magic.md`, `18-dungeons.md`, `92-white-noise-shim-and-ambient-sound.md` |
@@ -149,7 +149,7 @@
 | `sub_DEE4` | 主要函式  /  `sub_DEE4`(開關月門)、`sub_DE74`(這一顆算不算在場)、`sub_E084`(玩家踏上)、`sub_2870`(怪物踏上)、`sub_29BEC`(★ 重畫時挑動畫格)、`sub_2… | `31-line-of-sight.md`, `86-tile-0xDC-is-an-open-moongate.md` |
 | `sub_DF84` | 1  /  `sub_31DC0` default、`sub_DF84`(月門傳送)、`sub_3FE4`(離開地牢)、`sub_86C`(方向樓梯)、`sub_1DA10`、`sub_177AC`、`sub_3FE4`… | `22-moongates.md`, `86-tile-0xDC-is-an-open-moongate.md`, `87-bgm-selection-and-the-tbl-tables.md`, `88-the-load-window-culling-and-ship-cannon.md` |
 | `sub_E084` | 主要函式  /  `sub_DEE4`(開關月門)、`sub_DE74`(這一顆算不算在場)、`sub_E084`(玩家踏上)、`sub_2870`(怪物踏上)、`sub_29BEC`(★ 重畫時挑動畫格)、`sub_2… | `22-moongates.md`, `71-the-use-list-had-29-empty-slots.md`, `86-tile-0xDC-is-an-open-moongate.md` |
-| `sub_E19C` | 主要函式  /  ★★ `sub_EEEC`(地牢 Look)、★ `sub_13BA8`(第一人稱方向提問)、`sub_13B4C`(相對方向 → 座標)、★ `sub_E19C`(選隊員)、★ `sub_2B67C`… | `37-look-signs-and-the-sky.md`, `58-rune-input-cast-and-mix.md`, `75-open-did-nothing-outside-dungeons.md`, `76-jimmy-in-a-dungeon-disarms-not-unlocks.md`, `95-the-dungeon-has-its-own-look.md` |
+| `sub_E19C` | 主要函式  /  ★★ `sub_EEEC`(地牢 Look)、★ `sub_13BA8`(第一人稱方向提問)、`sub_13B4C`(相對方向 → 座標)、★ `sub_E19C`(選隊員)、★ `sub_2B67C`… | `37-look-signs-and-the-sky.md`, `58-rune-input-cast-and-mix.md`, `75-open-did-nothing-outside-dungeons.md`, `76-jimmy-in-a-dungeon-disarms-not-unlocks.md`, `95-the-dungeon-has-its-own-look.md`, `97-set-active-player.md` |
 | `sub_E2A4` | `sub_E2A4`(整點時在大地圖 / 場景才呼叫的那一支)還沒逆。 | `22-moongates.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_EDD4` | 4 IQW "View!"           > 7Fh → "Not here!";  < 21h → sub_EDD4(x,y) else sub_F7C0() | `17-magic.md`, `37-look-signs-and-the-sky.md`, `41-jimmy-neworder-gem-ztats.md`, `49-command-table-and-two-empty-keys.md`, `71-the-use-list-had-29-empty-slots.md` |
 | `sub_EEEC` | 主要函式  /  ★★ `sub_EEEC`(地牢 Look)、★ `sub_13BA8`(第一人稱方向提問)、`sub_13B4C`(相對方向 → 座標)、★ `sub_E19C`(選隊員)、★ `sub_2B67C`… | `95-the-dungeon-has-its-own-look.md` |
@@ -402,8 +402,8 @@
 | `sub_27A58` | call    sub_27A58               ; 等檔案就緒 | `11-map-objects.md` |
 | `sub_27BBC` | if ( sub_27BBC() == 9 ) break;             // ★ 畫到文字列 9 就停 → 7 列 | `60-command-echo-and-menu-keys.md` |
 | `sub_27C98` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `06-conversation-script.md`, `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `32-guard-challenge.md`, `61-tavern-lore-and-the-transfer-second-stage.md`, `65-the-wishing-well-easter-egg.md` |
-| `sub_27D24` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_27D24`(讀)與 `sub_284CC`(寫)。 | `07-save-format.md`, `10-shop-prices-and-trade.md`, `13-save-writing.md`, `26-yell-words-of-power-shadowlords.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `86-tile-0xDC-is-an-open-moongate.md`, `95-the-dungeon-has-its-own-look.md` |
-| `sub_284CC` | 來源:FM Towns `WORRIORS.EXP` 的 `sub_27D24`(讀)與 `sub_284CC`(寫)。 | `07-save-format.md`, `13-save-writing.md`, `26-yell-words-of-power-shadowlords.md`, `86-tile-0xDC-is-an-open-moongate.md`, `95-the-dungeon-has-its-own-look.md` |
+| `sub_27D24` | `sub_27D24`(讀檔)與 `sub_284CC`(寫檔)都碰 `byte_3E08B`(`docs/re/95` 的全檔掃描: | `07-save-format.md`, `10-shop-prices-and-trade.md`, `13-save-writing.md`, `26-yell-words-of-power-shadowlords.md`, `29-npc-behaviour-and-arrest.md`, `34-ending-trigger.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `86-tile-0xDC-is-an-open-moongate.md`, `95-the-dungeon-has-its-own-look.md`, `97-set-active-player.md` |
+| `sub_284CC` | `sub_27D24`(讀檔)與 `sub_284CC`(寫檔)都碰 `byte_3E08B`(`docs/re/95` 的全檔掃描: | `07-save-format.md`, `13-save-writing.md`, `26-yell-words-of-power-shadowlords.md`, `86-tile-0xDC-is-an-open-moongate.md`, `95-the-dungeon-has-its-own-look.md`, `97-set-active-player.md` |
 | `sub_28E14` | `sub_1318` 自己那一段  /  `sub_1A54`(主迴圈,每回合)  /  `sub_28E14(0, 1Dh)` = **random(0, 29)**  / | `15-combat-formulas.md`, `16-combat-turns-and-ai.md`, `28-shadowlords-and-blackthorn.md`, `48-dungeon-wandering-monster-and-arena.md`, `66-hexrays-truncation-audit.md`, `67-corpser-and-the-sleeping-party-member.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `71-the-use-list-had-29-empty-slots.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `sub_28F40` | `repe cmpsb`。也就是說,如果輸入層(`sub_2B770` / `sub_28F40`)沒有幫忙轉大寫, | `26-yell-words-of-power-shadowlords.md` |
 | `sub_28F5C` | ⬜ `sub_28F5C("AMBFDTPRS", ch)` 找不到時回 −1,原版接著讀 `byte_40C34[-1]` | `72-ready-had-seven-missing-rules.md` |
@@ -429,7 +429,7 @@
 | `sub_2AB08` | 主要函式  /  `sub_2AB38`(★ 陷阱分派)、`sub_2A464`(單人扣血)、`sub_2AB08`(★ 中毒)、`sub_2A4D0`(★ 全隊扣血)、`sub_2B724`(1..30 骰,已見 `d… | `91-chest-traps-four-kinds-and-their-weights.md` |
 | `sub_2AB38` | 主要函式  /  `sub_2AB38`(★ 陷阱分派)、`sub_2A464`(單人扣血)、`sub_2AB08`(★ 中毒)、`sub_2A4D0`(★ 全隊扣血)、`sub_2B724`(1..30 骰,已見 `d… | `75-open-did-nothing-outside-dungeons.md`, `91-chest-traps-four-kinds-and-their-weights.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_2AC08` | → 印 `EARTHQUAKE!` + `sub_2AC08`(震動畫面)+ `sub_2A4D0`(全隊 random(1,8) 傷)。 | `81-three-mode-loops-are-mutually-exclusive.md`, `90-cdda-scenes-and-sound-effect-indices.md` |
-| `sub_2ACF4` | 位址  /  `sub_2ACF4`(59 case 主分派器)、`sub_1F3A4`(Ready)、`sub_1E418`(找下一個非空欄位)  / | `35-harp-and-the-secret-door.md`, `41-jimmy-neworder-gem-ztats.md`, `42-equipment-slots-ready-wear.md`, `49-command-table-and-two-empty-keys.md`, `50-hole-up-camp-sleep-repair.md`, `54-pass-vehicle-verbs-and-the-avatar-line.md`, `60-command-echo-and-menu-keys.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `95-the-dungeon-has-its-own-look.md` |
+| `sub_2ACF4` | 位址  /  `sub_2ACF4`(59 case 主分派器)、`sub_1F3A4`(Ready)、`sub_1E418`(找下一個非空欄位)  / | `35-harp-and-the-secret-door.md`, `41-jimmy-neworder-gem-ztats.md`, `42-equipment-slots-ready-wear.md`, `49-command-table-and-two-empty-keys.md`, `50-hole-up-camp-sleep-repair.md`, `54-pass-vehicle-verbs-and-the-avatar-line.md`, `60-command-echo-and-menu-keys.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `95-the-dungeon-has-its-own-look.md`, `97-set-active-player.md` |
 | `sub_2B1C8` | if (命中) { sub_2B1C8(隊伍X, 隊伍Y); sub_22F0() }          ; ★ 打中 → 船損 | `80-implemented-but-unreachable.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `88-the-load-window-culling-and-ship-cannon.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_2B21C` | `sub_2B21C`  /  同上 / 0x0A, 0xBB8, 0x7D0  /  DAME1 + DAME2  / | `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_2B2AC` | T  /  Talk  /  地表 `sub_2B2AC`;地點 ≤ 0x20 → `Talk-Funny, no response!`;其餘 `sub_1B658`  / | `35-harp-and-the-secret-door.md`, `49-command-table-and-two-empty-keys.md`, `68-troll-bridge-and-collision.md` |
@@ -450,6 +450,7 @@
 | `sub_2BBFC` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md`, `51-closing-four-known-gaps.md`, `86-tile-0xDC-is-an-open-moongate.md` |
 | `sub_2BC34` | 2. 沿線一步一步走,每一步 `sub_2BC34` 查那一格擋不擋;**擋住就停在那裡**。 | `20-projectiles.md` |
 | `sub_2BC70` | ├ sub_2BC70   把像素座標換回格子,順便判出不出界 | `20-projectiles.md` |
+| `sub_2BD40` | 主要函式  /  ★ `sub_2BD40`(Set Active Plr)、`sub_E19C`(選隊員,見 `docs/re/95`)、`sub_4B14`(按鍵分派的 default)  / | `97-set-active-player.md` |
 | `sub_2BDE0` | 主要函式  /  ★★ `sub_2C598`(白噪 → PCM 轉接)、★★ `sub_2BDE0`(環境音掃描)、`sub_2C46C`(放 PCM)、`sub_2C4F4`(滴答)、`sub_33D78`(蜂鳴器單… | `90-cdda-scenes-and-sound-effect-indices.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_2C118` | `sub_2C118`(★ 腳步) /  1, 0x19, 0x3E8 → 1, 0x19, 0x5DC  /  **WALK**  / | `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_2C188` | ⬜ `sub_27230(0x21)` 與收尾的 `sub_2C188(0x4B0, 0x7D0, 1, 0x28)` 是音效 / 延遲, | `67-corpser-and-the-sleeping-party-member.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `90-cdda-scenes-and-sound-effect-indices.md` |
@@ -495,6 +496,7 @@
 | `sub_2F35C` | `sub_2F35C`(把戒指從身上拿掉)只當黑盒用 —— 引擎直接寫 `CharRing = ItemNone`, | `70-hunger-poison-and-the-vanishing-rings.md`, `72-ready-had-seven-missing-rules.md` |
 | `sub_2FD78` | `sub_2FE58`  /  1  /  ⬜ 未命名(反覆呼叫 `sub_2FD78`,無字串) / | `90-cdda-scenes-and-sound-effect-indices.md` |
 | `sub_2FE58` | 主要函式  /  `sub_310E8`(★ 填 MSF 表)、`sub_30F8C`(★ 播一段 CD)、`sub_6730`(啟動 / 選單)、`sub_6128`(製作群字幕)、`sub_22D00`(石室)、`s… | `90-cdda-scenes-and-sound-effect-indices.md`, `audio-pipeline.md` |
+| `sub_3007C` | ⚠ 訊號是啟發式不是證明:`sub_3007C`(521 行,開新遊戲的腳本解譯器) | `97-set-active-player.md` |
 | `sub_30F8C` | 主要函式  /  `sub_310E8`(★ 填 MSF 表)、`sub_30F8C`(★ 播一段 CD)、`sub_6730`(啟動 / 選單)、`sub_6128`(製作群字幕)、`sub_22D00`(石室)、`s… | `90-cdda-scenes-and-sound-effect-indices.md` |
 | `sub_310E8` | 主要函式  /  `sub_310E8`(★ 填 MSF 表)、`sub_30F8C`(★ 播一段 CD)、`sub_6730`(啟動 / 選單)、`sub_6128`(製作群字幕)、`sub_22D00`(石室)、`s… | `90-cdda-scenes-and-sound-effect-indices.md` |
 | `sub_313B8` | 主要函式  /  `sub_313B8`(載入 `U5_BGM.TBL` + `FM_BANK.FMB`)、`sub_3453B`(★ 交出**檔名**)、`sub_34B1B`(★ 遠端呼叫驅動)、`sub_34D3D… | `87-bgm-selection-and-the-tbl-tables.md`, `89-music-playback-is-not-in-the-game-binary.md` |
@@ -600,10 +602,10 @@
 | `byte_3E058` | if (byte_3E058[i] != 樓層)    continue       ;         樓層 | `13-save-writing.md`, `22-moongates.md`, `71-the-use-list-had-29-empty-slots.md`, `86-tile-0xDC-is-an-open-moongate.md`, `96-search-had-three-more-layers.md` |
 | `byte_3E060` | (`byte_3E000 ↔ 0x024A`、`byte_3E060 ↔ 0x02AA`,兩端夾住中間 0x60 B): | `10-shop-prices-and-trade.md`, `13-save-writing.md`, `17-magic.md`, `22-moongates.md`, `33-get-command.md`, `58-rune-input-cast-and-mix.md`, `71-the-use-list-had-29-empty-slots.md`, `94-ztats-has-seventeen-pages.md` |
 | `byte_3E068` | 主要資料  /  ★★ 113 筆 × 六個平行陣列(0x55A64 / 0x55AD8 / 0x55B4C / 0x55BC0 / 0x55C34 / 0x55CA8)、三個採藥點(0x55A4C 起)、`byte_3… | `96-search-had-three-more-layers.md` |
-| `byte_3E06B` | 主要資料  /  **`byte_5FFEC` = 八筆權重表**、`byte_3E0A3`(地點碼)、`byte_3E06B`(隊伍人數)  / | `07-save-format.md`, `28-shadowlords-and-blackthorn.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `86-tile-0xDC-is-an-open-moongate.md`, `91-chest-traps-four-kinds-and-their-weights.md`, `93-the-tavern-meal-was-never-haggled.md` |
+| `byte_3E06B` | 主要資料  /  **`byte_5FFEC` = 八筆權重表**、`byte_3E0A3`(地點碼)、`byte_3E06B`(隊伍人數)  / | `07-save-format.md`, `28-shadowlords-and-blackthorn.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `86-tile-0xDC-is-an-open-moongate.md`, `91-chest-traps-four-kinds-and-their-weights.md`, `93-the-tavern-meal-was-never-haggled.md`, `97-set-active-player.md` |
 | `byte_3E06C` | 主要資料  /  ★★ 113 筆 × 六個平行陣列(0x55A64 / 0x55AD8 / 0x55B4C / 0x55BC0 / 0x55C34 / 0x55CA8)、三個採藥點(0x55A4C 起)、`byte_3… | `96-search-had-three-more-layers.md` |
 | `byte_3E08A` | `Absorbed!` 的條件:`byte_3E08A != 'N'` 且 `byte_3DFC0 == 0` 且 `byte_3E0A4 == 0x12` | `04-npc-schedule-and-clock.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `26-yell-words-of-power-shadowlords.md`, `32-guard-challenge.md`, `38-terrain-movement-cost.md`, `44-use-item.md`, `67-corpser-and-the-sleeping-party-member.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `71-the-use-list-had-29-empty-slots.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md`, `92-white-noise-shim-and-ambient-sound.md` |
-| `byte_3E08B` | 主要資料  /  `dword_3E16C`(地牢層緩衝)、`byte_3EE15`(朝向)、`byte_3EE16`、★ `byte_3E08B`(當前選定的隊員)、`word_3E086`/`word_3E088`(… | `37-look-signs-and-the-sky.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `75-open-did-nothing-outside-dungeons.md`, `93-the-tavern-meal-was-never-haggled.md`, `95-the-dungeon-has-its-own-look.md` |
+| `byte_3E08B` | 主要資料  /  `dword_3E16C`(地牢層緩衝)、`byte_3EE15`(朝向)、`byte_3EE16`、★ `byte_3E08B`(當前選定的隊員)、`word_3E086`/`word_3E088`(… | `37-look-signs-and-the-sky.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `70-hunger-poison-and-the-vanishing-rings.md`, `75-open-did-nothing-outside-dungeons.md`, `93-the-tavern-meal-was-never-haggled.md`, `95-the-dungeon-has-its-own-look.md`, `97-set-active-player.md` |
 | `byte_3E08C` | if ((byte_3E08C & 0FEh) == 12h  /  /  == 14h) { byte_4FDD7 ^= 1; if (set) return 0 }  ; 馬/魔毯隔次 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `08-shops.md`, `10-shop-prices-and-trade.md`, `11-map-objects.md`, `18-dungeons.md`, `22-moongates.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `34-ending-trigger.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `53-party-tile-and-the-arena-floor.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `82-the-overworld-world-turn.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `86-tile-0xDC-is-an-open-moongate.md`, `87-bgm-selection-and-the-tbl-tables.md` |
 | `byte_3E08D` | byte_3E08D 月   > 13  → 設回 1 並進位 | `04-npc-schedule-and-clock.md` |
 | `byte_3E08E` | if (byte_3E068[i] == byte_3E08E)  continue    ; ★ 今天已經採過這一點 | `04-npc-schedule-and-clock.md`, `96-search-had-three-more-layers.md` |

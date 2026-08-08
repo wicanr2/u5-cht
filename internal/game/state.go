@@ -275,6 +275,14 @@ type State struct {
 	// hiddenTaken 是「113 筆固定物品哪幾筆已經被撿走」的位元圖
 	// (原版 `byte_3E06C`)。⬜ 存檔位移未定位。
 	hiddenTaken [u5data.HiddenTakenBytes]byte
+	// activeMember 是「Set Active Plr」指定的隊員(原版 `byte_3E08B`,
+	// `ActiveNone` = 沒指定)。★ 跨指令、而且**進存檔**。
+	//
+	// ⚠ 刻意不匯出,而且**另帶一個旗標**:零值 0 會被當成「指定了第一位」,
+	// 而正確的初值是「沒指定」。同 `song`/`songSet` 的處理(`State` 到處被寫成
+	// 結構常值,沒有建構子)。讀取走 `ActiveMember()`。
+	activeMember byte
+	activeSet    bool
 	// herbPickedDay[i] 是第 i 個秘密採藥點**最後一次被採的日期**
 	// (原版 `byte_3E068[i]`,與 `byte_3E08E` 比對)。⬜ 存檔位移未定位。
 	herbPickedDay [len(u5data.HerbSpots)]byte
