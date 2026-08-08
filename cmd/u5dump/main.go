@@ -42,6 +42,8 @@ func main() {
 		err = cmdTilesCGA(os.Args[2:])
 	case "snd":
 		err = cmdSnd(os.Args[2:])
+	case "tiles-her":
+		err = cmdTilesHercules(os.Args[2:])
 	case "charset":
 		err = cmdCharset(os.Args[2:])
 	case "tlk":
@@ -215,6 +217,23 @@ func wavFromSound(s *u5data.Sound) []byte {
 		buf[44+i] = byte(int(v) + 128)
 	}
 	return buf
+}
+
+// cmdTilesHercules 把 tileset 依 `HER.DRV` 的圖樣表轉成單色畫成 PNG。
+func cmdTilesHercules(args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("用法:u5dump tiles-her <gamedata 目錄> <out.png>")
+	}
+	tiles, err := u5data.LoadHerculesTileSet(args[0])
+	if err != nil {
+		return err
+	}
+	if err := writePNG(args[1], u5data.TileSheet(tiles, 32)); err != nil {
+		return err
+	}
+	fmt.Printf("✓ %d 個 Hercules 單色 tile → %s\n", len(tiles), args[1])
+	fmt.Println("  ⚠ blit 迴圈還沒追完(見 u5data/tiles.go)—— 這不是逐像素重現")
+	return nil
 }
 
 func cmdTilesRaw(args []string) error {

@@ -739,7 +739,7 @@ func main() {
 		"要載入的存檔;留空則依序試 gamedata/SAVED.GAM、INIT.GAM")
 	scale := flag.Int("scale", 2, "視窗放大倍率(整數;邏輯畫布固定 640×400)")
 	display := flag.String("display", "EGA",
-		"顯示模式:EGA(.16 十六色)/ CGA(.4 四色)/ Tandy(同 EGA 素材);Hercules 尚未實作")
+		"顯示模式:EGA(.16 十六色)/ CGA(.4 四色)/ Tandy(同 EGA 素材)/ Hercules(單色)")
 	showVersion := flag.Bool("version", false, "印出版本後結束")
 	playIntro := flag.Bool("intro", false, "強制播開場動畫(沒有存檔時本來就會播)")
 	newChar := flag.Bool("create", false,
@@ -763,11 +763,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(2)
 	}
-	// Hercules 的素材還沒解(它沒有自己的 tileset,而且不走 BIOS)——
-	// 照實說明並退回 EGA,而不是拿 EGA 冒充 Hercules 的畫面。
 	if !mode.Implemented() {
-		fmt.Fprintf(os.Stderr, "⚠ %s 模式尚未實作(見 docs/re/62),改用 EGA\n", mode.Name())
+		fmt.Fprintf(os.Stderr, "⚠ %s 模式尚未實作,改用 EGA\n", mode.Name())
 		mode = u5data.DisplayEGA
+	}
+	// Hercules 用的是原版自己的圖樣表,但 blit 迴圈還沒追完 —— 照實說一句,
+	// 不要讓玩家以為那是逐像素重現(CLAUDE.md §3.0)。
+	if mode == u5data.DisplayHercules {
+		fmt.Fprintln(os.Stderr, "⚠ Hercules:圖樣表照原版,但 blit 迴圈未追完(見 docs/re/64)")
 	}
 	bundle, warns := assets.Load(assets.Options{
 		GameData:   *gamedata,

@@ -368,7 +368,10 @@ const (
 	// 差別在硬體調色盤的內容,還沒抽出來,所以目前與 EGA 同畫面。
 	DisplayTandy
 	// DisplayHercules 是 `HER.DRV`:不走 BIOS,直接寫 0x3B4 / 0x3B8 / 0x3BF。
-	// 單色 720×348,**尚未實作**。
+	//
+	// 單色。素材是 **`.4`(2bpp)**,四個色號各對一個位元圖樣
+	//(`HerculesPattern`)—— 見該變數的說明。
+	// ⚠ 完整的 blit 迴圈(縱向放大、位元加倍表怎麼配合)還沒追完。
 	DisplayHercules
 	// DisplayModeCount 是模式數。
 	DisplayModeCount
@@ -390,9 +393,10 @@ func (m DisplayMode) Name() string {
 }
 
 // Implemented 回報這個模式的素材解得出來沒有。
-func (m DisplayMode) Implemented() bool {
-	return m == DisplayEGA || m == DisplayCGA || m == DisplayTandy
-}
+//
+// 四種都解得出來了。⚠ Hercules 用的是原版自己的圖樣表,但 blit 迴圈還沒追完,
+// 所以它**不是逐像素重現** —— 這一點在 `HerculesPattern` 的說明裡寫清楚了。
+func (m DisplayMode) Implemented() bool { return m >= 0 && m < DisplayModeCount }
 
 // ParseDisplayMode 把命令列上的字串轉成模式(不分大小寫)。
 func ParseDisplayMode(s string) (DisplayMode, error) {
@@ -409,6 +413,9 @@ func ParseDisplayMode(s string) (DisplayMode, error) {
 // CGA 的 tile 本身只有 0..3,這裡透過 CGAToEGA 換成十六色色號 ——
 // 這樣算繪層只需要一條路徑,不必為四色模式另寫一份。
 func LoadTileSetFor(dir string, m DisplayMode) ([]Tile, error) {
+	if m == DisplayHercules {
+		return LoadHerculesTileSet(dir)
+	}
 	if m != DisplayCGA {
 		return LoadDOSTileSet(dir)
 	}
@@ -526,4 +533,92 @@ func LoadEGAPalette(dir string) ([16]color.NRGBA, color.NRGBA, error) {
 		return pal, color.NRGBA{}, err
 	}
 	return ParseEGAPaletteTable(raw)
+}
+
+// Hercules 的單色轉換(`HER.DRV`)
+//
+// `HER.DRV` 沒有任何 `int 10h` —— Hercules 不在 BIOS 支援範圍內,它直接寫暫存器。
+// 需要的東西全部在檔案裡找得到,而且**都不是猜的**:
+//
+//	0x070C  12 B   `35 2D 2E 07 5B 02 57 57 02 03 00 00`
+//	               ← **標準 Hercules 圖形模式的 6845 參數表**,一個位元組都不差
+//	0x071A         `mov al,1 / mov dx,3BFh / out dx,al`  ← 設定暫存器:允許圖形模式
+//	0x0734         `mov dx,3B8h / out dx,al`             ← 模式暫存器
+//	0x0318   4 B   `00 55 AA FF`   ← ★ 色號 → 位元圖樣
+//	0x031C  16 B   `00 03 0C 0F 30 33 3C 3F C0 C3 CC CF F0 F3 FC FF`
+//	               ← 「每個 bit 複製成兩個」的表 = **橫向 2 倍**
+//	0x032C   8 B   `80 40 20 10 08 04 02 01`  ← 單一位元遮罩
+//
+// 用到 0x0318 的地方長這樣(0x1296 附近):
+//
+//	and     dx, 0303h        ; ★ DL 與 DH 各取**低 2 bit**
+//	mov     bx, 0318h
+//	mov     al, dl / xlat    ; al = 圖樣表[dl]
+//	mov     cs:[130E], al
+//	mov     al, dh / xlat    ; al = 圖樣表[dh]
+//	mov     cs:[130F], al
+//	…
+//	mov     ax, 0B000h       ; ← Hercules 的顯示記憶體區段
+//
+// ★ **`and dx, 0303h` 是關鍵**:索引只有 2 bit,所以 Hercules 吃的是
+// **2bpp 的素材(`.4`)**,不是十六色的 `.16`。這解掉了「Hercules 沒有自己的
+// tileset,那它畫什麼」這個問題 —— 它畫 CGA 那一份。
+//
+// 四個圖樣的語意很直白:
+//
+//	色號 0 → 0x00  全暗
+//	色號 1 → 0x55  隔一點亮(50%,相位 A)
+//	色號 2 → 0xAA  隔一點亮(50%,**相位 B**)
+//	色號 3 → 0xFF  全亮
+//
+// 中間兩色都是 50% 灰但**相位相反** —— 所以色號 1 與 2 的區域相鄰時分得出來。
+// 而且**四個圖樣就是全部**:若還要依列號交替相位,表就得有八筆。
+//
+// ⚠ **還沒追完的**:16×16 的 tile 到 Hercules 畫面上那一格的完整 blit 迴圈
+//(位元加倍表怎麼與圖樣表配合、縱向怎麼放大)。所以 `HerculesTile` 產出的是
+// **1× 的 16×16 單色圖**:每個像素取「圖樣在該 x 位置的那個 bit」。
+// 那正是圖樣表自己說的規則,不多加任何未經證實的縮放假設。
+
+// HerculesPatternCount 是圖樣表的筆數(= 2bpp 的色數)。
+const HerculesPatternCount = 4
+
+// HerculesPattern 是 `HER.DRV` 0x0318 的四筆圖樣。
+var HerculesPattern = [HerculesPatternCount]byte{0x00, 0x55, 0xAA, 0xFF}
+
+// HerculesBit 回報 2bpp 色號 c 在 x 這一欄是亮還是暗。
+//
+// 圖樣是 8 個像素一輪(MSB 在左),與 `HER.DRV` 的 `xlat` 取出來那個位元組同一個意思。
+func HerculesBit(c byte, x int) bool {
+	p := HerculesPattern[c&3]
+	return p&(1<<(7-uint(x&7))) != 0
+}
+
+// HerculesTile 把一個 2bpp 的 tile 轉成單色:亮的像素給色號 15、暗的給 0。
+//
+// 回傳的 Tile 走的還是十六色色號(黑與白),所以算繪層不必為單色另開一條路。
+func HerculesTile(t Tile) Tile {
+	var out Tile
+	for y := 0; y < TileSize; y++ {
+		for x := 0; x < TileSize; x++ {
+			if HerculesBit(t.Pix[y*TileSize+x], x) {
+				out.Pix[y*TileSize+x] = 15
+			}
+		}
+	}
+	return out
+}
+
+// LoadHerculesTileSet 讀 `TILES.4` 並轉成單色。
+//
+// ⚠ 這是**依 `HER.DRV` 的圖樣表**做出來的,但 blit 迴圈還沒追完(見上面的說明)——
+// 所以它不等於原版 Hercules 畫面的逐像素重現。
+func LoadHerculesTileSet(dir string) ([]Tile, error) {
+	tiles, err := LoadCGATileSet(dir)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tiles {
+		tiles[i] = HerculesTile(tiles[i])
+	}
+	return tiles, nil
 }
