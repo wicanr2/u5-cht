@@ -373,7 +373,9 @@ const (
 	MsgItemAmulet    = "不列顛王的護符"
 	MsgItemCrown     = "不列顛王的王冠"
 	MsgItemSceptre   = "不列顛王的權杖"
-	MsgItemShard     = "寶石碎片"
+	MsgItemShard = "寶石碎片"
+	// 月石在原版短名表裡是 `(0`..`(7`(`(` 是月相符號),不是損毀資料。
+	MsgItemMoonstone = "月石"
 	MsgItemSpyglass  = "望遠鏡"
 	MsgItemPlans     = "海角號圖紙"
 	MsgItemSextant   = "六分儀"
@@ -413,6 +415,36 @@ const (
 	MsgBadgeWorn        = "徽章戴上了!"
 	MsgShardOnlyAtFlame = "碎片只能投入聖火。"
 	MsgBoxHow           = "(木盒的用法尚未實作)"
+
+	// 卷軸(原版 `sub_19ED8`)。名字保留咒語縮寫的語感,但效果句照原版譯。
+	//
+	// ⚠ 「毫無效果!」與「此處不可。」沿用既有的 MsgNoEffect / MsgNotHere ——
+	// 原版用的就是同兩句字串(`aNoEffect_8` / `aNotHere_7..9`)。
+	MsgScroll             = "卷軸 ——"
+	MsgScrollLight        = "光明!"
+	MsgScrollWindChange   = "風向變了!"
+	MsgScrollProtection   = "防護!"
+	MsgScrollNegateMagic  = "魔法失效!"
+	MsgScrollView         = "俯瞰!"
+	MsgScrollSummonDaemon = "召喚惡魔!"
+	MsgScrollResurrection = "復活!"
+	MsgScrollNegateTime   = "時間停止!"
+
+	// 藥水(原版 `sub_1A0B0`)。
+	MsgPotion             = "藥水 ——"
+	MsgPotionHealed       = "傷癒了!"
+	MsgPotionPoisonCured  = "毒解了!"
+	MsgPotionPoisoned     = "中毒了!"
+	MsgPotionSlept        = "睡著了!"
+	MsgPotionPoof         = "咻!"
+	MsgPotionInvisible    = "隱形了!"
+	MsgPotionReveal       = "眼前一片通透……"
+	MsgNoNoticeableEffect = "此刻沒什麼感覺!"
+
+	// 月石(原版 `sub_1A2F8`)。
+	MsgMoonstone           = "月石 ——"
+	MsgMoonstoneBuried     = "埋下了!"
+	MsgMoonstoneCannotBury = "此處埋不下去!"
 
 	// Search(S)—— 原版的地點語以 "t" 結尾,接上 "hou dost find" 成句。
 	MsgThouDostFind = "汝翻到了 ——"

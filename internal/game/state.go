@@ -202,6 +202,12 @@ type State struct {
 	Moongates [u5data.MoonPhaseCount]u5data.MoongateDest
 	// LightTurns 是光明咒語還亮幾分鐘(原版 byte_3E0B6)。
 	LightTurns int
+	// RevealFlash > 0 代表這一刻不做視線遮蔽 —— 白藥水(`potion.go`)。
+	//
+	// ⚠ 原版的白藥水是 `sub_1CE0C`:把視線罩填滿後**阻塞重畫 20 幀**再收尾,
+	// 沒有任何持續狀態。引擎沒有阻塞動畫層,近似成「到下一個動作為止」;
+	// 差異寫在 `docs/re/71`,不要把它當成原版有的計時器。
+	RevealFlash int
 	// TorchTurns 是火把還亮幾分鐘(原版 byte_3E0B7)。點一把是 random(0,15) + 0x70。
 	TorchTurns int
 	// TimeStop 是 An Tym 還停幾回合(原版 byte_3E09E;byte_3E08A == 'T' 期間)。
@@ -598,10 +604,39 @@ func (s *State) tick() {
 	s.advanceNPCs()
 	// NPC 走完才更新鏡射 —— 物件表要跟著新位置走(原版 sub_1E74 在同一個迴圈裡)。
 	s.syncNPCObjects()
+	if s.RevealFlash > 0 {
+		s.RevealFlash--
+	}
 }
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。
 func (s *State) InScene() bool { return s.Location != 0 }
+
+// locationCode 回傳原版 `byte_3E0A3` 此刻的值。
+//
+// ★ 這支存在的理由:原版有一整族「這裡能不能做」的判斷,而它們**全部**寫成
+// 對這一個位元組的大小比較,不是對三個獨立的布林值:
+//
+//	byte_3E0A3 == 0     大地圖
+//	byte_3E0A3 <  0x21  大地圖或場景(城鎮 / 城堡 / 民居 / 要塞)
+//	byte_3E0A3 >= 0x21  地牢(0x21..0x28)—— 也含戰鬥
+//	byte_3E0A3 >  0x7F  戰鬥中(`sub_2E364` 把它設成 −1 = 0xFF,見 `docs/re/17`)
+//
+// 引擎把三種狀態分放在 `Location` / `Dungeon` / `Combat` 三個欄位,所以每次遇到
+// 這種判斷都得重新翻譯一次 —— 翻錯一次就是一條行為差異,而且**沒有測試看得出來**
+// (「毫無效果」與「效果照樣發生」都不會報錯)。集中在這裡翻譯一次。
+func (s *State) locationCode() int {
+	if s.InCombat() {
+		return 0xFF
+	}
+	if s.Dungeon != nil {
+		return s.Dungeon.Location
+	}
+	return s.Location
+}
+
+// SceneOrOverworld 是原版 `byte_3E0A3 < 0x21` —— 大地圖或場景,不含地牢與戰鬥。
+func (s *State) SceneOrOverworld() bool { return s.locationCode() < u5data.DungeonLocationBase }
 
 // Location 名稱 —— 在大地圖時回傳空字串。
 func (s *State) LocationName() string {

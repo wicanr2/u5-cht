@@ -400,11 +400,33 @@ func (s *State) usableEntries() []PickEntry {
 			out = append(out, PickEntry{Label: label(item, name), Value: item})
 		}
 	}
+	// ★ 順序照 `sub_1E8D4` 抄清單的順序:卷軸 → 藥水 → 特殊道具 → 月石 → 其餘。
+	// 卷軸與藥水列的是**數量**(原版那兩段抄的是持有數,不是旗標)。
+	for i := 0; i < u5data.ScrollCount; i++ {
+		if n := s.Inventory.Scrolls[i]; n > 0 {
+			out = append(out, PickEntry{
+				Label: MsgScroll + u5data.ScrollSpell(i) + " ×" + itoa(n),
+				Value: UseScrollFirst + i,
+			})
+		}
+	}
+	for i := 0; i < u5data.PotionCount; i++ {
+		if n := s.Inventory.Potions[i]; n > 0 {
+			out = append(out, PickEntry{
+				Label: u5data.PotionColoursZH[i] + "藥水 ×" + itoa(n),
+				Value: UsePotionFirst + i,
+			})
+		}
+	}
 	add(s.Inventory.Carpets > 0, MsgItemCarpet, UseCarpet)
 	add(s.Inventory.OddKeys > 0, MsgItemSkullKey, UseSkullKey)
 	add(s.Regalia.Amulet, MsgItemAmulet, UseAmulet)
 	add(s.Regalia.Crown, MsgItemCrown, UseCrown)
 	add(s.Regalia.Sceptre, MsgItemSceptre, UseSceptre)
+	// 月石 —— 只列還在手上的(原版 `byte_3E050[i] == 0xFF`)。
+	for i := 0; i < u5data.MoonstoneCount; i++ {
+		add(s.Inventory.Moonstones[i].InHand(), MsgItemMoonstone, UseMoonstoneFirst+i)
+	}
 	for i := 0; i < u5data.ShadowlordCount; i++ {
 		add(s.Shards[i], MsgItemShard, UseShardFirst+i)
 	}

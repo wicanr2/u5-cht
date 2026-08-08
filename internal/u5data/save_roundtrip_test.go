@@ -153,7 +153,12 @@ func TestNewInventoryFieldsRoundTrip(t *testing.T) {
 	for i := 0; i < PotionCount; i++ {
 		raw[SavePotionsOffset+i] = byte(10 + i)
 	}
-	raw[SaveMoonstonesOffset+3] = 0xFF
+	// 月石:第 3 顆還在手上(地點 0xFF),第 5 顆埋在地點 7 的 (11, 22) 第 −1 層。
+	raw[SaveMoonstoneLocOffset+3] = MoonstoneInHand
+	raw[SaveMoonstoneXOffset+5] = 11
+	raw[SaveMoonstoneYOffset+5] = 22
+	raw[SaveMoonstoneLocOffset+5] = 7
+	raw[SaveMoonstoneFloorOffset+5] = 0xFF
 
 	s, err := ParseSave(raw)
 	if err != nil {
@@ -172,8 +177,18 @@ func TestNewInventoryFieldsRoundTrip(t *testing.T) {
 			t.Errorf("藥水 %d 讀成 %d", i, s.Inventory.Potions[i])
 		}
 	}
-	if !s.Inventory.Moonstones[3] || s.Inventory.Moonstones[2] {
-		t.Errorf("月石讀錯:%v", s.Inventory.Moonstones)
+	if !s.Inventory.Moonstones[3].InHand() {
+		t.Errorf("第 3 顆月石該還在手上:%+v", s.Inventory.Moonstones[3])
+	}
+	// ★ 地點 0 不是「在手上」——「在手上」是 0xFF。第 2 顆沒被寫過,
+	// 所以它的地點是 0(大地圖),而**不是**在手上。這一條就是原本那份
+	// 「16 顆布林旗標」讀法會讀反的地方。
+	if s.Inventory.Moonstones[2].InHand() {
+		t.Errorf("第 2 顆月石不該在手上:%+v", s.Inventory.Moonstones[2])
+	}
+	if got := s.Inventory.Moonstones[5]; got.X != 11 || got.Y != 22 ||
+		got.Location != 7 || got.Floor != -1 {
+		t.Errorf("第 5 顆月石讀成 %+v", got)
 	}
 
 	out, err := s.Encode()
@@ -197,7 +212,10 @@ func TestNewInventoryOffsetsDoNotOverlap(t *testing.T) {
 		{"咒語", SaveSpellsOffset, SpellCount},
 		{"卷軸", SaveScrollsOffset, ScrollCount},
 		{"藥水", SavePotionsOffset, PotionCount},
-		{"月石", SaveMoonstonesOffset, MoonstoneSlots},
+		{"月石 X", SaveMoonstoneXOffset, MoonstoneCount},
+		{"月石 Y", SaveMoonstoneYOffset, MoonstoneCount},
+		{"月石地點", SaveMoonstoneLocOffset, MoonstoneCount},
+		{"月石樓層", SaveMoonstoneFloorOffset, MoonstoneCount},
 		{"藥草", SaveReagentsOffset, ReagentCount},
 	}
 	for i := 1; i < len(spans); i++ {

@@ -98,8 +98,8 @@ func (s *State) SightMask() []byte {
 		return nil
 	}
 	r := s.LightRadius2()
-	if s.SeeThroughWalls {
-		// Wis An Ylem:`sub_2E0E8(-1, …)`,整張攤開。
+	if s.SeeThroughWalls || s.RevealFlash > 0 {
+		// Wis An Ylem 與白藥水都是 `sub_2E0E8(-1, …)` —— 整張攤開。
 		r = -1
 	}
 	half := u5data.SightSide / 2

@@ -505,10 +505,10 @@ func TestEquipmentAndAmmo(t *testing.T) {
 func TestMoonstonesAreIndexedByQuality(t *testing.T) {
 	s := getScene(t, u5data.ItemMoonstone, 5)
 	getNorth(s)
-	if !s.Inventory.Moonstones[5] {
+	if !s.Inventory.Moonstones[5].InHand() {
 		t.Error("撿了 5 號月石卻沒記起來")
 	}
-	if s.Inventory.Moonstones[0] {
+	if s.Inventory.Moonstones[0].InHand() {
 		t.Error("不該連 0 號也拿到")
 	}
 }

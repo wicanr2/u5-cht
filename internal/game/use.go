@@ -12,35 +12,60 @@ import (
 // **特殊道具表**,而每一項的效果各自不同 —— 有的上載具、有的開力場、
 // 有的只是報時。
 //
-// # 道具編號 = 特殊道具表的索引 + 16
+// # 清單其實有 38 格,不是 22 格
 //
-// 原版的跳表 case 就是這麼來的(`jumptable 0001A6DD case 16` 對上表裡的
-// 第 0 筆 `Magic Crpt`)。表的前 22 筆:
+// 清單本身是 `sub_1E8D4` 從六個地方**抄**進 `byte_40BA0` 的一整段:
 //
-//	 0 Magic Crpt     → case 16   魔毯
-//	 1 Skull Keys     → case 17   骷髏鑰匙
-//	 2 Amulet         → case 18   不列顛王的護符
-//	 3 Crown          → case 19   王冠
-//	 4 Sceptre        → case 20   權杖
-//	 5..12 "(0".."(7" → case 21..28  **不可用**(原版跳到 default)
-//	13..15 Shard/…    → case 29..31 三塊碎片
-//	16 Spyglass       → case 32   望遠鏡
-//	17 HMS Cape Plan  → case 33   那份圖紙
-//	18 Sextant        → case 34   六分儀
-//	19 Pocket Watch   → case 35   懷錶
-//	20 Black Badge    → case 36   黑徽章
-//	21 Wooden Box     → case 37   木盒
+//	+0 ..+7   byte_3E030[8]   八種卷軸的持有數           → sub_19ED8(i)
+//	+8 ..+15  byte_3E038[8]   八色藥水的持有數           → sub_1A0B0(i−8)
+//	+16       byte_3DFBC      魔毯      ┐
+//	+17       byte_3DFBD      骷髏鑰匙  │
+//	+18       byte_3DFBF      護符      ├ case 16..20
+//	+19       byte_3DFC0      王冠      │
+//	+20       byte_3DFC1      權杖      ┘
+//	+21..+28  byte_3E050[8]   八顆月石(== 0xFF 才列)   → sub_1A2F8(i−21)
+//	+29..+31  byte_3DFC4[3]   三塊碎片  ┐
+//	+32       byte_3DFC8      圖紙      │
+//	+33       byte_3DFC9      徽章      ├ case 29..37
+//	+34       byte_3DFCA      木盒      │
+//	+35..+37  byte_3DFCB..CD  望遠鏡 / 六分儀 / 懷錶 ┘
 //
-// ⚠ 5..12 那八筆的名字是 `(0`..`(7` —— 看起來像資料損毀,其實是原版留的
-// 佔位名(它們在跳表裡走 default,根本不會被用),**不要試著「修好」它們**。
+// 分派在 `sub_1A5E8`,而**前三段是在進跳表之前就被接走的**:
+//
+//	if (n < 8)   sub_19ED8(n)          ; 卷軸
+//	if (n < 16)  sub_1A0B0(n − 8)      ; 藥水
+//	if (n > 20 && n < 29) sub_1A2F8(n − 21)  ; 月石
+//	否則 switch (n − 16) 的 22 格跳表
+//
+// ⚠⚠ **更正(2026-08-08)**:這裡原本寫
+//
+//	5..12 "(0".."(7" → case 21..28  **不可用**(原版跳到 default)
+//	⚠ … 它們在跳表裡走 default,根本不會被用,**不要試著「修好」它們**
+//
+// 跳表那八格**確實**指向 `def_1A6DD` —— 但那是因為 21..28 已經被上面那三行
+// 接去 `sub_1A2F8`(埋月石)了。只讀跳表會讀成「沒用」;真相在跳表**前面**六行。
+// 名字 `(0`..`(7` 也不是損毀,是八顆月石的短名(`(` 在原版字型裡是月相符號)。
+//
+// ⇒ 引擎原本只接了 22 格中的 14 格,**卷軸、藥水、月石三整族撿得到卻用不了**。
+// 見 `scroll.go` / `potion.go` / `moonstone.go` 與 `docs/re/71`。
 
 // 可用道具的 case 編號。
 const (
+	// 前三段:編號**不加 16**,它們在跳表之前就被接走。
+	UseScrollFirst = 0
+	UseScrollLast  = 7
+	UsePotionFirst = 8
+	UsePotionLast  = 15
+
 	UseCarpet     = 16
 	UseSkullKey   = 17
 	UseAmulet     = 18
 	UseCrown      = 19
-	UseSceptre    = 20
+	UseSceptre = 20
+	// 月石也是在跳表之前接走的那一段(21..28)。
+	UseMoonstoneFirst = 21
+	UseMoonstoneLast  = 28
+
 	UseShardFirst = 29
 	UseShardLast  = 31
 	UseSpyglass   = 32
@@ -68,6 +93,13 @@ const (
 // item 是上面那組 case 編號。
 func (s *State) Use(item int) bool {
 	switch {
+	// ★ 三段在跳表之前:順序與原版一致(卷軸 → 藥水 → 月石 → 跳表)。
+	case item >= UseScrollFirst && item <= UseScrollLast:
+		return s.ReadScroll(item - UseScrollFirst)
+	case item >= UsePotionFirst && item <= UsePotionLast:
+		return s.DrinkPotion(item - UsePotionFirst)
+	case item >= UseMoonstoneFirst && item <= UseMoonstoneLast:
+		return s.BuryMoonstone(item - UseMoonstoneFirst)
 	case item == UseCarpet:
 		return s.useCarpet()
 	case item == UseSkullKey:

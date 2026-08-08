@@ -138,9 +138,9 @@ func (s *State) pickUp(kind byte, quality, slot int) {
 		}
 
 	case u5data.ItemMoonstone:
-		// 品質是第幾顆月石。
-		if quality >= 0 && quality < u5data.MoonstoneSlots {
-			inv.Moonstones[quality] = true
+		// 品質是第幾顆月石。撿起來 = 把地點欄寫回 0xFF(見 `moonstone.go`)。
+		if quality >= 0 && quality < u5data.MoonstoneCount {
+			inv.Moonstones[quality] = u5data.Moonstone{Location: u5data.MoonstoneInHand}
 		}
 		s.Log(MsgGotMoonstone)
 

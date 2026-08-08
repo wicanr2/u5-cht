@@ -90,13 +90,32 @@ const (
 	SaveScrollsOffset = 0x027A
 	// SavePotionsOffset 起 8 B(byte_3E038):八色藥水各持有幾瓶。
 	SavePotionsOffset = 0x0282
-	// SaveMoonstonesOffset 起 16 B(byte_3E050):十六顆月石,0xFF = 在手上。
+	// 月石是**八顆 × 四個欄位**,不是十六顆旗標。
 	//
-	// ⚠ 長度 16 是由下一個已知欄位(0x02AA 藥草)夾出來的;
-	// 每一格的語意(哪一格對應哪一座月門)還沒追,只當旗標存讀。
-	SaveMoonstonesOffset = 0x029A
-	// MoonstoneSlots 是上面那一段有幾格。
-	MoonstoneSlots = 16
+	// ⚠⚠ **更正(2026-08-08)**:此處原本寫「`0x029A` 起 16 B,十六顆月石,
+	// 0xFF = 在手上」。長度夾對了(下一個已知欄位是 0x02AA 藥草),
+	// **顆數與語意錯了** —— 那 16 B 是「八顆的地點」加「八顆的樓層」兩段。
+	//
+	// 一手證據是 `sub_1A2F8`(埋月石)那四行連寫:
+	//
+	//	byte_3E040[i] = byte_3E0A6   ; 玩家 X
+	//	byte_3E048[i] = byte_3E0A7   ; 玩家 Y
+	//	byte_3E050[i] = byte_3E0A3   ; ★ 地點
+	//	byte_3E058[i] = byte_3E0A5   ; ★ 樓層
+	//
+	// 四個陣列各間隔 8 B ⇒ 每個都是 8 格。而 `sub_1E8D4`(建 U 的清單)
+	// 只掃 `ecx < 8`、拿 `byte_3E050[i] == 0FFh` 當「還拿得出來」——
+	// 兩處獨立咬合:**八顆**,而 0xFF 是「地點欄沒被寫過」= 還在身上。
+	//
+	// 位移換算的錨是同一組:`byte_3E000 ↔ 0x024A`、`byte_3E060 ↔ 0x02AA`,
+	// 兩端夾住中間 0x60 B,沒有滑動空間。所以 0x028A / 0x0292 這 16 B
+	// (原本整段沒解碼)就是 X 與 Y。
+	SaveMoonstoneXOffset     = 0x028A // byte_3E040
+	SaveMoonstoneYOffset     = 0x0292 // byte_3E048
+	SaveMoonstoneLocOffset   = 0x029A // byte_3E050
+	SaveMoonstoneFloorOffset = 0x02A2 // byte_3E058
+	// MoonstoneCount 是月石的顆數。
+	MoonstoneCount = 8
 
 	// SaveReagentsOffset 起 8 B,順序同 ReagentNames(sub_11588 的 byte_3E060[藥草編號])。
 	SaveReagentsOffset = 0x02AA
@@ -287,9 +306,25 @@ type Inventory struct {
 	Scrolls [ScrollCount]int
 	// Potions[顏色編號] 是持有幾瓶(原版 byte_3E038),顏色見 PotionColours。
 	Potions [PotionCount]int
-	// Moonstones[i] 是第 i 顆月石在不在手上(原版 byte_3E050,0xFF = 在)。
-	Moonstones [MoonstoneSlots]bool
+	// Moonstones[i] 是第 i 顆月石埋在哪 —— 見 Moonstone 與上面的位移更正。
+	Moonstones [MoonstoneCount]Moonstone
 }
+
+// Moonstone 是一顆月石的四個欄位(原版 byte_3E040/48/50/58 的同一格)。
+//
+// 「在手上」不是另一個欄位,是 `Location == MoonstoneInHand`(0xFF)——
+// 原版 `sub_1E8D4` 就是這樣判「這顆拿得出來」的。
+type Moonstone struct {
+	X, Y     int
+	Location int
+	Floor    int
+}
+
+// MoonstoneInHand 是地點欄的「還沒埋」值。
+const MoonstoneInHand = 0xFF
+
+// InHand 回報這顆月石還在身上(還沒被埋)。
+func (m Moonstone) InHand() bool { return m.Location == MoonstoneInHand }
 
 // Regalia 是不列顛王的信物與圖紙 —— 各佔一個 0/0xFF 的位元組。
 //
@@ -416,8 +451,14 @@ func ParseSave(raw []byte) (*Save, error) {
 	for i := 0; i < PotionCount; i++ {
 		s.Inventory.Potions[i] = int(raw[SavePotionsOffset+i])
 	}
-	for i := 0; i < MoonstoneSlots; i++ {
-		s.Inventory.Moonstones[i] = raw[SaveMoonstonesOffset+i] != 0
+	for i := 0; i < MoonstoneCount; i++ {
+		s.Inventory.Moonstones[i] = Moonstone{
+			X:        int(raw[SaveMoonstoneXOffset+i]),
+			Y:        int(raw[SaveMoonstoneYOffset+i]),
+			Location: int(raw[SaveMoonstoneLocOffset+i]),
+			// 樓層與 SaveFloorOffset 同一種表示:補數,地底世界是負的。
+			Floor: int(int8(raw[SaveMoonstoneFloorOffset+i])),
+		}
 	}
 
 	s.PartySize = int(raw[SavePartySizeOffset])
@@ -584,8 +625,12 @@ func (s *Save) Encode() ([]byte, error) {
 	for i := 0; i < PotionCount; i++ {
 		out[SavePotionsOffset+i] = byte(s.Inventory.Potions[i])
 	}
-	for i := 0; i < MoonstoneSlots; i++ {
-		putFlag(out, SaveMoonstonesOffset+i, s.Inventory.Moonstones[i])
+	for i := 0; i < MoonstoneCount; i++ {
+		m := s.Inventory.Moonstones[i]
+		out[SaveMoonstoneXOffset+i] = byte(m.X)
+		out[SaveMoonstoneYOffset+i] = byte(m.Y)
+		out[SaveMoonstoneLocOffset+i] = byte(m.Location)
+		out[SaveMoonstoneFloorOffset+i] = byte(int8(m.Floor))
 	}
 
 	out[SavePartySizeOffset] = byte(s.PartySize)
