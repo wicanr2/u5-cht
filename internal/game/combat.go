@@ -515,6 +515,8 @@ func (s *State) advanceCombat() {
 		if s.playerControlled(u) {
 			c.Turn = i
 			s.focusCombatUnit(u)
+			// 原版每個隊員的回合都以「<名字>, armed with …:」開場。
+			s.announceCombatTurn(u)
 			return
 		}
 		s.aiTurn(i)
@@ -924,4 +926,75 @@ func (s *State) applyResist(base, resist int) int {
 		return base
 	}
 	return base - s.Roll(1, resist)
+}
+
+// 戰鬥回合的開場提示(原版 `sub_A360` 開頭 + `sub_A310`)
+//
+// 原版每一個**隊員**的回合都以這一行開場:
+//
+//	<名字>, armed with <武器…>:        或        <名字>, armed with bare hands:
+//
+// 引擎原本什麼都不印,`focusCombatUnit` 只把鏡頭移過去 —— 玩家得自己記得
+// 現在輪到誰、手上拿的是什麼。
+//
+// # `sub_A310(裝備編號, 要不要先加分隔)`
+//
+//	if (編號 == 0FFh)          return 0        ; 空手
+//	if (byte_3F290[編號] == 0) return 0        ; ★ 傷害是 0 → 不算武器
+//	if (要不要先加分隔)  strcat(緩衝, ", ")
+//	strcat(緩衝, 物品名表[編號])
+//	return 1
+//
+// ⚠ 分隔字串在 IDA 裡被讀成 `off_48A88 dd offset loc_202C` —— 那是**誤判**:
+// 呼叫端推的是 `offset off_48A88`(那四個位元組本身),而 0x0000202C 的
+// 小端位元組就是 `2C 20 00 00` = **`", "`**。IDA 把內嵌字面值當成指標了。
+//
+// # 三個欄位,不是六個
+//
+// `sub_A360` 只問三格:`byte_3DDCD` / `byte_3DDCF` / `byte_3DDD0`,
+// 以名冊基底 `byte_3DDB4` 回推是**偏移 0x19 / 0x1B / 0x1C** ——
+// 頭盔、右手、左手。護甲(0x1A)、戒指(0x1D)、護符(0x1E)不問。
+//
+// (基底可以獨立驗:`byte_3DDBF` − `byte_3DDB4` = 0x0B = `CharStatus` ✓)
+//
+// 三次都回 0 才印 `bare hands`。所以「傷害 0」的東西一律不列 ——
+// ⚠ 這包含**寶石劍**(`ItemJeweledSword`,傷害被特例設成 0),
+// 拿著它的角色會被報成空手。那是原版行為,不是這裡算錯。
+
+// combatArmSlots 是開場提示會問的三個裝備欄位(原版只問這三格)。
+var combatArmSlots = [3]int{u5data.CharHelm, u5data.CharWeapon, u5data.CharShield}
+
+// armedWith 組出「, armed with …」後面那一段(不含前綴與結尾的冒號)。
+func (s *State) armedWith(ch *u5data.Character) string {
+	if ch == nil || s.Stats == nil {
+		return MsgBareHands
+	}
+	var out string
+	for _, slot := range combatArmSlots {
+		id := int(ch.Raw[slot])
+		if id == int(u5data.ItemNone) || id >= len(s.Stats.ItemDamage) {
+			continue
+		}
+		// ★ 判準是「這件東西有傷害」,不是「這一格是武器欄」。
+		if s.Stats.ItemDamage[id] == 0 {
+			continue
+		}
+		if out != "" {
+			out += MsgArmedSeparator
+		}
+		out += s.equipName(id)
+	}
+	if out == "" {
+		return MsgBareHands
+	}
+	return out
+}
+
+// announceCombatTurn 印出隊員回合的開場提示。
+func (s *State) announceCombatTurn(u *Combatant) {
+	ch := s.charOf(u)
+	if ch == nil {
+		return
+	}
+	s.Log(s.unitName(u) + MsgArmedWith + s.armedWith(ch) + MsgArmedColon)
 }

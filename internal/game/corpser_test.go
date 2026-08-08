@@ -329,3 +329,86 @@ func TestZeroDamageIsAGrazeForMonstersToo(t *testing.T) {
 		}
 	}
 }
+
+// TestCombatTurnAnnouncesWhatYouAreHolding:每個隊員的回合都要開場。
+func TestCombatTurnAnnouncesWhatYouAreHolding(t *testing.T) {
+	s := corpserArena(t)
+	if s.Stats == nil {
+		t.Skip("沒有屬性表")
+	}
+	party := -1
+	for i := range s.Combat.Units {
+		if s.Combat.Units[i].Flags != 0 && s.Combat.Units[i].IsParty() {
+			party = i
+			break
+		}
+	}
+	if party < 0 {
+		t.Skip("戰場上沒有隊員")
+	}
+	u := &s.Combat.Units[party]
+	ch := s.charOf(u)
+	if ch == nil {
+		t.Skip("這一格對不到名冊")
+	}
+
+	// 三個欄位全空 → 空手。
+	for _, slot := range combatArmSlots {
+		ch.Raw[slot] = u5data.ItemNone
+	}
+	if got := s.armedWith(ch); got != MsgBareHands {
+		t.Errorf("三格全空回 %q,預期 %q", got, MsgBareHands)
+	}
+
+	// 找一件有傷害的東西放進右手。
+	weapon := -1
+	for id := 1; id < len(s.Stats.ItemDamage); id++ {
+		if s.Stats.ItemDamage[id] != 0 {
+			weapon = id
+			break
+		}
+	}
+	if weapon < 0 {
+		t.Skip("屬性表裡找不到任何有傷害的裝備")
+	}
+	ch.Raw[u5data.CharWeapon] = byte(weapon)
+	if got := s.armedWith(ch); got == MsgBareHands {
+		t.Errorf("拿著有傷害的裝備卻回「空手」:%q", got)
+	}
+
+	// ★ 傷害 0 的東西不列 —— 找一件來驗。
+	zero := -1
+	for id := 1; id < len(s.Stats.ItemDamage); id++ {
+		if s.Stats.ItemDamage[id] == 0 {
+			zero = id
+			break
+		}
+	}
+	if zero >= 0 {
+		for _, slot := range combatArmSlots {
+			ch.Raw[slot] = u5data.ItemNone
+		}
+		ch.Raw[u5data.CharWeapon] = byte(zero)
+		if got := s.armedWith(ch); got != MsgBareHands {
+			t.Errorf("傷害 0 的裝備(#%d)被列出來了:%q", zero, got)
+		}
+	}
+
+	// ⚠ 護甲那一格**不問** —— 原版只問頭盔 / 右手 / 左手三格。
+	for _, slot := range combatArmSlots {
+		ch.Raw[slot] = u5data.ItemNone
+	}
+	ch.Raw[u5data.CharArmour] = byte(weapon)
+	if got := s.armedWith(ch); got != MsgBareHands {
+		t.Errorf("把武器放進護甲欄卻被列出來了:%q —— 原版不問那一格", got)
+	}
+
+	// 開場那一行要真的印出來。
+	ch.Raw[u5data.CharWeapon] = byte(weapon)
+	s.Messages = nil
+	s.announceCombatTurn(u)
+	joined := strings.Join(s.Messages, "|")
+	if !strings.Contains(joined, MsgArmedWith) || !strings.Contains(joined, s.unitName(u)) {
+		t.Errorf("開場提示不完整:%q", s.Messages)
+	}
+}

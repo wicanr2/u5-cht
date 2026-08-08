@@ -229,6 +229,14 @@ const (
 	// 兩處都會設 `byte_3E0B2 = 20h`:`sub_B9A8`(對隊員,傷害 < 0 直接跳過扣血)
 	// 與 `sub_B51C` 開頭(**任何目標**,傷害 < 1 就歸零)。
 	MsgGrazed = "只被擦過!"
+	// 戰鬥回合的開場(原版 `sub_A360`:`<名字>", armed with "<武器>":"`)
+	//
+	// ⚠ 分隔字串是 `", "` —— 它在 IDA 裡被讀成 `dd offset loc_202C`,
+	// 而 0x0000202C 的小端位元組就是 `2C 20 00 00`(見 `combat.go`)。
+	MsgArmedWith      = ",持"
+	MsgArmedSeparator = "、"
+	MsgArmedColon     = ":"
+	MsgBareHands      = "空手"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

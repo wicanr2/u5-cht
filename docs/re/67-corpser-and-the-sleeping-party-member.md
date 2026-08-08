@@ -308,3 +308,71 @@ if (目標是隊員) {
 
 順帶:那句「擋下了這一擊」就是原版的 `" grazed!"`,不是引擎自己加的仁慈規則 ——
 訊息已改成「只被擦過!」以對上原意。
+
+---
+
+## 六、`, armed with …` —— 每個回合的開場,以及 IDA 誤判的一個字面值
+
+`sub_A360` 開場印的是:
+
+```
+<名字>", armed with "<武器,以 ", " 分隔>":"      或      …"bare hands:"
+```
+
+引擎原本什麼都不印(`focusCombatUnit` 只把鏡頭移過去),玩家得自己記得
+現在輪到誰、手上拿什麼。
+
+### `sub_A310(裝備編號, 要不要先加分隔)`
+
+```asm
+        cmp     edi, 0FFh
+        jz      短 → return 0                  ; 空手
+        cmp     byte_3F290[edi], 0
+        jz      短 → return 0                  ; ★ 傷害是 0 → 不算武器
+        cmp     [ebp+arg_4], 0
+        jz      short loc_A340
+        push    offset off_48A88               ; ★ 分隔字串
+        push    offset byte_54700
+        call    sub_3944C                      ; strcat
+loc_A340:
+        push    off_3F4A4[edi*4]               ; 物品名表
+        push    offset byte_54700
+        call    sub_3944C
+        mov     eax, 1
+```
+
+`byte_3F290` 是**武器傷害表**(`docs/re/15`:`DATA.OVL` 0x160C,48 B)——
+所以判準不是「這一格是武器欄」,而是「這件東西有沒有傷害」。
+
+⚠ 這包含**寶石劍**(`ItemJeweledSword`,傷害被特例設成 0):
+拿著它的角色會被報成**空手**。那是原版行為,不是算錯。
+
+### ★ IDA 把一個內嵌字面值讀成指標
+
+```
+off_48A88       dd offset loc_202C      ; DATA XREF: sub_A310+1E↑o
+```
+
+看起來是「指向 `loc_202C` 的指標」,而 `loc_202C` 在程式碼段裡 —— 讀起來毫無道理。
+但呼叫端推的是 **`offset off_48A88`**(那四個位元組**本身**的位址),
+而 `0x0000202C` 的小端位元組是:
+
+```
+2C 20 00 00   =   ',' ' ' NUL
+```
+
+**分隔字串就是 `", "`。** 這是本專案第一次遇到「IDA 把字串字面值標成指標」——
+判斷法:`dd offset` 指到程式碼段中間、而呼叫端取的是**變數自己的位址**時,
+把那四個位元組當字串讀。
+
+### 三個欄位,不是六個
+
+`sub_A360` 只問 `byte_3DDCD` / `byte_3DDCF` / `byte_3DDD0`,
+以名冊基底 `byte_3DDB4` 回推是偏移 **0x19 / 0x1B / 0x1C** = 頭盔、右手、左手。
+護甲(0x1A)、戒指(0x1D)、護符(0x1E)**不問**。
+
+基底可以獨立驗:`byte_3DDBF` − `byte_3DDB4` = 0x0B = `CharStatus` ✓
+(而 `byte_3DDBF` 是全篇用來判死活的那一格)。
+
+`TestCombatTurnAnnouncesWhatYouAreHolding` 把四件事都釘住:三格全空 → 空手、
+有傷害的裝備會列、傷害 0 的不列、**武器放進護甲欄不會被列**。
