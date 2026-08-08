@@ -1,6 +1,7 @@
 package game
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -171,3 +172,178 @@ func TestRingVanishRollIsOneInSixteen(t *testing.T) {
 		t.Errorf("4000 次消失了 %d 次,1/16 該落在 150..400", gone)
 	}
 }
+
+// terrainScene 造一個站在指定地形上的隊伍(需要真的世界地圖才寫得進 tile)。
+func terrainScene(t *testing.T, tile byte) *State {
+	t.Helper()
+	s := upkeepScene(t)
+	s.Location, s.Floor = 0, 0
+	s.Transport = u5data.VehicleWalk
+	if dir := envGamedata(); dir != "" {
+		if w, err := u5data.LoadFlatMap(dir + "/UNDER.DAT"); err == nil {
+			s.World, s.Under = w, w
+		}
+	}
+	s.X, s.Y = 20, 20
+	if !s.SetTileAt(s.X, s.Y, tile) {
+		t.Skip("寫不進世界地圖")
+	}
+	s.Messages = nil
+	return s
+}
+
+// TestSwampPoisonsOnlyOnFootAndOnlyAboveDexterity 釘住兩個閘門。
+func TestSwampPoisonsOnlyOnFootAndOnlyAboveDexterity(t *testing.T) {
+	// 敏捷 0 → 一定中毒。
+	s := terrainScene(t, TileSwamp)
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 0
+	}
+	s.terrainEffects()
+	for i := 0; i < s.PartySize; i++ {
+		if s.Roster[i].Status != u5data.StatusPoisoned {
+			t.Errorf("第 %d 位敏捷 0 走過沼澤卻沒中毒", i)
+		}
+	}
+
+	// ★ 敏捷 30 以上完全免疫(判準是 `rand(0,29) > 敏捷`,大於才中毒)。
+	s = terrainScene(t, TileSwamp)
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 30
+	}
+	for k := 0; k < 200; k++ {
+		s.terrainEffects()
+	}
+	for i := 0; i < s.PartySize; i++ {
+		if s.Roster[i].Status == u5data.StatusPoisoned {
+			t.Errorf("第 %d 位敏捷 30 卻中毒了 —— 骰上限是 %d,大於才中毒",
+				i, SwampPoisonRollMax)
+		}
+	}
+
+	// ★ 只有步行會中毒 —— 而且原版比的是**單一值** 0x1C。
+	for _, tr := range []byte{
+		u5data.VehicleWalk + 1, u5data.TileHorse | 2,
+		u5data.VehicleCarpet, u5data.VehicleSkiff,
+	} {
+		s = terrainScene(t, TileSwamp)
+		s.Transport = tr
+		for i := 0; i < s.PartySize; i++ {
+			s.Roster[i].Dex = 0
+		}
+		s.terrainEffects()
+		for i := 0; i < s.PartySize; i++ {
+			if s.Roster[i].Status == u5data.StatusPoisoned {
+				t.Errorf("載具 0x%02X 竟然也會中毒", tr)
+				break
+			}
+		}
+	}
+}
+
+// TestLavaAndFireplaceBurn:兩個 tile 都會燒。
+func TestLavaAndFireplaceBurn(t *testing.T) {
+	for _, tile := range []byte{TileLava, TileFireplace} {
+		s := terrainScene(t, tile)
+		s.terrainEffects()
+		if !strings.Contains(strings.Join(s.Messages, "|"), MsgBurning) {
+			t.Errorf("tile 0x%02X 沒燒起來:%q", tile, s.Messages)
+		}
+		hurt := false
+		for i := 0; i < s.PartySize; i++ {
+			if s.Roster[i].HP < 200 {
+				hurt = true
+			}
+		}
+		if !hurt {
+			t.Errorf("tile 0x%02X 燒了卻沒人受傷", tile)
+		}
+	}
+}
+
+// TestTrapdoorSkipsTheMeal 是這一條最容易漏的:掉下去的那一回合不算吃飯。
+//
+// 原版 `sub_1318` 的最後一行是 `if (ebx == 0) sub_2A50C()`,
+// 而 `ebx` 只在活門那一條被設成 1。
+func TestTrapdoorSkipsTheMeal(t *testing.T) {
+	s := terrainScene(t, TileTrapdoor)
+	s.Clock.Hour = 12 // 用餐時刻
+	before := s.Inventory.Food
+	s.terrainEffects()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgTrapdoor) {
+		t.Fatalf("沒印活門:%q", s.Messages)
+	}
+	if s.Inventory.Food != before {
+		t.Errorf("掉下活門那一回合吃了飯:%d → %d", before, s.Inventory.Food)
+	}
+	// ★ 坐在魔毯上不會掉下去。
+	s = terrainScene(t, TileTrapdoor)
+	s.Transport = u5data.VehicleCarpet
+	s.Messages = nil
+	s.terrainEffects()
+	if strings.Contains(strings.Join(s.Messages, "|"), MsgTrapdoor) {
+		t.Errorf("坐魔毯竟然也掉下活門:%q", s.Messages)
+	}
+}
+
+// TestStonegateTrapdoorKillsEveryone 是那條死路。
+//
+// ⚠ 原版在地點 29(STONEGATE)踩到活門,直接把全隊的血設 0、狀態設 'D'。
+// 這條擋「順手加個存活判定」。
+func TestStonegateTrapdoorKillsEveryone(t *testing.T) {
+	// ⚠ 活門在**場景**裡,所以要真的進 STONEGATE ——
+	// 只把 `Location` 設成 29 的話 `TileAt` 會去讀場景圖,而我們寫的是世界圖,
+	// 失敗訊息會長得像「全隊沒死」,其實是地形根本沒被讀到。
+	s := upkeepScene(t)
+	if s.Scenes == nil {
+		t.Skip("沒載場景圖")
+	}
+	if err := s.SetScene(StonegateLocation, 0, 15, 15); err != nil {
+		t.Skipf("進不了 STONEGATE:%v", err)
+	}
+	s.Transport = u5data.VehicleWalk
+	if !s.SetTileAt(s.X, s.Y, TileTrapdoor) {
+		t.Skip("寫不進場景圖")
+	}
+	s.Messages = nil
+	s.terrainEffects()
+	for i := 0; i < s.PartySize; i++ {
+		if s.Roster[i].Status != u5data.StatusDead {
+			t.Errorf("第 %d 位在 STONEGATE 的活門下沒死 —— 原版是全隊當場死亡", i)
+		}
+		if s.Roster[i].HP != 0 {
+			t.Errorf("第 %d 位的血是 %d,原版直接設 0", i, s.Roster[i].HP)
+		}
+	}
+	// 別的地點不會死(大地圖上的活門)。
+	s = terrainScene(t, TileTrapdoor)
+	s.terrainEffects()
+	allDead := true
+	for i := 0; i < s.PartySize; i++ {
+		if s.Roster[i].Status != u5data.StatusDead {
+			allDead = false
+		}
+	}
+	if allDead && s.PartySize > 0 {
+		t.Error("在 STONEGATE 以外的活門下全隊都死了 —— 那一條只在地點 29 成立")
+	}
+}
+
+// TestSleepersWakeOnTheirOwn:戰鬥外每回合 1/16 自己醒。
+func TestSleepersWakeOnTheirOwn(t *testing.T) {
+	s := terrainScene(t, 0x05) // 草地,沒有地形效果
+	s.Roster[0].Status = u5data.StatusAsleep
+	woke := false
+	for i := 0; i < 400 && !woke; i++ {
+		s.terrainEffects()
+		if s.Roster[0].Status == u5data.StatusGood {
+			woke = true
+		}
+	}
+	if !woke {
+		t.Errorf("擲 400 回都沒醒 —— 判準是 rand(0, %d) == %d", WakeUpRollMax, WakeUpHit)
+	}
+}
+
+// envGamedata 是 `U5_GAMEDATA`(itest 才有;test 會是空字串 → 測試跳過)。
+func envGamedata() string { return os.Getenv("U5_GAMEDATA") }

@@ -275,6 +275,12 @@ const (
 	MsgStarving = "餓得發昏!"
 	// "A ring has vanished!" —— 開戰時戒指消失(原版 `sub_2EE84`)。
 	MsgRingVanished = "一只戒指消失了!"
+	// 地形效果(原版 `sub_1318`,見 `upkeep.go`)
+	//
+	// ⚠ `Poisoned!` 原版是**接在名字後面**的(每個中毒的人一句)。
+	MsgTrapdoor       = "腳下是活門!"
+	MsgPoisonedBySwamp = "中毒了!"
+	MsgBurning        = "烈焰焚身!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

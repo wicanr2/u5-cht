@@ -588,8 +588,10 @@ func (s *State) loadNPCs() {
 // `sub_9690` 讓 NPC 動。順序不能反 —— NPC 的模式判定要看新的小時。
 func (s *State) tick() {
 	s.AdvanceTime(MinutesPerTurn)
-	// 維生開銷:中毒扣血、三餐扣糧、沒糧就餓(原版 `sub_2A50C`,見 `upkeep.go`)。
-	s.upkeep()
+	// 腳下那一格的作用(活門 / 沼澤 / 火),而**維生開銷是它的最後一步** ——
+	// 原版 `sub_1318` 的尾巴是 `if (ebx == 0) sub_2A50C()`,
+	// 所以掉下活門的那一回合不算吃飯(見 `upkeep.go`)。
+	s.terrainEffects()
 	s.advanceNPCs()
 	// NPC 走完才更新鏡射 —— 物件表要跟著新位置走(原版 sub_1E74 在同一個迴圈裡)。
 	s.syncNPCObjects()

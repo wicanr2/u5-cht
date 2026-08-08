@@ -149,3 +149,108 @@ func (s *State) vanishRings() {
 		s.Log(MsgRingVanished)
 	}
 }
+
+// 腳下那一格每回合的作用:活門、沼澤、火(原版 `sub_1318`)
+//
+// `sub_1318` 也在截斷清單上(197 行 → 29 行 C,三個字串全掉),
+// 而它同時是**維生開銷的呼叫端** —— 最後一行是 `if (ebx == 0) sub_2A50C()`。
+// 也就是說:**掉下活門的那一回合不算吃飯**。
+//
+//	for (每個隊員)
+//	    if (狀態 == 'S' && rand(0, 15) == 15) 狀態 = 'G'    ; ★ 睡著的 1/16 自己醒
+//	tile = 腳下那一格
+//	if (tile == 8Ch && (載具 & 0FEh) != 14h) {              ; ★ 鬆動的磚,而且不在魔毯上
+//	    印 "A TRAPDOOR!"
+//	    sub_2A4D0()                                         ; 全隊 rand(1, 8) 傷
+//	    if (地點 == 1Dh) {                                  ; ★★ STONEGATE
+//	        …把地圖緩衝填滿 0x8F(熔岩)、清空物件表…
+//	        每個隊員 血 = 0、狀態 = 'D'                      ; ★★ 全隊當場死亡
+//	    }
+//	    樓層--;  ebx = 1                                    ; 兩條路都掉下一層
+//	}
+//	else if (tile == 4 && 載具 == 1Ch) {                     ; ★ 沼澤,而且**步行**
+//	    for (每個隊員)
+//	        if (狀態 == 'D' || 狀態 == 'P') continue
+//	        if (rand(0, 29) > 敏捷) { 印 "Poisoned!"; 狀態 = 'P' }
+//	}
+//	else if (tile == 0BCh || tile == 8Fh) {                  ; ★ 壁爐 / 熔岩
+//	    印 "Burning!"
+//	    sub_2A4D0()
+//	}
+//	if (ebx == 0) sub_2A50C()
+//
+// 四個 tile 都用 `look#<tile>` 查得出名字,四個都與效果相符:
+//
+//	tile 4    沼澤       → 中毒
+//	tile 0x8C 鬆動的磚   → 活門
+//	tile 0x8F 熔岩       → 燃燒
+//	tile 0xBC 壁爐       → 燃燒
+//
+// ★★ **地點 29 是 STONEGATE**(`locations.go` 的第 29 筆)。踩到那裡的鬆動磚,
+// 原版把整張地圖緩衝填滿熔岩 tile 再讓全隊死亡 —— 那不是普通陷阱,是死路。
+// 這一條**不能「順手加個存活判定」**:原版就是直接把血設 0、狀態設 'D'。
+//
+// ⚠ 沼澤中毒判的是 `rand(0, 29) > 敏捷`(**大於**才中毒)——
+// 所以敏捷 30 以上完全不會中毒。而**只有步行會中**:騎馬、坐船、坐魔毯都免疫,
+// 而且載具判的又是**單一值 0x1C**(與食人妖、大地圖攀爬同一個寫法)。
+
+// 地形效果的常數。
+const (
+	// TileTrapdoor 是鬆動的磚(`look#140`)—— 踩到就掉下一層。
+	TileTrapdoor = 0x8C
+	// TileSwamp 是沼澤(`look#4`)—— 步行走過去會中毒。
+	TileSwamp = 0x04
+	// TileLava / TileFireplace 是熔岩與壁爐(`look#143` / `look#188`)。
+	TileLava      = 0x8F
+	TileFireplace = 0xBC
+	// SwampPoisonRollMax 是沼澤中毒的骰上限(`rand(0, 29)`,**大於**敏捷才中毒)。
+	SwampPoisonRollMax = 29
+	// WakeUpRollMax / WakeUpHit 是睡著的人自己醒(`rand(0, 15) == 15`)。
+	WakeUpRollMax = 15
+	WakeUpHit     = 15
+	// StonegateLocation 是 STONEGATE —— 那裡的活門會讓全隊死亡。
+	StonegateLocation = 0x1D
+)
+
+// terrainEffects 是腳下那一格每回合的作用(原版 `sub_1318`)。
+func (s *State) terrainEffects() {
+	// ★ 睡著的人每回合有 1/16 自己醒(戰鬥外的那一條,與戰鬥中的兩條都不同)。
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		if s.Roster[i].Status == u5data.StatusAsleep && s.Roll(0, WakeUpRollMax) == WakeUpHit {
+			s.Roster[i].Status = u5data.StatusGood
+		}
+	}
+	switch tile := s.TileAt(s.X, s.Y); {
+	case tile == TileTrapdoor && s.Transport&0xFE != u5data.VehicleCarpet:
+		s.Log(MsgTrapdoor)
+		s.damageWholeParty()
+		if s.Location == StonegateLocation {
+			// ★★ STONEGATE 的活門下面是熔岩 —— 原版當場把全隊寫成死亡。
+			for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+				s.Roster[i].HP = 0
+				s.Roster[i].Status = u5data.StatusDead
+			}
+		}
+		if s.InScene() {
+			s.changeFloor(-1)
+		}
+		// ★ 掉下去的這一回合不算吃飯(原版 `if (ebx == 0) sub_2A50C()`)。
+		return
+	case tile == TileSwamp && s.Transport == u5data.VehicleWalk:
+		for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+			st := s.Roster[i].Status
+			if st == u5data.StatusDead || st == u5data.StatusPoisoned {
+				continue
+			}
+			// ⚠ **大於**敏捷才中毒 —— 敏捷 30 以上完全免疫。
+			if s.Roll(0, SwampPoisonRollMax) > int(s.Roster[i].Dex) {
+				s.Log(s.Roster[i].Name + MsgPoisonedBySwamp)
+				s.Roster[i].Status = u5data.StatusPoisoned
+			}
+		}
+	case tile == TileLava || tile == TileFireplace:
+		s.Log(MsgBurning)
+		s.damageWholeParty()
+	}
+	s.upkeep()
+}
