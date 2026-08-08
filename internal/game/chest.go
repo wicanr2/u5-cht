@@ -223,25 +223,89 @@ func (s *State) openDungeonChest(x, y int, tile byte) {
 
 // chestTrapVictim 讓開箱的人吃陷阱(原版 `sub_2AB38`)。
 //
-// ⚠ 傷害值還沒逆完 —— 這裡用 `random(1, 20)`,與地牢陷阱同量級,
-// 程式碼與文件都標明是**估計值**。
+// ✅ **整支讀完了**(`docs/re/91`),此前的 `random(1,20)` 是估計值,已換掉。
+//
+//	if (地點碼 > 0x7F)            種類 = random(0, 1)      ; ★ 戰鬥中只有酸與毒
+//	else                          種類 = byte_5FFEC[random(0,7)]
+//	switch (種類) {
+//	  0 "Acid"   → sub_2A464(隊員, sub_2B724())            ; 單人 1..30
+//	  1 "Poison" → sub_2AB08(隊員)                         ; 單人中毒
+//	  2 "Bomb"   → sub_2A4D0()                             ; 全隊各 random(1,8)
+//	  3 "Gas"    → for (i=0..5) sub_2AB08(i)               ; 全隊中毒
+//	  default    → 什麼都不做
+//	}
+//
+// ⚠ `default` 走不到(`byte_5FFEC` 只有 0..3),但原版留著 —— 照原樣。
 func (s *State) chestTrapVictim() {
 	if s.PartySize <= 0 {
 		return
 	}
-	i := s.Roll(0, s.PartySize-1)
-	ch := &s.Roster[i]
-	if ch.Status == u5data.StatusDead {
+	// ★ 原版第一件事是 `sub_2C598(0x28, 0xBB8, 0x1F4)` —— 那三個數字是
+	// **白噪參數(Rate/Dura/Limit)不是音效索引**,而 FM Towns 把這一組
+	// 轉成 `sub_2C46C(7, 0x3C)` = `DAME1.SND`(`docs/re/92`)。
+	s.PlaySFX(u5data.SFXDamage1)
+	victim := s.Roll(0, s.PartySize-1)
+	switch s.trapKind() {
+	case u5data.TrapAcid:
+		s.Log(MsgTrapAcid)
+		// ★ 與命中骰、Mani 同一顆:`max(1, random(0,60)/2)` → 1..30
+		// (`docs/re/15` 已記,`sub_2B724`)。
+		s.damageMember(victim, s.AttackRoll())
+	case u5data.TrapPoison:
+		s.Log(MsgTrapPoison)
+		s.poisonMember(victim)
+	case u5data.TrapBomb:
+		s.Log(MsgTrapBomb)
+		s.bombEveryone()
+	case u5data.TrapGas:
+		s.Log(MsgTrapGas)
+		for i := 0; i < u5data.CombatPartySlots; i++ {
+			s.poisonMember(i)
+		}
+	}
+}
+
+// bombEveryone 是炸彈陷阱的全隊傷害(原版 `sub_2A4D0`)。
+//
+// ⚠ 原版的迴圈上限是**寫死的 6**(不是隊伍人數),裡面才逐一檢查
+// 「槽 < byte_3E06B」與「狀態不是 'D'」。兩層檢查照抄:行為等價,
+// 但寫成 `for i < PartySize` 會把原版的結構抹掉。
+func (s *State) bombEveryone() {
+	for i := 0; i < u5data.CombatPartySlots; i++ {
+		if i >= s.PartySize || i >= len(s.Roster) {
+			continue
+		}
+		if s.Roster[i].Status == u5data.StatusDead {
+			continue
+		}
+		s.damageMember(i, s.Roll(1, u5data.TrapBombDamageMax))
+	}
+}
+
+// trapKind 擲出陷阱種類(原版 `sub_2AB38` 的前半)。
+//
+// ★ **戰鬥中只有酸與毒** —— 地點碼 > 0x7F 時不查那張八筆權重表,
+// 只擲 `random(0,1)`。引擎的戰鬥地點碼是 0xFF(`locationCode`)。
+func (s *State) trapKind() int {
+	if s.locationCode() > 0x7F {
+		return s.Roll(0, u5data.TrapCombatKindMax)
+	}
+	return int(u5data.TrapKindRoll[s.Roll(0, u5data.TrapKindRollMax)])
+}
+
+// poisonMember 把一個隊員設成中毒(原版 `sub_2AB08`)。
+//
+//	槽 >= 隊伍人數 → 不動;已經死掉 → 不動;否則狀態設 'P'
+//
+// ⚠ **死人不會中毒**,而且**不會把中毒的人治好** —— 它只寫入 'P'。
+func (s *State) poisonMember(i int) {
+	if i < 0 || i >= s.PartySize || i >= len(s.Roster) {
 		return
 	}
-	dmg := s.Roll(1, 20)
-	hp := int(ch.HP) - dmg
-	if hp <= 0 {
-		hp = 0
-		ch.Status = u5data.StatusDead
-		s.Log(s.charName(ch) + "倒下了!")
+	if s.Roster[i].Status == u5data.StatusDead {
+		return
 	}
-	ch.HP = uint16(hp)
+	s.Roster[i].Status = u5data.StatusPoisoned
 }
 
 // rollChestContents 依三張表擲獎品。回傳有沒有掉出東西。

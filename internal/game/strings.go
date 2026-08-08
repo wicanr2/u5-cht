@@ -165,6 +165,11 @@ const (
 	MsgNothingToOpen = "沒有東西可以開。"
 	MsgCantOpenThat  = "開不得!"
 	MsgTrapped       = "有陷阱!"
+	// 寶箱陷阱的四種(原版 `sub_2AB38` 印的 "Acid" / "Poison" / "Bomb" / "Gas")。
+	MsgTrapAcid   = "強酸!"
+	MsgTrapPoison = "毒!"
+	MsgTrapBomb   = "炸彈!"
+	MsgTrapGas    = "毒氣!"
 	MsgChestOpened   = "箱子打開了。"
 	MsgAlreadyOpen   = "已經開了!"
 	// "Chest unlocked\n" —— ★ 地牢裡的 J 解掉的是**陷阱**,不是鎖(`docs/re/76`)。

@@ -700,6 +700,15 @@ func (s *State) AdvanceTime(minutes int) {
 	s.LightTurns = subFloor(s.LightTurns, minutes)
 	s.TorchTurns = subFloor(s.TorchTurns, minutes)
 	s.tickHourly(before)
+	// ★ 落地鐘報時:原版 `cmp al, byte_3E090; jz` —— 比的是**小時欄位變沒變**,
+	// 不是「跨過幾個小時邊界」。一次推進整整 24 小時的話原版**不會**報時。
+	//
+	// ⚠ 這一段在 `sub_29304` 裡位於 TimeStop 判斷**之後**:`byte_3E090` 的快照
+	// 在函式最上方就做了,而 `inc byte_3E08F` 被 `byte_3E08A == 'T'` 跳過
+	// ⇒ **An Tym 期間時鐘不報時**。所以掛在這條路上,不掛上面那條。
+	if s.Clock.Hour != before.Hour {
+		s.StartClockChime(s.Clock.Hour)
+	}
 	s.afterMidnight(before)
 }
 

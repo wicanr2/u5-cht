@@ -256,6 +256,18 @@ type State struct {
 	// ★ 同 `song`:`internal/game` 只排隊,發聲在 `internal/audio`。
 	// 刻意不匯出 —— 讀取走 `TakeSFX()`,它會一併清空。
 	sfx []int
+	// 環境音的狀態(原版 `byte_60038` / `byte_3E094` / `byte_5FFFC` /
+	// `byte_5FFFD` / `byte_600A1` / `byte_600A2`,見 `internal/game/ambient.go`)。
+	//
+	// ⚠ 刻意不匯出:`clockPhase` 與 `beeperStep` 的零值剛好是合法初值,
+	// 但 `suppressedSong` 的零值是「勝利曲」——匯出會讓結構常值誤觸。
+	clockPhase      int  // 八相計時器,每次掃描 +1
+	clockStrikes    int  // 還剩幾下鐘要敲(整點時設成 12 小時制的小時數)
+	beeperStep      int  // 53 步旋律的游標
+	musicSuppressed bool // 配樂正被樂器壓著
+	suppressedSong  int  // 被壓下去之前那一首
+	waterfallPlaying,
+	fountainPlaying bool // 「已經在放了」的旗標,走遠才清
 	// lastVacatedX / Y 是「這一輪剛移動的那個東西離開的格子」
 	// (原版 `byte_4FD94` / `byte_4FD95`)。★ 是**全域**一份不是每槽一份,
 	// 只由 `stepObject` 寫、只由 `notJustVacated` 讀(`docs/re/85`)。
@@ -670,6 +682,14 @@ func (s *State) tick() {
 	// ★ 月門是**寫進地圖緩衝的一格**,由這一支維護(原版 `sub_DEE4`,
 	// 在重畫時跑)。⚠ 引擎改成每回合一次 —— 節奏差異見 `moongatetile.go`。
 	s.RefreshMoongateTiles()
+	// ★ 環境音掃描(原版 `sub_2BDE0`,由 `sub_29D64` 重畫時跑)。
+	// ⚠ 同月門:引擎改成**每回合一次**。落地鐘的八相計時器因此是
+	// 「每 8 回合滴答一輪」而不是原版的「每 8 次重畫」——
+	// 原版的重畫還包含動畫更新,節奏比一回合快,⬜ 那個速率還沒量。
+	// ⬜ 回傳值目前丟掉:音效已由 `TickAmbient` 自己排進佇列、配樂也已切換,
+	// 只有 `BeeperNote`(樂器旋律的單音)還沒有播放路徑 ——
+	// 要接方波振盪器就從這裡拿它,別另外開一份狀態(`docs/re/92`)。
+	s.TickAmbient()
 }
 
 // InScene 回報玩家是否在場景(城鎮 / 城堡 / 民居 / 要塞)裡。

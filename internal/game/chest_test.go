@@ -58,28 +58,48 @@ func TestOpenChestTurnsItIntoAnOpenedOne(t *testing.T) {
 	}
 }
 
-// TestTrappedChestHurtsSomeone:bit 0 設著的寶箱會傷人。
+// TestTrappedChestHurtsSomeone:bit 0 設著的寶箱會發動陷阱。
+//
+// ⚠⚠ 這條原本斷言「一定有人扣血」,而那是**舊的發明模型**(陷阱一律
+// `random(1,20)` 扣血)留下的。逆完 `sub_2AB38` 之後陷阱有四種,其中
+// **毒(2/8)與毒氣(1/8)不扣血只改狀態** ⇒ 舊斷言有 3/8 的機率誤判。
+// 現在改成「扣血**或**中毒」,並把四種都跑一遍確保不會有哪一種靜默無效。
 func TestTrappedChestHurtsSomeone(t *testing.T) {
 	s := dungeonState(t)
-	s.SeedRandom(4)
 	if !findDungeonTile(t, s, u5data.DungeonChest) {
 		t.Skip("找不到寶箱")
 	}
 	d := s.Dungeon
-	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y,
-		u5data.DungeonChest|u5data.ChestTrappedDungeon)
-	total := 0
-	for i := 0; i < s.PartySize; i++ {
-		s.Roster[i].HP, s.Roster[i].MaxHP = 200, 200
-		total += int(s.Roster[i].HP)
+	hurt := map[string]bool{}
+	for seed := 1; seed <= 40 && len(hurt) < 2; seed++ {
+		s.SeedRandom(int64(seed))
+		s.Dungeons.Set(d.Index, d.Level, d.X, d.Y,
+			u5data.DungeonChest|u5data.ChestTrappedDungeon)
+		total := 0
+		for i := 0; i < s.PartySize; i++ {
+			s.Roster[i].HP, s.Roster[i].MaxHP = 200, 200
+			s.Roster[i].Status = u5data.StatusGood
+			total += int(s.Roster[i].HP)
+		}
+		s.OpenChest()
+		after, poisoned := 0, false
+		for i := 0; i < s.PartySize; i++ {
+			after += int(s.Roster[i].HP)
+			if s.Roster[i].Status == u5data.StatusPoisoned {
+				poisoned = true
+			}
+		}
+		switch {
+		case after < total:
+			hurt["扣血"] = true
+		case poisoned:
+			hurt["中毒"] = true
+		default:
+			t.Fatalf("種子 %d:陷阱發動了卻既沒扣血也沒中毒:\n%s", seed, s.log())
+		}
 	}
-	s.OpenChest()
-	after := 0
-	for i := 0; i < s.PartySize; i++ {
-		after += int(s.Roster[i].HP)
-	}
-	if after >= total {
-		t.Errorf("有陷阱的箱子開下去沒人受傷(%d → %d):\n%s", total, after, s.log())
+	if len(hurt) < 2 {
+		t.Errorf("四十顆種子只看到 %v —— 預期扣血與中毒兩類都出現過", hurt)
 	}
 }
 
@@ -313,5 +333,122 @@ func TestJimmyOnAnOpenedChestSaysAlreadyOpen(t *testing.T) {
 	s.Jimmy()
 	if !strings.Contains(strings.Join(s.Messages, "|"), MsgAlreadyOpen) {
 		t.Errorf("開過的箱子該印「%s」:%q", MsgAlreadyOpen, s.Messages)
+	}
+}
+
+// TestChestTrapKindsFollowTheWeightTable —— ★ 四種陷阱的權重表。
+//
+// `byte_5FFEC = {0,0,0,1,1,2,2,3}` ⇒ 酸 3/8、毒 2/8、炸彈 2/8、毒氣 1/8
+//(`docs/re/91`)。⚠ 此前引擎用 `random(1,20)` 的估計傷害,連陷阱**種類**都沒有。
+func TestChestTrapKindsFollowTheWeightTable(t *testing.T) {
+	want := map[byte]int{0: 3, 1: 2, 2: 2, 3: 1}
+	got := map[byte]int{}
+	for _, v := range u5data.TrapKindRoll {
+		got[v]++
+	}
+	for k, n := range want {
+		if got[k] != n {
+			t.Errorf("種類 %d 在表裡出現 %d 次,預期 %d", k, got[k], n)
+		}
+	}
+	if len(u5data.TrapKindRoll) != u5data.TrapKindRollMax+1 {
+		t.Errorf("表長 %d,而擲骰上限是 %d", len(u5data.TrapKindRoll), u5data.TrapKindRollMax)
+	}
+}
+
+// TestCombatTrapsAreOnlyAcidOrPoison —— ★ 戰鬥中不查權重表。
+//
+// 原版 `cmp byte_3E0A3, 7Fh; ja` → 地點碼 > 0x7F 只擲 `random(0,1)`
+// ⇒ **戰鬥中不會有炸彈與毒氣**。引擎的戰鬥地點碼是 0xFF。
+func TestCombatTrapsAreOnlyAcidOrPoison(t *testing.T) {
+	s := combatState(t)
+	// 先在非戰鬥狀態下確認四種都出得來(正對照 —— 否則下面的「只有兩種」
+	// 可能是因為擲骰壞了而不是因為分支)。
+	seen := map[int]bool{}
+	for i := 0; i < 400; i++ {
+		seen[s.trapKind()] = true
+	}
+	if len(seen) < 4 {
+		t.Errorf("非戰鬥時只看到 %v,預期四種都可能", seen)
+	}
+	slot, ok := s.CurrentObjects().Spawn(0xC0, s.X+1, s.Y, s.Floor) // 0xC0 = 法師
+	if !ok {
+		t.Skip("放不下怪物")
+	}
+	if !s.BeginCombat(slot) {
+		t.Skipf("開不了戰:\n%s", s.log())
+	}
+	for i := 0; i < 400; i++ {
+		if k := s.trapKind(); k > u5data.TrapCombatKindMax {
+			t.Fatalf("戰鬥中擲出種類 %d,預期只有 0 或 1", k)
+		}
+	}
+}
+
+// TestGasPoisonsTheLivingOnly —— 毒氣掃全隊,但不動死人。
+//
+// ⚠ `sub_2AB08` 只在「槽在隊伍裡」且「狀態不是 'D'」時寫 'P'
+// ⇒ 毒氣**不會治好也不會復活**任何人。
+func TestGasPoisonsTheLivingOnly(t *testing.T) {
+	s := dungeonState(t)
+	if s.PartySize < 2 {
+		t.Skip("隊伍太小")
+	}
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Status = u5data.StatusGood
+	}
+	s.Roster[1].Status = u5data.StatusDead
+	for i := 0; i < u5data.CombatPartySlots; i++ {
+		s.poisonMember(i)
+	}
+	for i := 0; i < s.PartySize; i++ {
+		if i == 1 {
+			if s.Roster[i].Status != u5data.StatusDead {
+				t.Error("毒氣把死人的狀態改掉了")
+			}
+			continue
+		}
+		if s.Roster[i].Status != u5data.StatusPoisoned {
+			t.Errorf("隊員 %d 沒中毒(狀態 %02X)", i, s.Roster[i].Status)
+		}
+	}
+	// 越界的槽不能 panic。
+	s.poisonMember(-1)
+	s.poisonMember(u5data.CombatPartySlots + 5)
+}
+
+// TestBombHurtsEveryPartySlot —— 炸彈掃**槽 0..5**,不是掃 PartySize。
+//
+// 原版 `sub_2A4D0` 的迴圈上限是固定的 6,裡面才逐一檢查
+//「槽 < byte_3E06B」與「狀態 != 'D'」⇒ 隊伍不滿時多出來的槽是空轉,
+// 不是把迴圈縮短。行為等價,但寫成 PartySize 會在未來加欄位時錯開。
+func TestBombHurtsEveryPartySlot(t *testing.T) {
+	s := dungeonState(t)
+	if s.PartySize < 2 {
+		t.Skip("隊伍太小")
+	}
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Status = u5data.StatusGood
+		s.Roster[i].HP, s.Roster[i].MaxHP = 200, 200
+	}
+	s.Roster[1].Status = u5data.StatusDead
+	before := make([]uint16, s.PartySize)
+	for i := range before {
+		before[i] = s.Roster[i].HP
+	}
+	s.bombEveryone()
+	for i := 0; i < s.PartySize; i++ {
+		got := s.Roster[i].HP
+		switch {
+		case i == 1:
+			if got != before[i] {
+				t.Errorf("死人被炸彈扣了血(%d → %d)", before[i], got)
+			}
+		case got == before[i]:
+			t.Errorf("隊員 %d 沒被炸到", i)
+		case before[i]-got > u5data.TrapBombDamageMax:
+			t.Errorf("隊員 %d 掉了 %d 點,上限是 %d",
+				i, before[i]-got, u5data.TrapBombDamageMax)
+		}
 	}
 }

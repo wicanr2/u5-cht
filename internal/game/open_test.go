@@ -217,14 +217,17 @@ func TestTrapIsTheTopBitOfTheChestQuality(t *testing.T) {
 	if !strings.Contains(strings.Join(s.Messages, "|"), MsgTrapped) {
 		t.Errorf("最高位設著卻沒印「%s」:%q", MsgTrapped, s.Messages)
 	}
+	// ⚠ 判準是「扣血**或**中毒」。四種陷阱裡毒(2/8)與毒氣(1/8)只改狀態
+	// 不扣血(`docs/re/91`)⇒ 只看 HP 的話這條有 3/8 的機率誤判,
+	// 而 itest 沒有固定種子 → 會變成間歇紅燈。
 	hurt := false
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
-		if s.Roster[i].HP < 200 {
+		if s.Roster[i].HP < 200 || s.Roster[i].Status == u5data.StatusPoisoned {
 			hurt = true
 		}
 	}
 	if !hurt {
-		t.Error("有陷阱卻沒人受傷")
+		t.Errorf("有陷阱卻既沒人扣血也沒人中毒:%q", s.Messages)
 	}
 }
 
