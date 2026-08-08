@@ -3,11 +3,21 @@
 
 三種機械可查的過期方式,對應三個檢查:
 
-1. **不存在的 IDA 符號**:筆記寫 `sub_XXXX` / `byte_XXXXX`,但反組譯檔裡沒有這個
-   符號。多半是打錯字或憑記憶寫的位址 —— 而位址錯了,整條溯源就斷了。
+1. **不存在的函式**:筆記寫 `sub_XXXX`,但反組譯檔裡沒有這支。打錯字或憑記憶寫的
+   位址 —— 而位址錯了,整條溯源就斷了。
 2. **不存在的引擎符號**:「引擎對應」表格寫 `game.(*State).foo`,但那個方法已經
    改名或刪掉。`rulebook/63` 的原話:code 是唯一真相,dated 文件會過期。
 3. **孤立的筆記**:`docs/re/00-function-index.md` 沒收錄的筆記檔 —— 索引本身過期。
+
+⚠⚠ **只查函式,不查資料位址。** 這是 2026-08-08 首跑之後的決定,理由是命中率:
+`byte_`/`word_`/`dword_`/`off_` 那類報了 **33 筆,其中 32 筆是誤報** ——
+因為程式碼常寫成 `mov eax, offset dword_4FFB8` / `[eax+edi+42B0h]`,被讀的
+`0x54268` 從頭到尾沒有符號,筆記用位址稱呼它是**合理且必要**的。
+函式沒有這個問題:能成為函式就有 xref,IDA 必然建 `sub_`。
+
+第一版的做法是「開一份白名單登記推導位址,再放寬幾個中文關鍵詞」——
+那讓報告變綠,但**寬鬆的關鍵詞會整行跳過檢查**(任何含「應為」的行都不查),
+等於用假訊號換綠燈。改成按符號種類切,不需要白名單也不需要關鍵詞豁免。
 
 ⚠ 這支工具**只查「符號還在不在」,不查「敘述對不對」**。敘述錯誤(例如把兩支
 互斥的函式寫成同一回合都會跑)只能靠讀碼發現,沒有機械捷徑。所以它是**下限**
@@ -30,7 +40,11 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # IDA 自動命名的符號。`loc_` 不查 —— 筆記引用區塊標籤很常見,而它們會隨重新
 # 分析而變動,不是斷言的基礎。
-IDA_SYMBOL = re.compile(r"\b((?:sub|byte|word|dword|qword|off|unk|nullsub)_[0-9A-F]{1,8})\b")
+IDA_FUNC = re.compile(r"\b(sub_[0-9A-F]{1,8})\b")
+
+# 索引收錄判斷仍要看「這份筆記有沒有提到任何 IDA 符號」,所以保留寬版樣式,
+# 但**不拿它做存在性檢查**(見上面模組說明的理由)。
+IDA_ANY = re.compile(r"\b((?:sub|byte|word|dword|qword|off|unk|nullsub)_[0-9A-F]{1,8})\b")
 
 # 「引擎對應」表格裡的 Go 符號:`game.(*State).foo`、`u5data.Foo`、`game.Foo`。
 # 結尾的 `*`(如 `u5data.NPCAI*`)是刻意的「這一族常數」寫法,不是單一符號。
@@ -40,17 +54,10 @@ GO_SYMBOL = re.compile(r"\b(game|u5data|i18n|render|cjk|audio)\.(?:\(\*(\w+)\)\.
 # (`sub_1DA10` → `sub_1DA1…`),那是產生器的排版,不是筆記寫錯位址。
 GENERATED_DOCS = {"00-function-index.md"}
 
-# 我自己從 `base + offset` 算出來的位址。IDA 不會給這種位址取名字
-# (存取寫成 `[eax+edi+42B0h]`),所以「反組譯檔裡查不到」是正常的 ——
-# 但**推導必須寫下來**,否則下一個人(包括我)無從複核。
-COMPUTED_ADDR_DOC = "re/00-computed-addresses.md"
-
-# 筆記裡刻意保留的「已被推翻」段落 —— 這些本來就會提到不存在的符號。
-OVERTURNED_MARKERS = (
-    "此前", "已被推翻", "推翻", "原本寫", "錯因", "~~",
-    # 「X 不存在」「X 應為 Y」本身就是在說那個符號**不成立** —— 不是在斷言它存在。
-    "不存在", "應為", "已更正", "更正:",
-)
+# 筆記裡刻意保留的「已被推翻」段落 —— 這些會提到已經作廢的函式名。
+# ⚠ 只留「明確在說這條已作廢」的四個詞。不要為了讓報告變綠而加寬 ——
+# 每加一個詞就多一批**整行不檢查**的筆記。
+OVERTURNED_MARKERS = ("已被推翻", "此前這裡寫", "原本寫", "~~")
 
 
 def load_asm_symbols(asm: pathlib.Path) -> set[str]:
@@ -58,7 +65,7 @@ def load_asm_symbols(asm: pathlib.Path) -> set[str]:
     if not asm.exists():
         return set()
     text = asm.read_text(errors="replace")
-    return set(IDA_SYMBOL.findall(text))
+    return set(IDA_FUNC.findall(text))
 
 
 def load_go_symbols() -> set[str]:
@@ -101,18 +108,9 @@ def main() -> int:
     docs = sorted((ROOT / args.docs).rglob("*.md"))
     docs += [ROOT / name for name in ("CONTEXT.md", "PLAN.md", "WORKLIST.md", "README.md") if (ROOT / name).exists()]
 
-    # 推導過的位址當成已知符號 —— 但**只認登記在案的**。
-    computed = ROOT / args.docs / COMPUTED_ADDR_DOC
-    if computed.exists():
-        registered = set(IDA_SYMBOL.findall(computed.read_text(errors="replace")))
-        asm_symbols |= registered
-        print(f"推導位址登記表:{len(registered)} 筆({COMPUTED_ADDR_DOC})")
-    else:
-        print(f"⚠ 沒有 {COMPUTED_ADDR_DOC} —— 推導出來的位址會被誤報成錯誤")
-
     if not asm_symbols:
         print(f"⚠ 讀不到 {args.asm} —— 跳過 IDA 符號檢查(反組譯產物不入庫)")
-    print(f"引擎符號 {len(go_symbols)} 個、筆記 {len(docs)} 份\n")
+    print(f"反組譯函式 {len(asm_symbols)} 支、引擎符號 {len(go_symbols)} 個、筆記 {len(docs)} 份\n")
 
     bad_ida: list[tuple[str, int, str]] = []
     bad_go: list[tuple[str, int, str]] = []
@@ -125,7 +123,7 @@ def main() -> int:
             if is_overturned_context(line):
                 continue
             if asm_symbols:
-                for sym in IDA_SYMBOL.findall(line):
+                for sym in IDA_FUNC.findall(line):
                     if sym not in asm_symbols:
                         bad_ida.append((str(rel), n, sym))
             for _pkg, _recv, name in GO_SYMBOL.findall(line):
@@ -133,7 +131,7 @@ def main() -> int:
                     bad_go.append((str(rel), n, name))
 
     if bad_ida:
-        print(f"## 反組譯檔裡查不到的 IDA 符號({len(bad_ida)} 筆)")
+        print(f"## 反組譯檔裡查不到的函式({len(bad_ida)} 筆)")
         print("   位址錯了整條溯源就斷了 —— 逐筆回去對 .asm。\n")
         for path, n, sym in bad_ida:
             print(f"  {path}:{n}  {sym}")
@@ -158,7 +156,7 @@ def main() -> int:
         symbol_free = {
             d.name
             for d in (ROOT / args.docs / "re").glob("*.md")
-            if not IDA_SYMBOL.search(d.read_text(errors="replace"))
+            if not IDA_ANY.search(d.read_text(errors="replace"))
         }
         orphans = [name for name in orphans if name not in symbol_free]
         if orphans:
