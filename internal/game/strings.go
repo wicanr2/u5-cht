@@ -253,6 +253,16 @@ const (
 	// "%dgp toll!" —— 數字是 99 − 力量×3。
 	MsgTrollToll  = "過路費 %d 金!"
 	MsgDostThouPay = "汝要付嗎?"
+
+	// 大地圖上的攀爬(原版 `sub_188C4`)
+	//
+	// ⚠ `Impassable!`(峭壁)與 `Not climbable!`(其餘地形)是**兩句不同的話**,
+	// 合成一句會少掉「過不去」與「這不能爬」的區分。
+	MsgWithWhat     = "用什麼爬?"
+	MsgOnFootOnly   = "須徒步而行!"
+	MsgImpassable   = "此路不通!"
+	MsgNotClimbable = "此處無可攀之物!"
+	MsgFell         = "失足墜落!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

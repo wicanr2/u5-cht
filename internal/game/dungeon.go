@@ -283,11 +283,19 @@ func (s *State) DungeonKlimb(up bool) {
 	s.dungeonTurnEnd()
 }
 
-// hasRope 回報身上有沒有繩索(原版 `byte_3DFBB`)。
+// hasRope 回報身上有沒有**抓鉤**(原版 `byte_3DFBB`)。
 //
-// ⚠ 那個位元組在存檔裡的位移還沒對出來,所以先一律當成**沒有** ——
-// 少一條爬回去的路,總比讓玩家憑空穿牆好。
-func (s *State) hasRope() bool { return false }
+// ⚠⚠ **更正兩件事**(`docs/re/68` 追記):
+//
+//	① 位移**早就對出來了** —— 它是 0x0209..0x020F 那段七個位元組的第一格
+//	   (`SaveGrappleOffset = 0x0209`),而那一段兩端都已釘死。
+//	   這裡的 `return false` 是**陳舊標記**:註解說的「位移還沒對出來」
+//	   在 save.go 補完那一段之後就不成立了,只是沒回來改(`rulebook/63`)。
+//	② 它不是「繩索」,是**抓鉤(Grapple)** —— `sub_188C4`(大地圖攀爬)
+//	   的第一道閘門就是它:`cmp byte_3DFBB, 0; jnz; 印 "With what?"`。
+//
+// 函式名保留 `hasRope` 是為了不動地牢那邊的呼叫端;語意見 `Inventory.Grapple`。
+func (s *State) hasRope() bool { return s.Inventory.Grapple != 0 }
 
 // DungeonChangeLevel 是 Uus Por / Des Por 在地牢裡的效果(原版 `sub_3F34` → `sub_3ED0`)。
 //

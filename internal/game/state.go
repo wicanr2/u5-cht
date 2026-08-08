@@ -808,8 +808,8 @@ func (s *State) changeFloor(delta int) {
 // 而梯子才是主力:四座燈塔、兩座城堡、修道院、巨蛇要塞都只有梯子。
 func (s *State) Klimb() {
 	if !s.InScene() {
-		// 大地圖上的攀爬(上山、進地牢)是另一條路徑,還沒做。
-		s.Log(MsgNothingToClimb)
+		// 大地圖上的攀爬走另一條路(原版 `sub_188C4`,見 `troll.go`)。
+		s.klimbOverworld()
 		return
 	}
 	delta := u5data.ClimbDelta(s.TileAt(s.X, s.Y))

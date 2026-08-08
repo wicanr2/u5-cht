@@ -49,6 +49,14 @@ const (
 	// 寶石碎片(已驗),中間剛好七個位元組對七個變數,沒有排列的餘地。
 	// 名字則來自 `sub_154BC` 的撿取分支(`mov byte_3DFC0, 0FFh` 後面接
 	// "The crown of Lord British"…)。
+	// SaveGrappleOffset 是**抓鉤**(byte_3DFBB)。
+	//
+	// ★ 這一格此前被寫成「疑為繩索」而且「位移沒對出來」—— 兩件事都不對:
+	// 位移就在上面那段七個位元組的第一格(0x0209),而它的用途由
+	// `sub_188C4`(大地圖上的攀爬)寫得很明白:
+	// `cmp byte_3DFBB, 0; jnz; 印 "With what?"` —— 沒有它就爬不了山。
+	// U5 的道具清單裡那件東西叫 **Grapple**(抓鉤),不是繩索。
+	SaveGrappleOffset = 0x0209 // byte_3DFBB
 	SaveCarpetsOffset = 0x020A // byte_3DFBC(魔毯;先前記為「位移未知」)
 	// SaveOddKeysOffset 是「怪鑰匙」(byte_3DFBD)—— `sub_154BC` 的鑰匙分支
 	// 有兩條:品質 ≥ 0x80 進這一格,其餘進一般鑰匙(0x0206)。
@@ -269,6 +277,8 @@ type Inventory struct {
 	Reagents [ReagentCount]int
 	// Spells[咒語編號] 是已調配好的份數,上限 SpellStackLimit。
 	Spells [SpellCount]int
+	// Grapple 是抓鉤(原版 byte_3DFBB,存檔 0x0209)—— 大地圖上爬山的前提。
+	Grapple int
 	// Carpets 是持有的魔毯數(原版 byte_3DFBC,存檔 0x020A)。
 	Carpets int
 	// OddKeys 是「怪鑰匙」(原版 byte_3DFBD)—— 品質最高位被設起來的那種鑰匙。
@@ -384,6 +394,7 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.Inventory.Keys = int(raw[SaveKeysOffset])
 	s.Inventory.Gems = int(raw[SaveGemsOffset])
 	s.Inventory.Torches = int(raw[SaveTorchesOffset])
+	s.Inventory.Grapple = int(raw[SaveGrappleOffset])
 	s.Inventory.Carpets = int(raw[SaveCarpetsOffset])
 	s.Inventory.OddKeys = int(raw[SaveOddKeysOffset])
 	s.Regalia.Amulet = raw[SaveAmuletOffset] != 0
@@ -551,6 +562,7 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveKeysOffset] = byte(s.Inventory.Keys)
 	out[SaveGemsOffset] = byte(s.Inventory.Gems)
 	out[SaveTorchesOffset] = byte(s.Inventory.Torches)
+	out[SaveGrappleOffset] = byte(s.Inventory.Grapple)
 	out[SaveCarpetsOffset] = byte(s.Inventory.Carpets)
 	out[SaveOddKeysOffset] = byte(s.Inventory.OddKeys)
 	putFlag(out, SaveAmuletOffset, s.Regalia.Amulet)

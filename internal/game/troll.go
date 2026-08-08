@@ -142,3 +142,75 @@ func (s *State) trollFight() {
 	o.Raw[u5data.ObjX], o.Raw[u5data.ObjY] = byte(s.X), byte(s.Y)
 	s.beginCombatWith(o)
 }
+
+// 大地圖上的攀爬(原版 `sub_188C4`)
+//
+// 引擎原本在這裡寫「大地圖上的攀爬(上山、進地牢)是另一條路徑,**還沒做**」。
+// `sub_188C4` 就是那條路徑,而它被 Hex-Rays 截斷成三行(`docs/re/66`)。
+//
+//	if (byte_3DFBB == 0) { 印 "With what?"; return }      ; ★ 沒抓鉤
+//	if (載具 != 0x1C)    { 印 "On foot!";  return }       ; ★ 只有步行
+//	方向 = sub_2B2AC()   ; 取消就結束
+//	tile = 目標格
+//	if (tile == 0x0D) { 印 "Impassable!";   return }      ; ★ 峭壁
+//	if (tile != 0x0C) { 印 "Not climbable!"; return }     ; ★ 只有群山能爬
+//	for (每個沒死的隊員)
+//	    if (rand(1, 30) > 敏捷) { 印 "Fell!"; 那個人受 rand(1, 5) 傷 }
+//	sub_2D014(dx, dy)                                     ; ★ 不論摔幾個人,整隊都過去
+//
+// 兩個地形值都對得上 `look#<tile>`:0x0C 是「群山」、0x0D 是「峭壁」。
+// 而**峭壁與「不能爬的東西」是兩句不同的話** —— 峭壁是「過不去」,
+// 其餘地形是「這不能爬」。合成一句會少掉那個區分。
+//
+// ⚠ 摔倒**不會擋住移動** —— 原版的 `sub_2D014` 在迴圈之後、無條件執行。
+// 寫成「有人摔倒就不過去」是很自然的想像,但那不是原版。
+
+// 攀爬用的常數。
+const (
+	// ClimbMountain 是可以攀的地形(`look#12` = 群山)。
+	ClimbMountain = 0x0C
+	// ClimbCliff 是峭壁(`look#13`)—— 過不去,而且訊息與「不能爬」不同。
+	ClimbCliff = 0x0D
+	// ClimbFallRollMax 是摔倒判定的骰上限(`rand(1, 30)`)。
+	ClimbFallRollMax = 30
+	// ClimbFallDamageMax 是摔倒的傷害上限(`rand(1, 5)`)。
+	ClimbFallDamageMax = 5
+)
+
+// klimbOverworld 是大地圖上的 K(原版 `sub_188C4`)。
+func (s *State) klimbOverworld() {
+	if !s.hasRope() {
+		s.Log(MsgWithWhat)
+		return
+	}
+	// ★ 單一值 0x1C —— 與食人妖那條同一個寫法。
+	if s.Transport != u5data.VehicleWalk {
+		s.Log(MsgOnFootOnly)
+		return
+	}
+	s.AskDirection(func(d Direction) {
+		dx, dy := d.Delta()
+		nx, ny := WrapWorld(s.X+dx), WrapWorld(s.Y+dy)
+		switch s.TileAt(nx, ny) {
+		case ClimbCliff:
+			s.Log(MsgImpassable)
+			return
+		case ClimbMountain:
+		default:
+			s.Log(MsgNotClimbable)
+			return
+		}
+		for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+			if s.Roster[i].Status == u5data.StatusDead {
+				continue
+			}
+			if s.Roll(1, ClimbFallRollMax) > int(s.Roster[i].Dex) {
+				s.Log(s.Roster[i].Name + MsgFell)
+				s.damageMember(i, s.Roll(1, ClimbFallDamageMax))
+			}
+		}
+		// ★ 摔倒不擋移動 —— 原版無條件走這一步。
+		s.X, s.Y = nx, ny
+		s.tick()
+	})
+}

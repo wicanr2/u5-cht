@@ -187,3 +187,121 @@ func TestSleepingAndDeadMembersDoNotSneak(t *testing.T) {
 	}
 	t.Skip("300 次都沒觸發遭遇")
 }
+
+// TestOverworldKlimbNeedsTheGrapple:第一道閘門是抓鉤。
+func TestOverworldKlimbNeedsTheGrapple(t *testing.T) {
+	s := trollScene(t)
+	s.Inventory.Grapple = 0
+	s.Klimb()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgWithWhat) {
+		t.Errorf("沒抓鉤該問「用什麼爬」:%q", s.Messages)
+	}
+	if s.Prompt == PromptDirection {
+		t.Error("沒抓鉤卻已經在問方向")
+	}
+	// 有抓鉤但騎著馬 → 只能徒步。
+	s = trollScene(t)
+	s.Inventory.Grapple = 0xFF
+	s.Transport = u5data.TileHorse | 2
+	s.Messages = nil
+	s.Klimb()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgOnFootOnly) {
+		t.Errorf("騎著馬該說須徒步:%q", s.Messages)
+	}
+}
+
+// TestCliffAndUnclimbableAreDifferentMessages:峭壁與「不能爬」是兩句話。
+func TestCliffAndUnclimbableAreDifferentMessages(t *testing.T) {
+	cases := []struct {
+		tile byte
+		want string
+		move bool
+	}{
+		{ClimbCliff, MsgImpassable, false},
+		{0x05, MsgNotClimbable, false}, // 草地
+		{ClimbMountain, "", true},
+	}
+	for _, c := range cases {
+		s := trollScene(t)
+		s.Inventory.Grapple = 0xFF
+		s.X, s.Y = 10, 10
+		if !s.SetTileAt(11, 10, c.tile) {
+			t.Skip("寫不進世界地圖")
+		}
+		s.Messages = nil
+		s.Klimb()
+		if s.Prompt != PromptDirection {
+			t.Fatalf("地形 0x%02X:沒在問方向", c.tile)
+		}
+		s.AnswerDirection(East)
+		joined := strings.Join(s.Messages, "|")
+		if c.want != "" && !strings.Contains(joined, c.want) {
+			t.Errorf("地形 0x%02X:少了 %q,實際 %q", c.tile, c.want, s.Messages)
+		}
+		if c.want == MsgImpassable && strings.Contains(joined, MsgNotClimbable) {
+			t.Errorf("峭壁印成了「不能爬」:%q", s.Messages)
+		}
+		moved := s.X == 11
+		if moved != c.move {
+			t.Errorf("地形 0x%02X:移動 = %v,預期 %v", c.tile, moved, c.move)
+		}
+	}
+}
+
+// TestFallingDoesNotBlockTheClimb 是最容易寫錯的一條。
+//
+// 原版的 `sub_2D014`(移動)在摔倒迴圈**之後、無條件**執行 ——
+// 「有人摔倒就不過去」是很自然的想像,但那不是原版。
+func TestFallingDoesNotBlockTheClimb(t *testing.T) {
+	s := trollScene(t)
+	s.Inventory.Grapple = 0xFF
+	s.X, s.Y = 10, 10
+	if !s.SetTileAt(11, 10, ClimbMountain) {
+		t.Skip("寫不進世界地圖")
+	}
+	// 敏捷 0 → 每個人都摔。
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 0
+		s.Roster[i].Status = u5data.StatusGood
+		s.Roster[i].HP = 200
+	}
+	s.Messages = nil
+	s.Klimb()
+	s.AnswerDirection(East)
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgFell) {
+		t.Errorf("敏捷 0 卻沒人摔倒:%q", s.Messages)
+	}
+	if s.X != 11 {
+		t.Errorf("摔倒之後停在 X=%d —— 原版無條件過去", s.X)
+	}
+	for i := 0; i < s.PartySize; i++ {
+		lost := 200 - int(s.Roster[i].HP)
+		if lost < 1 || lost > ClimbFallDamageMax {
+			t.Errorf("第 %d 位掉了 %d 血,超出 1..%d", i, lost, ClimbFallDamageMax)
+		}
+	}
+}
+
+// TestGrappleOffsetIsKnown:更正掉 `hasRope` 的陳舊 `return false`。
+func TestGrappleOffsetIsKnown(t *testing.T) {
+	if u5data.SaveGrappleOffset != 0x0209 {
+		t.Fatalf("抓鉤的位移是 0x%04X,預期 0x0209", u5data.SaveGrappleOffset)
+	}
+	// 七個位元組要正好排滿 0x0209..0x020F。
+	if u5data.SaveCarpetsOffset != u5data.SaveGrappleOffset+1 {
+		t.Errorf("魔毯在 0x%04X,該緊接在抓鉤後面", u5data.SaveCarpetsOffset)
+	}
+	if u5data.SaveTorchesOffset != u5data.SaveGrappleOffset-1 {
+		t.Errorf("火把在 0x%04X,該緊接在抓鉤前面", u5data.SaveTorchesOffset)
+	}
+	// hasRope 要真的看那個欄位,不是寫死 false。
+	s := trollScene(t)
+	s.Inventory.Grapple = 0
+	if s.hasRope() {
+		t.Error("沒抓鉤卻回報有")
+	}
+	s.Inventory.Grapple = 0xFF
+	if !s.hasRope() {
+		t.Error("有抓鉤卻回報沒有 —— `return false` 的陳舊標記又回來了")
+	}
+}
