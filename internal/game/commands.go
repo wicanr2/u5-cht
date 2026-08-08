@@ -184,8 +184,12 @@ func (s *State) ViewGem() bool {
 // ⚠ 職業與狀態用**中文顯示、英文 canonical**:狀態碼是 `'G'`/`'P'`/`'D'`/
 // `'S'`/`'C'`,而治療所與復活判定比的是那個位元組。顯示層譯了不影響比對。
 type Ztats struct {
-	// Member 是現在看第幾名(名冊索引)。
-	Member int
+	// Page 是原版那**一個**游標(`sub_1E9A0` 的 `esi`,0..16)。
+	//
+	// ★ 不拆成「哪個人 + 哪一頁」兩個變數是刻意的:翻頁時
+	// 「最後一名的裝備頁 → Equipment」與「Armaments → 繞回第一名」
+	// 這兩個接縫用兩個變數寫不出來(`internal/game/ztatspages.go`)。
+	Page int
 }
 
 // BeginZtats 打開數值畫面。
@@ -198,7 +202,10 @@ func (s *State) BeginZtats() bool {
 	return true
 }
 
-// ZtatsPage 翻頁。delta 是 -1 或 +1,會在隊伍範圍內繞回。
+// ZtatsPage 翻頁。delta 是 -1 或 +1。
+//
+// ⚠ **不是**「在隊伍範圍內繞回」—— 原版有 17 頁(六名 × 2 + 五頁全隊共用),
+// 而繞回的接縫在 Armaments 與第一名之間(`ZtatsNext` / `ZtatsPrev`)。
 func (s *State) ZtatsPage(delta int) {
 	if s.Zstats == nil {
 		return
@@ -210,7 +217,38 @@ func (s *State) ZtatsPage(delta int) {
 	if n <= 0 {
 		return
 	}
-	s.Zstats.Member = ((s.Zstats.Member+delta)%n + n) % n
+	if delta < 0 {
+		s.Zstats.ZtatsPrev(n)
+		return
+	}
+	s.Zstats.ZtatsNext(n)
+}
+
+// ZtatsKey 收數字鍵(原版按鍵 `0` 與 `1`..`6`)。
+//
+//	'0'      → Equipment 頁
+//	'1'..'6' → 跳到第 N 名的數值頁
+//
+// ⚠ 超出隊伍人數的按鍵**什麼都不做** —— 原版先擋
+// `鍵碼 − 0x31 >= 隊伍人數`,不是繞回也不是報錯。回傳有沒有吃掉這個鍵。
+func (s *State) ZtatsKey(r rune) bool {
+	if s.Zstats == nil {
+		return false
+	}
+	if r == '0' {
+		s.Zstats.ZtatsJumpEquipment()
+		return true
+	}
+	if r < '1' || r > '6' {
+		return false
+	}
+	n := s.PartySize
+	if n > len(s.Roster) {
+		n = len(s.Roster)
+	}
+	before := s.Zstats.Page
+	s.Zstats.ZtatsJumpMember(int(r-'1'), n)
+	return s.Zstats.Page != before || int(r-'1') < n
 }
 
 // EndZtats 關掉數值畫面。
@@ -219,23 +257,28 @@ func (s *State) EndZtats() {
 	s.Prompt = PromptNone
 }
 
-// ZtatsLines 是數值畫面現在該顯示的每一行。
+// ZtatsLines 是數值畫面現在該顯示的每一行(標題 + 內容)。
 //
-// 欄位順序照原版的 Ztats:名字與職業、狀態、三圍、生命、經驗與等級、魔力。
+// 頁面模型與逐頁排版在 `internal/game/ztatspages.go`(原版 `sub_1E9A0` 一族)。
 func (s *State) ZtatsLines() []string {
-	if s.Zstats == nil || s.Zstats.Member >= len(s.Roster) {
+	if s.Zstats == nil {
 		return nil
 	}
-	c := &s.Roster[s.Zstats.Member]
-	return []string{
-		fmt.Sprintf("%d / %d  %s  %s", s.Zstats.Member+1, s.PartySize,
-			c.Name, c.ClassName()),
-		fmt.Sprintf("狀態  %s", u5data.StatusName(c.Status)),
-		fmt.Sprintf("力量 %3d   敏捷 %3d   智力 %3d", c.Strength, c.Dex, c.Intel),
-		fmt.Sprintf("生命 %3d / %-3d      魔力 %3d", c.HP, c.MaxHP, c.MP),
-		fmt.Sprintf("等級 %3d   經驗 %5d", c.Level, c.Exp),
-		s.avatarLine(c),
+	title := s.ZtatsPageTitle()
+	body := s.ZtatsBody()
+	if title == "" && body == nil {
+		return nil
 	}
+	out := []string{title}
+	out = append(out, body...)
+	// 聖者那一行只在隊員頁出現(原版 `sub_1E0A4` 畫在框裡,不分頁 ——
+	// 但它讀的是**那一頁的角色**,所以共用頁沒有它)。
+	if s.Zstats.Page < ZtatsEquipmentPage {
+		if m := s.Zstats.Page / ZtatsMemberPages; m < len(s.Roster) {
+			out = append(out, s.avatarLine(&s.Roster[m]))
+		}
+	}
+	return out
 }
 
 // avatarLine 是 Ztats 最後那一句「某某**是**聖者 / **不是**聖者」。

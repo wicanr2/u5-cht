@@ -191,7 +191,7 @@ func (g *game) Update() error {
 		return nil
 	}
 
-	// 角色數值畫面:左右翻頁,ESC 收起。
+	// 角色數值畫面:左右翻頁、數字鍵直接跳頁,ESC 收起。
 	if st.Prompt == gamestate.PromptZtats {
 		switch {
 		case inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft):
@@ -201,6 +201,13 @@ func (g *game) Update() error {
 		case inpututil.IsKeyJustPressed(ebiten.KeyEscape),
 			inpututil.IsKeyJustPressed(ebiten.KeyZ):
 			st.EndZtats()
+		default:
+			// 原版的 `0` 與 `1`..`6`(`docs/re/94`)。
+			for _, r := range ebiten.AppendInputChars(nil) {
+				if st.ZtatsKey(r) {
+					break
+				}
+			}
 		}
 		g.dirty = true
 		return nil

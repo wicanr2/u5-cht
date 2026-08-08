@@ -396,6 +396,13 @@ type Save struct {
 	Spyglass byte
 	Sextant  byte
 	Watch    byte
+	// Badge 是黑棘的黑徽章(byte_3DFCC,存檔 0x0218)。
+	//
+	// ★ 位移的證據來自 Ztats 的 Items 頁:`sub_1E8D4` 把 `byte_3DFC8`..`byte_3DFCD`
+	// 六格連續搬進清單第 32..37 筆,而那六個名字(`Spyglass` `HMS Cape Plan`
+	// `Sextant` `Pocket Watch` `Black Badge` `Wooden Box`)與 U 指令的 case
+	// 標註逐一相符 ⇒ 中間沒有空格,徽章就是 0x0218(`docs/re/94`)。
+	Badge byte
 	// ShadowlordAt[i] 是第 i 個暗影君主盤據的地點編號(0 = 不在城裡,0xFF = 已消滅)。
 	ShadowlordAt [ShadowlordCount]byte
 	// ShadowlordHere 是現在被召喚出來的那一個(0xFF = 沒有)。
@@ -500,6 +507,7 @@ func ParseSave(raw []byte) (*Save, error) {
 
 	copy(s.Shards[:], raw[SaveShardsOffset:])
 	s.SandalwoodBox = raw[SaveSandalwoodBoxOffset]
+	s.Badge = raw[SaveBadgeOffset]
 	s.Spyglass = raw[SaveSpyglassOffset]
 	s.Sextant = raw[SaveSextantOffset]
 	s.Watch = raw[SaveWatchOffset]
@@ -675,6 +683,7 @@ func (s *Save) Encode() ([]byte, error) {
 
 	copy(out[SaveShardsOffset:], s.Shards[:])
 	out[SaveSandalwoodBoxOffset] = s.SandalwoodBox
+	out[SaveBadgeOffset] = s.Badge
 	out[SaveSpyglassOffset] = s.Spyglass
 	out[SaveSextantOffset] = s.Sextant
 	out[SaveWatchOffset] = s.Watch

@@ -136,8 +136,12 @@ func TestViewGemDoesNotSpendTheGem(t *testing.T) {
 	}
 }
 
-// TestZtatsPagesThroughTheParty:翻頁在隊伍範圍內繞回。
-func TestZtatsPagesThroughTheParty(t *testing.T) {
+// TestZtatsWrapsThroughArmamentsNotThroughTheParty —— ★ 繞回的接縫在哪。
+//
+// ⚠⚠ 這條原本斷言「翻頁在隊伍範圍內繞回」,而那是**發明的模型**。
+// 原版有 17 頁(六名 × 2 + Equipment + 四個清單頁),第 0 頁往前是
+// **Armaments**(`docs/re/94`),不是最後一名。
+func TestZtatsWrapsThroughArmamentsNotThroughTheParty(t *testing.T) {
 	s := lockScene(t)
 	if !s.BeginZtats() {
 		t.Fatal("打不開數值畫面")
@@ -146,12 +150,13 @@ func TestZtatsPagesThroughTheParty(t *testing.T) {
 		t.Error("數值畫面是空的")
 	}
 	s.ZtatsPage(-1)
-	if want := s.PartySize - 1; s.Zstats.Member != want {
-		t.Errorf("從第一頁往前該繞到第 %d 頁,實際 %d", want, s.Zstats.Member)
+	if s.Zstats.Page != ZtatsArmamentsPage {
+		t.Errorf("從第 0 頁往前到第 %d 頁,原版是 Armaments(%d)",
+			s.Zstats.Page, ZtatsArmamentsPage)
 	}
 	s.ZtatsPage(1)
-	if s.Zstats.Member != 0 {
-		t.Errorf("再往後該回到第 0 頁,實際 %d", s.Zstats.Member)
+	if s.Zstats.Page != 0 {
+		t.Errorf("再往後該繞回第 0 頁,實際 %d", s.Zstats.Page)
 	}
 	s.EndZtats()
 	if s.Prompt != PromptNone {

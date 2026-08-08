@@ -392,7 +392,7 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 	case game.PromptMenu:
 		hint = "↑↓ 移動,Enter 選定"
 	case game.PromptZtats:
-		hint = "←→ 翻頁,ESC 收起"
+		hint = "←→ 翻頁,0 裝備頁,1-6 跳隊員,ESC 收起"
 	case game.PromptPick:
 		hint = "↑↓ 移動,PgUp/PgDn 跳 7 項,Enter 選定,ESC 作罷"
 		if s.State.PickMulti() {
