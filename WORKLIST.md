@@ -626,18 +626,22 @@ CD 音軌是用 **MSF 位址對**播的不是「第幾軌」:索引 0 = 6:00:00�
   執行檔(見 `docs/re/89` §3a),所以不是裝飾。
 - ebiten 音訊後端(等有 ogg 才有意義)。
 
-### 5.2 截斷清單剩下的 19 個函式
+### 5.2 截斷清單剩下的 17 個函式
 
 重算:`./tools/dev.sh python3 tools/hexrays_truncation.py re_work/fmtowns/WORRIORS.EXP.asm re_work/fmtowns/WORRIORS_hexrays.c --signal both --top 5000`
 
 ```
-sub_12B20  sub_15DA0  sub_1E210  sub_203C   sub_20F24  sub_20F60  sub_24158
-sub_253D4  sub_2557C  sub_25E4C  sub_265F0  sub_26718  sub_26D88  sub_26E08
-sub_27BDC  sub_2B21C  sub_2C898  sub_30AB8  sub_B0DC
+sub_12B20  sub_15DA0  sub_1E210  sub_203C   sub_24158  sub_253D4  sub_2557C
+sub_25E4C  sub_265F0  sub_26718  sub_26D88  sub_26E08  sub_27BDC  sub_2B21C
+sub_2C898  sub_30AB8  sub_B0DC
 ```
 
-已知有機制重量的幾支:`sub_20F60`/`sub_20F24`(`That will be `/`gold for the `/`sir`/`milady`
-—— 商店報價那一行,且 `0x20F24` 有死碼所以永遠取名冊 0)、`sub_1E210`(`Equipment` Ztats 頁)。
+✅ `sub_20F24` / `sub_20F60` 已結案(`docs/re/93`)—— 而且那兩支不只是報價文字:
+裡面藏著「餐點不議價」(推翻 `docs/re/10`)、「點餐後桌上出現菜」、
+「剛好第三杯才被勸」三個機制。**截斷清單的價值就在這裡** ——
+被截掉的往往不是修飾文字,而是整段機制。
+
+下一個已知有機制重量的:`sub_1E210`(`Equipment` Ztats 頁)。
 
 ### 5.3 單點未解(語意不明,先不補假欄位)
 
@@ -658,6 +662,15 @@ sub_27BDC  sub_2B21C  sub_2C898  sub_30AB8  sub_B0DC
 | `find_unwired.py` 剩下 22 個 | — | 其中六個連測試都沒引用,「該接還是該刪」未逐一確認 |
 
 ### 5.4 本輪結案(留紀錄,避免重查)
+
+- ⚠⚠ **推翻兩條斷言:酒館的一餐不議價,而酒不是「唯一」不議價的**(`docs/re/93`)——
+  全檔掃描議價公式的指紋(`mov ecx, 64h` + `sub ecx, edx`)只命中九支函式,
+  餐點路徑三支一支都不在。引擎因此把玩家的一餐算貴了(智力 16 的店多收 50%),已改。
+  ★ 記一筆:那兩條錯誤斷言**互相掩護** —— 推翻一條時要順手查「當初支持它的那條」。
+- ✅ **`sub_20F60` / `sub_20F24` 全解**(`docs/re/93`)——
+  報價句、「sir/milady」的死碼(永遠看名冊第 0 筆)、**點餐後桌上真的出現菜**
+  (tile 0x95 → 0x9B/0x9A,原版沒有收回去的碼)、以及「**剛好第三杯**才被勸」
+  (`cmp dword_56E1C, 3` + `jnz`,第四杯之後不再問)。
 
 - ✅ **寶箱陷阱有四種、權重寫在 `byte_5FFEC`**(`docs/re/91`)——
   酸 3/8 / 毒 2/8 / 炸彈 2/8 / 毒氣 1/8;**戰鬥中只有酸與毒**(地點碼 > 0x7F)。

@@ -428,7 +428,11 @@ func TestTavernMealCountsLivingOnly(t *testing.T) {
 	s.Roster[1].Status = u5data.StatusDead
 	alive := s.PartySize - 1
 	unit := s.Shops.Prices.TavernFood[shop.TypeIndex]
-	want := u5data.Haggle(unit*alive, s.clerkIntel())
+	// ⚠⚠ 這裡原本寫 `u5data.Haggle(unit*alive, …)` —— 那是錯的。
+	// 全檔掃描議價公式(`mov ecx, 64h` + `sub ecx, edx`)只命中九支函式,
+	// 餐點路徑三支(`sub_210D8`/`sub_20E6C`/`sub_20F60`)一支都不在(`docs/re/93`)。
+	// ⇒ **餐點不議價**,價就是單價 × 活人數。
+	want := unit * alive
 
 	food, gold := s.Inventory.Food, s.Inventory.Gold
 	s.ShopChoose(rune(s.tavernHotkeys()[TavernMeal]))
@@ -446,8 +450,10 @@ func TestTavernMealCountsLivingOnly(t *testing.T) {
 
 // TestTavernWineIsNotHaggled:酒**不議價**。
 //
-// 原版 sub_21108 直接拿 dword_56E44[i] 跟金幣比,沒有套智力折扣 ——
-// 全遊戲的交易只有這一項是這樣。
+// 原版 sub_21108 直接拿 dword_56E44[i] 跟金幣比,沒有套智力折扣。
+// ⚠ 此前這裡寫「全遊戲的交易只有這一項是這樣」——**是錯的**,
+// 那是沒做全檔掃描就下的「唯一」斷言(`CLAUDE.md §4.5` 明文警告過)。
+// 掃完之後:**餐點也不議價**(`docs/re/93`)。
 func TestTavernWineIsNotHaggled(t *testing.T) {
 	s := shopState(t, 2)
 	shop, _ := s.Shops.At(2, u5data.ShopTavern)

@@ -129,6 +129,15 @@ func (s *State) tavernChoose(r rune) {
 		case TavernMeal:
 			s.quoteMeal()
 		case TavernDrink:
+			// ★ 原版 `sub_21108` 開頭:`cmp dword_56E1C, 3; jnz` ——
+			// **剛好第三杯**時店主先問一句,第四杯之後就不問了(`docs/re/93`)。
+			if sess.drinks == TavernDrinkNagCount {
+				sess.Mode = ShopModeTavernNag
+				s.Log("「" + s.addressWord() + ",恕吾直言,」" +
+					sess.Shop.Owner + "說道。「汝喝得還不夠麼?」")
+				s.Log("(Y/N)")
+				return
+			}
 			sess.Mode = ShopModeTavernWine
 			s.showTavernMenu()
 		case TavernRations:
@@ -152,6 +161,16 @@ func (s *State) tavernChoose(r rune) {
 		s.Log("「好眼光。" + i18n.Name(u5data.WineNames[i]) + ",要 " + strconv.Itoa(sess.Price) + " 金。」")
 		s.Log("「汝要嗎?(Y/N)」")
 		sess.Mode = ShopModeConfirm
+	case ShopModeTavernNag:
+		// ⚠ 原版收的是 Y / N:答 Y 才進酒單,答 N 回到選單。
+		if r == 'y' || r == 'Y' {
+			sess.Mode = ShopModeTavernWine
+			s.showTavernMenu()
+			return
+		}
+		s.Log("否。")
+		sess.Mode = ShopModeTavernMenu
+		s.showTavernMenu()
 	case ShopModeTavernLoreConfirm:
 		s.answerTavernLore(r)
 	case ShopModeTavernQty:
@@ -189,12 +208,46 @@ func (s *State) quoteMeal() {
 		s.backToMenu()
 		return
 	}
-	sess.Choice = ShopItem{Goods: GoodsFood, ID: 0, Name: "餐點", Qty: alive}
-	sess.Price = u5data.Haggle(p.TavernFood[sess.Shop.TypeIndex]*alive, s.clerkIntel())
+	sess.Choice = ShopItem{Goods: GoodsFood, ID: 0, Name: "餐點", Qty: alive, ServeOnTable: true}
+	// ⚠⚠ **餐點不議價**(`docs/re/93`)。此前這裡套了 `u5data.Haggle`,
+	// 而全檔掃描議價公式(`mov ecx, 64h` + `sub ecx, edx`)只在**九支**函式裡出現,
+	// 餐點路徑三支(`sub_210D8` / `sub_20E6C` / `sub_20F60`)一支都不在 ——
+	// 乾糧(`sub_21310`)在、餐點不在。`docs/re/10` 那一列也一併更正了。
+	sess.Price = p.TavernFood[sess.Shop.TypeIndex] * alive
 	sess.Action = ActionTavern
-	s.Log("「" + strconv.Itoa(alive) + " 位用餐,共 " + strconv.Itoa(sess.Price) + " 金。」")
+	// 原版:`"That will be <價> gold for the <two..six> of ye, <sir|milady>.`
+	// ★ `sub_20ED0` 只認 2..6 的英文數字 ⇒ **一個人時那個位置是空的**
+	// (原版就印成 "for the  of ye"),照抄。
+	s.Log("「這樣是 " + strconv.Itoa(sess.Price) + " 金," + partyCountWord(alive) +
+		"位" + s.addressWord() + "。」")
 	s.Log("「汝要嗎?(Y/N)」")
 	sess.Mode = ShopModeConfirm
+}
+
+// partyCountWord 是原版 `sub_20ED0` 的英文數字("two".."six")。
+//
+// ⚠ 它只認 **2..6**;其他值(含 1)走 `default` 什麼都不印 ——
+// 一人隊伍在原版會看到 "gold for the  of ye"。這裡照樣留空。
+func partyCountWord(n int) string {
+	if n < 2 || n > u5data.CombatPartySlots {
+		return ""
+	}
+	return [...]string{"二", "三", "四", "五", "六"}[n-2]
+}
+
+// addressWord 是原版 `sub_20F24` 的 "sir" / "milady"。
+//
+// ★★ 那支函式有**死碼**:開頭 `al = 0FFh; byte_3E08B = al; and al, al; jz`——
+// `al` 永遠不是 0,所以走的是 `edi = 0` 那條 ⇒ **永遠看名冊第 0 筆的性別**,
+// 不是說話對象。原版的 bug,照抄(`CLAUDE.md §3.0`)。
+//
+// ⚠ 附帶副作用:它把 `byte_3E08B` 寫成 0xFF。⬜ 那個位元組的語意還沒查,
+// 所以引擎沒有重現這個副作用 —— 有誰讀它的話會是一條 finding。
+func (s *State) addressWord() string {
+	if len(s.Roster) > 0 && s.Roster[0].Gender == u5data.GenderMale {
+		return "先生"
+	}
+	return "夫人"
 }
 
 // settleTavern 收下錢之後的結果。
@@ -207,6 +260,9 @@ func (s *State) settleTavern() {
 			s.Inventory.Food = u5data.GoldLimit
 		}
 		s.Log("存糧增為 " + strconv.Itoa(s.Inventory.Food) + " 份。")
+		if it.ServeOnTable {
+			s.serveOnTheTable()
+		}
 	case GoodsDrink:
 		s.Shop.drinks++
 		s.Log("「請慢用。」")
@@ -344,4 +400,35 @@ func (s *State) loreSay(off int, who, place string) string {
 		Hour: s.Clock.Hour, Item: who, Place: place,
 		TimeWord: i18n.TimeOfDay(s.Clock.Hour),
 	}))
+}
+
+// TavernDrinkNagCount 是店主開口勸的杯數(原版 `cmp dword_56E1C, 3`)。
+//
+// ⚠ 判準是 `jnz` ⇒ **剛好等於 3**。喝到第四杯之後這一問就再也不出現 ——
+// 原版的寫法,不要「順手」改成 `>= 3`(`CLAUDE.md §3.0`)。
+const TavernDrinkNagCount = 3
+
+// 空桌與上了菜的桌子(原版 `sub_20F60` 尾段直接改地圖那一格)。
+const (
+	TableEmpty      = 0x95 // 空桌
+	TableServedNorth = 0x9B // 玩家北邊那一格上了菜
+	TableServedSouth = 0x9A // 玩家南邊那一格上了菜
+)
+
+// serveOnTheTable 把菜端上桌(原版 `sub_20F60` 的最後三個分支)。
+//
+//	北邊那一格是空桌 → 改成 0x9B
+//	否則南邊那一格是空桌 → 改成 0x9A(原版這一支還多叫一次重畫)
+//	兩邊都不是桌子     → 什麼都不放
+//
+// ★ 這是**寫進地圖緩衝**的一格,與月門同一個手法(`docs/re/86`)——
+// 不是動畫、不是物件。⬜ 原版沒有把它收回去的程式碼,菜就一直留在桌上。
+func (s *State) serveOnTheTable() {
+	if s.TileAt(s.X, s.Y-1) == TableEmpty {
+		s.SetTileAt(s.X, s.Y-1, TableServedNorth)
+		return
+	}
+	if s.TileAt(s.X, s.Y+1) == TableEmpty {
+		s.SetTileAt(s.X, s.Y+1, TableServedSouth)
+	}
 }

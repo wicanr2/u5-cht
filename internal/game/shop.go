@@ -56,6 +56,8 @@ const (
 	ShopModeTavernLoreAsk
 	// ShopModeTavernLoreConfirm 是報過價、等玩家答 Y / N(原版只收這兩鍵)。
 	ShopModeTavernLoreConfirm
+	// ShopModeTavernNag 是「汝喝得還不夠麼?」—— 剛好喝到第三杯才會出現。
+	ShopModeTavernNag
 )
 
 // ShopSession 是一次進店的完整狀態。
@@ -143,6 +145,10 @@ type ShopItem struct {
 	Qty int
 	// Pitch 是店員的說詞在 SHOPPE.DAT 的位移;0 代表沒有。
 	Pitch int
+	// ServeOnTable 為真代表這是酒館**當場吃的一餐** —— 成交後要把菜端上桌
+	// (原版 `sub_20F60` 尾段改地圖那一格)。乾糧同樣是 `GoodsFood` 但不上桌,
+	// 所以兩者要靠這個旗標分,**不能**比對顯示名(譯文一改就失效)。
+	ServeOnTable bool
 }
 
 // HealService 是治療所的三種服務。
@@ -344,7 +350,7 @@ func (s *State) ShopChoose(r rune) {
 	case ShopModeInnMenu, ShopModeInnLeave, ShopModeInnPick:
 		s.innChoose(r)
 	case ShopModeTavernMenu, ShopModeTavernWine, ShopModeTavernQty,
-		ShopModeTavernLoreConfirm:
+		ShopModeTavernLoreConfirm, ShopModeTavernNag:
 		s.tavernChoose(r)
 	case ShopModeBuySell:
 		switch r {
