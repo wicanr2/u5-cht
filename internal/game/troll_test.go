@@ -20,6 +20,15 @@ func trollScene(t *testing.T) *State {
 	if s.PartySize < 1 {
 		s.PartySize = 1
 	}
+	// 瀑布掉進幽冥界那條路需要 `Under` 與 `UnderObjects`。
+	if s.Under == nil {
+		if w, err := u5data.LoadFlatMap("../../gamedata/UNDER.DAT"); err == nil {
+			s.Under = w
+		}
+	}
+	if s.UnderObjects == nil {
+		s.UnderObjects = &u5data.ObjectSet{}
+	}
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		s.Roster[i].Status = u5data.StatusGood
 		if s.Roster[i].Name == "" {
@@ -303,5 +312,105 @@ func TestGrappleOffsetIsKnown(t *testing.T) {
 	s.Inventory.Grapple = 0xFF
 	if !s.hasRope() {
 		t.Error("有抓鉤卻回報沒有 —— `return false` 的陳舊標記又回來了")
+	}
+}
+
+// TestWaterfallDamageIsExactlyOne:傷害是**固定 1 點**,不是骰的。
+//
+// 這條擋「看到 `sub_2B724` 就以為傷害也是骰出來的」—— 那一支只決定
+// 「有沒有受傷」,傷害本身是寫死的 1。
+func TestWaterfallDamageIsExactlyOne(t *testing.T) {
+	s := trollScene(t)
+	// 敏捷 0 → 一定受傷(門檻至少 1)。
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 0
+		s.Roster[i].Status = u5data.StatusGood
+		s.Roster[i].HP = 200
+	}
+	s.X, s.Y = 1, 1 // 不是那個洞
+	s.fallDownTheWaterfall()
+	for i := 0; i < s.PartySize; i++ {
+		if lost := 200 - int(s.Roster[i].HP); lost != FallDamage {
+			t.Errorf("第 %d 位掉了 %d 血,預期正好 %d", i, lost, FallDamage)
+		}
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgFalls) {
+		t.Errorf("沒印墜落:%q", s.Messages)
+	}
+	// ★ 敏捷 31 以上一定不受傷(門檻最大 30)。
+	s = trollScene(t)
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 99
+		s.Roster[i].Status = u5data.StatusGood
+		s.Roster[i].HP = 200
+	}
+	s.X, s.Y = 1, 1
+	for k := 0; k < 50; k++ {
+		s.fallDownTheWaterfall()
+	}
+	for i := 0; i < s.PartySize; i++ {
+		if s.Roster[i].HP != 200 {
+			t.Errorf("敏捷 99 掉了 %d 血 —— 門檻最大 30,不該受傷", 200-s.Roster[i].HP)
+		}
+	}
+}
+
+// TestOnlyOneWaterfallLeadsToTheUnderworld 釘住那個寫死的座標。
+func TestOnlyOneWaterfallLeadsToTheUnderworld(t *testing.T) {
+	if s := trollScene(t); s.Under == nil {
+		t.Skip("沒載幽冥界地圖")
+	}
+	// 相鄰座標都不行 —— 擋「把條件寫成範圍」。
+	for _, c := range [][2]int{
+		{UnderworldHoleX, UnderworldHoleY},
+		{UnderworldHoleX + 1, UnderworldHoleY},
+		{UnderworldHoleX - 1, UnderworldHoleY},
+		{UnderworldHoleX, UnderworldHoleY + 1},
+		{UnderworldHoleX, UnderworldHoleY - 1},
+	} {
+		s := trollScene(t)
+		s.Floor = 0
+		s.X, s.Y = c[0], c[1]
+		s.Messages = nil
+		s.fallDownTheWaterfall()
+		down := s.Floor < 0
+		want := c[0] == UnderworldHoleX && c[1] == UnderworldHoleY
+		if down != want {
+			t.Errorf("(%d, %d):掉進幽冥界 = %v,預期 %v", c[0], c[1], down, want)
+		}
+		if want && !strings.Contains(strings.Join(s.Messages, "|"), MsgFallingIntoUnderworld) {
+			t.Errorf("(%d, %d):沒印「墜入幽冥界」:%q", c[0], c[1], s.Messages)
+		}
+	}
+}
+
+// TestWaterfallGroupIsFourTiles:0xD4..0xD7 四格都是瀑布。
+func TestWaterfallGroupIsFourTiles(t *testing.T) {
+	for tile := 0xD4; tile <= 0xD7; tile++ {
+		if byte(tile)&0xFC != FallTileGroup {
+			t.Errorf("tile 0x%02X 不在瀑布那一組", tile)
+		}
+	}
+	for _, tile := range []byte{0xD3, 0xD8} {
+		if tile&0xFC == FallTileGroup {
+			t.Errorf("tile 0x%02X 被算進瀑布了", tile)
+		}
+	}
+}
+
+// TestDeadMembersDoNotTakeFallDamage:死人不再受傷。
+func TestDeadMembersDoNotTakeFallDamage(t *testing.T) {
+	s := trollScene(t)
+	for i := 0; i < s.PartySize; i++ {
+		s.Roster[i].Dex = 0
+		s.Roster[i].Status = u5data.StatusDead
+		s.Roster[i].HP = 0
+	}
+	s.X, s.Y = 1, 1
+	s.fallDownTheWaterfall()
+	for i := 0; i < s.PartySize; i++ {
+		if s.Roster[i].HP != 0 {
+			t.Errorf("第 %d 位是死人,血量卻變了", i)
+		}
 	}
 }

@@ -722,6 +722,11 @@ func (s *State) moveInWorld(d Direction) {
 	if s.TileAt(nx, ny)&0xFE == TrollBridgeTile {
 		s.crossBridge()
 	}
+	// 踩到瀑布就掉下去;世界上只有一個瀑布通往幽冥界
+	//(原版 `sub_2D9D0` 的 `tile & 0xFC == 0xD4` → `sub_10A1C`)。
+	if s.TileAt(s.X, s.Y)&0xFC == FallTileGroup {
+		s.fallDownTheWaterfall()
+	}
 	// 踏上月門就被捲走(原版 `sub_E084`)。
 	s.EnterMoongateHere()
 	// 載具的動詞與朝向(原版 `sub_7C0`)。⚠ 朝向位元同時是開砲判舷側

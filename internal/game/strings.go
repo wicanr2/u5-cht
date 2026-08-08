@@ -263,6 +263,12 @@ const (
 	MsgImpassable   = "此路不通!"
 	MsgNotClimbable = "此處無可攀之物!"
 	MsgFell         = "失足墜落!"
+
+	// 瀑布(原版 `sub_10A1C`)
+	//
+	// ⚠ 「F-A-L-L-S!!!」原版是用破折號拉長的擬聲 —— 中文用刪節號拉長同樣的效果。
+	MsgFalls                = "墜——落——!"
+	MsgFallingIntoUnderworld = "墜入幽冥界!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

@@ -214,3 +214,72 @@ func (s *State) klimbOverworld() {
 		s.tick()
 	})
 }
+
+// 瀑布:掉下去,而世界上只有一個洞通往幽冥界(原版 `sub_10A1C`)
+//
+// 觸發有兩處,判的都是 `tile & 0xFC == 0xD4`(`look#212..215` 四格都是「瀑布」):
+//
+//	sub_2D9D0  腳下那一格是瀑布(移動之後)
+//	sub_2D2D0  漂流之後,`byte_3F7A9`(視窗緩衝往南一列)是瀑布
+//
+// # `sub_10A1C`
+//
+//	印 "F-A-L-L-S!!!"
+//	…畫面效果:載具碼暫設 0(不畫載具圖)、重畫、**再還原**…
+//	for (每個沒死的隊員)
+//	    門檻 = max(1, rand(0, 60) / 2)          ; sub_2B724,與拖屍怪掙脫同一支
+//	    if (敏捷 <= 門檻) 那個人受 **1** 點傷
+//	if (X == 0x36 && Y == 0x8A) {               ; ★ 寫死的座標 (54, 138)
+//	    印 "Falling into underworld!!"
+//	    樓層 = −1
+//	    存 A:BRIT.OOL、載 A:UNDER.OOL、換地圖 UNDER.DAT
+//	}
+//
+// ★ 兩件事值得記:
+//
+//  1. **傷害是固定 1 點**,不是骰的 —— 擲的只是「有沒有受傷」。
+//     瀑布不是陷阱,是交通工具。
+//  2. **通往幽冥界的座標寫死在程式裡**,世界上只有那一個瀑布下得去。
+//     其餘瀑布只會讓你掉一次、扣一點血,原地不動。
+//
+// ⚠ 那個畫面效果**有還原**載具碼(`mov eax, esi; mov byte_3E08C, al`),
+// 與 `sub_22F0` 溺水那一段的「設 0 之後不還原」正好成對 ——
+// 所以那裡的 0 真的是「不畫載具圖」而不是某種載具,兩處互相印證。
+
+// 瀑布的常數。
+const (
+	// FallTileGroup 是瀑布(`tile & 0xFC == 0xD4`,四格)。
+	FallTileGroup = 0xD4
+	// FallDamage 是掉下去受的傷 —— **固定 1 點**,不是骰的。
+	FallDamage = 1
+	// UnderworldHoleX / UnderworldHoleY 是唯一通往幽冥界的那個瀑布
+	// (原版寫死 `cmp byte_3E0A6, 36h` / `cmp byte_3E0A7, 8Ah`)。
+	UnderworldHoleX = 0x36
+	UnderworldHoleY = 0x8A
+)
+
+// fallDownTheWaterfall 是踩到瀑布那一格(原版 `sub_10A1C`)。
+func (s *State) fallDownTheWaterfall() {
+	s.Log(MsgFalls)
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		if s.Roster[i].Status == u5data.StatusDead {
+			continue
+		}
+		// 門檻與拖屍怪掙脫同一支 `sub_2B724`。
+		threshold := u5data.CorpserEscapeThreshold(s.Roll(0, u5data.CorpserEscapeRollMax))
+		if int(s.Roster[i].Dex) <= threshold {
+			s.damageMember(i, FallDamage)
+		}
+	}
+	// ★ 只有那一個座標下得去。
+	if s.X != UnderworldHoleX || s.Y != UnderworldHoleY {
+		return
+	}
+	if s.Under == nil {
+		// 沒載幽冥界地圖就誠實停在這裡,不假裝掉下去(`CLAUDE.md` §3.0)。
+		return
+	}
+	s.Log(MsgFallingIntoUnderworld)
+	s.Floor = -1
+	s.placeUnderworldItems()
+}
