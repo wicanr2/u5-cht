@@ -303,16 +303,21 @@ func (s *State) applyEffects(fx u5data.Effects) {
 	if fx.Gives {
 		s.giveThing(fx.GiveThing)
 	}
-	// ★ 兩個條件跳轉:條件不成立時**什麼都不做**(不跳、不印別的話)。
+	// ★ 兩個條件跳轉。**跳的目標是提問區塊的碼(0x90..0x9F),不是「第 N 則
+	// 回答」** —— 原版 `byte_55F32` 就是那個碼,而三支掃描函式
+	// (`sub_1BCB8` / `sub_1BD0C` / `sub_1C00C`)都是「往前找到第一個
+	// 開頭位元組等於它的區塊」。引擎的 `QuestionAt(code)` 正是同一個查法,
+	// 所以直接借 `ask()`(`docs/re/79` 追記)。
 	//
-	// ⚠ 跳到「第 N 則回答」需要一個「照編號取回答」的入口,而引擎目前的
-	// `RespondAt` 是照關鍵字找的。條件本身已經算得出來(下面兩個 Log),
-	// **跳轉的落點還沒接** —— 誠實印出來而不是假裝跳了(`docs/re/79` 的 ⬜)。
-	if fx.HasKnownJump && s.KnowsThyName(int(fx.JumpIfKnownBit)) {
-		s.Log(MsgTalkJumpNotWired)
+	// 條件不成立時**什麼都不做**(不跳、也不印別的話)。
+	if fx.HasKnownJump && s.knownToThisNPC() {
+		// ★ 0xFF 不是「第 255 個區塊」,是「不跳,回到『Your interest?』」。
+		if fx.JumpIfKnownTo != talkContinueCode {
+			s.ask(fx.JumpIfKnownTo)
+		}
 	}
 	if fx.HasKarmaJump && s.Karma >= int(fx.JumpIfKarmaAt) {
-		s.Log(MsgTalkJumpNotWired)
+		s.ask(fx.JumpIfKarmaTo)
 	}
 	if fx.AsksPlayer {
 		s.ask(fx.AskCode)
@@ -321,6 +326,15 @@ func (s *State) applyEffects(fx u5data.Effects) {
 		s.EndConversation()
 	}
 }
+
+// talkContinueCode 是 0x8C 的「不跳」值(原版 `cmp bl, 0FFh`)。
+const talkContinueCode = 0xFF
+
+// knownToThisNPC 回報**正在交談的這個 NPC** 認不認得汝。
+//
+// ⚠ 原版 `sub_1C1C8(dword_55E6C)` 的參數是 NPC 自己的槽號,不是腳本裡的位元
+// —— 所以 0x8C 只吃一個參數(目標區塊)。
+func (s *State) knownToThisNPC() bool { return s.KnowsThyName(s.talkingTo) }
 
 // demandGold 是對話裡的索取金幣(原版 opcode 0x85 → `sub_1B854`)。
 //

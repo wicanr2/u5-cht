@@ -65,11 +65,15 @@ const (
 	// 參數 < 0x40 → 背包裝備那一格 +1(上限 99);
 	// 'A'..'K' → 十一種資源,見 `GiveThingKind`。
 	OpGiveThing = 0x86
-	// OpJumpIfKnown 是「這個 NPC 已經認得汝的話,跳到某個回答」
-	// (0x8C → `sub_1C1C8(下一個位元組)` 測 `dword_3E3E8[地點] & (1 << 位元)`)。
+	// OpJumpIfKnown 是「這個 NPC 已經認得汝的話,跳到某個提問區塊」(0x8C)。
 	//
-	// ★ 測的就是 `OpAskName` 寫進去的那個遮罩。第二個參數是目標回答編號,
-	// **0xFF 代表「不跳,直接繼續」**。
+	// ⚠ **只吃一個參數**。測的位元不在腳本裡 —— 原版是
+	// `sub_1C1C8(dword_55E6C)`,參數是**當前 NPC 自己的槽號**,
+	// 測 `dword_3E3E8[地點] & (1 << 槽)`,也就是 `OpAskName` 寫進去的那個遮罩。
+	// (我第一版讀成兩個參數:位元 + 目標。位元其實是 NPC 自己。)
+	//
+	// 那一個參數是**提問區塊的碼**(0x90..0x9F);
+	// **0xFF 代表「不跳,回到『Your interest?』繼續問」**。
 	OpJumpIfKnown = 0x8C
 	// OpNewline 換行(原版把字面的 0x8D 轉成 0x8A)。
 	OpNewline = 0x8D
@@ -118,11 +122,10 @@ type Effects struct {
 	// GiveThing 是 NPC 給的東西的代碼(0x86 的參數);`Gives` 為真才有效。
 	GiveThing byte
 	Gives     bool
-	// JumpIfKnownBit / JumpIfKnownTo 是 0x8C 的兩個參數。
-	// `JumpIfKnownTo` 為 0xFF 代表「條件成立就直接繼續對話」。
-	JumpIfKnownBit byte
-	JumpIfKnownTo  byte
-	HasKnownJump   bool
+	// JumpIfKnownTo 是 0x8C 的唯一參數:條件成立時要跳到哪個提問區塊。
+	// **0xFF 代表「不跳,回到『Your interest?』繼續問」**。
+	JumpIfKnownTo byte
+	HasKnownJump  bool
 	// JumpIfKarmaAt / JumpIfKarmaTo 是 0xFE 的兩個參數。
 	JumpIfKarmaAt byte
 	JumpIfKarmaTo byte
@@ -360,9 +363,9 @@ func (c *Conversation) render(raw []byte) (string, Effects) {
 			}
 			continue
 		case ch == OpJumpIfKnown:
-			if a := take(2); len(a) == 2 {
-				fx.JumpIfKnownBit, fx.JumpIfKnownTo = a[0]&0x7F, a[1]
-				fx.HasKnownJump = true
+			// ⚠ 一個參數。原文 `bl` 就是那個位元組,而測的位元是 NPC 自己的槽。
+			if a := take(1); len(a) == 1 {
+				fx.JumpIfKnownTo, fx.HasKnownJump = a[0], true
 			}
 			continue
 		case ch == OpJumpIfKarma:

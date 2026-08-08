@@ -59,7 +59,7 @@ func TestArgumentBytesDoNotLeakIntoTheText(t *testing.T) {
 		raw  []byte
 	}{
 		{"0x86 給東西", []byte{OpGiveThing, GiveGold | 0x80}},
-		{"0x8C 認得跳轉", []byte{OpJumpIfKnown, 0x83, 0x05}},
+		{"0x8C 認得跳轉", []byte{OpJumpIfKnown, 0x93}},
 		{"0xFE 業報跳轉", []byte{OpJumpIfKarma, 0x1E, 0x07}},
 	} {
 		if text, _ := opsConv().render(c.raw); text != "" {
@@ -97,13 +97,18 @@ func TestGiveThingSplitsAtSixtyFour(t *testing.T) {
 
 // TestBothConditionalJumpsCarryTwoArguments —— 0x8C 與 0xFE 各吃兩個位元組。
 func TestBothConditionalJumpsCarryTwoArguments(t *testing.T) {
-	_, fx := opsConv().render([]byte{OpJumpIfKnown, 0x03 | 0x80, 0x09})
-	if !fx.HasKnownJump || fx.JumpIfKnownBit != 3 || fx.JumpIfKnownTo != 9 {
-		t.Errorf("0x8C 解成 bit=%d to=%d(has=%v)",
-			fx.JumpIfKnownBit, fx.JumpIfKnownTo, fx.HasKnownJump)
+	// ⚠ 0x8C **只吃一個參數**。我第一版讀成兩個(位元 + 目標),
+	// 而那個「位元」其實不在腳本裡 —— 原版 `sub_1C1C8(dword_55E6C)` 測的是
+	// **NPC 自己的槽號**。多吃一個位元組會把後面的文字吃掉一個字。
+	_, fx := opsConv().render([]byte{OpJumpIfKnown, 0x93, 'A' | 0x80})
+	if !fx.HasKnownJump || fx.JumpIfKnownTo != 0x93 {
+		t.Errorf("0x8C 解成 to=%#x(has=%v)", fx.JumpIfKnownTo, fx.HasKnownJump)
 	}
-	// ★ 0xFF 是「條件成立就直接繼續」,不是跳到第 255 則。
-	_, fx = opsConv().render([]byte{OpJumpIfKnown, 0x01 | 0x80, 0xFF})
+	if text, _ := opsConv().render([]byte{OpJumpIfKnown, 0x93, 'A' | 0x80}); text != "A" {
+		t.Errorf("0x8C 多吃了位元組 —— 後面的文字變成 %q,預期 \"A\"", text)
+	}
+	// ★ 0xFF 是「不跳,回到『Your interest?』」,不是跳到第 255 個區塊。
+	_, fx = opsConv().render([]byte{OpJumpIfKnown, 0xFF})
 	if fx.JumpIfKnownTo != 0xFF {
 		t.Errorf("0xFF 沒保留下來:%d", fx.JumpIfKnownTo)
 	}
@@ -124,7 +129,7 @@ func TestTruncatedOpcodeArgumentsDoNotPanic(t *testing.T) {
 		{OpDemandGold},
 		{OpDemandGold, '1' | 0x80},
 		{OpGiveThing},
-		{OpJumpIfKnown, 0x01},
+		{OpJumpIfKnown},
 		{OpJumpIfKarma},
 	} {
 		if text, _ := opsConv().render(raw); text != "" {
