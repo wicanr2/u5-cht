@@ -203,6 +203,17 @@ const (
 	MsgRoughSeas   = "風浪險惡!"
 	// "Head " —— 大船轉向時印的,後面接方向名。
 	MsgHeading = "轉向"
+
+	// 戰鬥中的三句(原版 `sub_A360` / `sub_BCC4` / `sub_1F840`,見 `docs/re/67`)
+	//
+	// ⚠ `Zzzzz...` 是**隊員**睡著時每回合都會印的 —— 少了它,玩家只會看到
+	// 自己的角色莫名其妙不動。怪物睡著走另一條路(`sub_A108`),不印這句。
+	MsgZzzzz = "呼……呼……"
+	// "ARGH!" —— 被拖屍怪拖到水下的人每回合的哀號。
+	MsgArgh = "啊啊啊!"
+	// " dragged under!" / " regurgitated!"
+	MsgDraggedUnder = "被拖入水中!"
+	MsgRegurgitated = "被吐了出來!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

@@ -146,7 +146,7 @@ func (s *State) interferer(caster int) (string, bool) {
 	if !t.Active() || !s.hostile(t) || s.hostile(u) {
 		return "", false
 	}
-	if t.Flags&(UnitFrozen|UnitAsleep) != 0 {
+	if t.Flags&(UnitGrabbed|UnitAsleep) != 0 {
 		return "", false
 	}
 	if combatDistance(u.X, u.Y, t.X, t.Y) != 1 {

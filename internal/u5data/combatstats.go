@@ -360,7 +360,38 @@ const (
 	CreatureReaperIdx = 0x1B
 	// CreatureGazerIdx 的攻擊會讓目標睡著(`sub_B9A8` 的 `cmp …, 1Ch`)。
 	CreatureGazerIdx = 0x1C
+	// CreatureCorpserIdx 的攻擊會把**隊員**拖到水下(`sub_1F840`:
+	// `cmp byte ptr dword_3EF50+3[eax*8], 2Dh` → 印 " dragged under!"、
+	// 設旗標 4、把顯示 tile 設成 0)。
+	//
+	// 0x2D = 45 對回怪物名表 `off_3F564` 的第 45 筆(位址 0x3F618)= **Corpser**
+	// —— 而 `i18n` 早就有「拖屍怪」這個譯名,名字本身就在說這件事。
+	CreatureCorpserIdx = 0x2D
 )
+
+// 被拖到水下之後怎麼掙脫(原版 `sub_BCC4` + `sub_2B724`)
+//
+// 每一次輪到那個單位:先印 "ARGH!",然後擲一次掙脫:
+//
+//	門檻 = max(1, rand(0, 60) / 2)          ; sub_2B724
+//	if (敏捷 > 門檻) 印 <名字> " regurgitated!"、清掉旗標、顯示 tile 還原
+//
+// 不論掙不掙脫,**這一回合都用掉了**。
+const (
+	// CorpserEscapeRollMax 是掙脫門檻的骰上限(`sub_2B710(3Ch)` = rand(0, 60))。
+	CorpserEscapeRollMax = 60
+	// CorpserEscapeDivisor 是骰完要除的數(`sar eax, 1`)。
+	CorpserEscapeDivisor = 2
+)
+
+// CorpserEscapeThreshold 把骰出來的值換成門檻(至少 1)。
+func CorpserEscapeThreshold(roll int) int {
+	t := roll / CorpserEscapeDivisor
+	if t < 1 {
+		return 1
+	}
+	return t
+}
 
 // StatsFor 依生物編號取屬性(編號 → 索引的公式與生物名表同一套)。
 func (s *CombatStats) StatsFor(creature byte) (*CreatureStats, bool) {

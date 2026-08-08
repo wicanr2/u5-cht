@@ -96,7 +96,7 @@ func (s *State) aiTarget(idx int) (target, dx, dy int) {
 			continue
 		}
 		// 看不見與被凍住的都選不到。
-		if t.Flags&(UnitHidden|UnitFrozen) != 0 {
+		if t.Flags&(UnitHidden|UnitGrabbed) != 0 {
 			continue
 		}
 		if d := combatDistance(u.X, u.Y, t.X, t.Y); d < best {
@@ -337,6 +337,11 @@ func (s *State) resolveAttack(attacker, target int) {
 		s.Log(tn + "睡著了!")
 		return
 	}
+	// 拖屍怪把隊員拖到水下(原版 `sub_1F840`)。與注視者同一層:
+	// 命中之後改成施加狀態,**不再算傷害**。
+	if s.corpserGrab(attacker, target) {
+		return
+	}
 
 	base, shattered := s.attackDamage(a, weapon)
 	if shattered {
@@ -545,4 +550,45 @@ func itoa(n int) string {
 		b[i] = '-'
 	}
 	return string(b[i:])
+}
+
+// strugglingUnderwater 是被拖屍怪拖到水下的那個人的一回合(原版 `sub_A360`
+// 的旗標 4 分支 + `sub_BCC4`)。
+//
+//	印 "ARGH!"
+//	門檻 = max(1, rand(0, 60) / 2)
+//	if (敏捷 > 門檻) 印 <名字> " regurgitated!"、清旗標
+//	不論掙不掙脫,這一回合都用掉了
+//
+// ⚠ 掙脫判的是**敏捷**(`unit[+1]`,與行動倒數 `36 − 敏捷` 讀的是同一格),
+// 不是力量、也不是生命。
+func (s *State) strugglingUnderwater(u *Combatant) {
+	s.Log(MsgArgh)
+	dex := 0
+	if ch := s.charOf(u); ch != nil {
+		dex = int(ch.Dex)
+	} else if st := s.creatureOf(u); st != nil {
+		dex = int(st.Dex)
+	}
+	if dex > u5data.CorpserEscapeThreshold(s.Roll(0, u5data.CorpserEscapeRollMax)) {
+		u.Flags &^= UnitGrabbed
+		s.Log(s.unitName(u) + MsgRegurgitated)
+	}
+}
+
+// corpserGrab 是拖屍怪打中**隊員**時的特殊效果(原版 `sub_1F840`)。
+//
+// ⚠ 只對隊員生效 —— 原版那個分支的前提是 `test si, 80h`(目標是隊員)。
+// 拖屍怪打怪物就只是普通命中。
+func (s *State) corpserGrab(attacker, target int) bool {
+	a, t := &s.Combat.Units[attacker], &s.Combat.Units[target]
+	if a.Creature != u5data.CreatureCorpserIdx || !t.IsParty() {
+		return false
+	}
+	if t.Flags&UnitGrabbed != 0 {
+		return false
+	}
+	t.Flags |= UnitGrabbed
+	s.Log(s.unitName(t) + MsgDraggedUnder)
+	return true
 }

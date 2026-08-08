@@ -31,8 +31,18 @@ const (
 	// UnitFleeing 是逃跑中:朝目標的**反方向**走,而且**走得出戰場**
 	//(`sub_16454` 對出界的格子只在這個旗標成立時放行)。
 	UnitFleeing = 0x02
-	// UnitFrozen 這一回合不能行動,也不會被選為目標。
-	UnitFrozen = 0x04
+	// UnitGrabbed 被**拖屍怪(Corpser)拖到水下**了。
+	//
+	// ⚠ **更正**:這個旗標此前叫 `UnitGrabbed`,註解寫「這一回合不能行動」——
+	// 那是從「它會讓單位跳過回合」反推出來的名字,不是它的語意。
+	// 真正的來源是 `sub_1F840`:攻擊者的生物編號是 **0x2D(Corpser)**
+	// 而目標是隊員時,印 `" dragged under!"`、設這個旗標、把顯示 tile 設成 0
+	// (所以那個人**看起來消失了**)。
+	//
+	// 之後每一次輪到他:`sub_A360` 印 `ARGH!` 並呼叫 `sub_BCC4` 擲掙脫
+	//(敏捷 > `max(1, rand(0,60)/2)` → 印 `" regurgitated!"` 並清旗標)。
+	// 不論掙不掙脫,**這一回合都用掉了**。見 `docs/re/67`。
+	UnitGrabbed = 0x04
 	// UnitAsleep 睡著了:每輪有 1/17 機率醒來(`sub_A108` 的 `random(0,16) == 16`)。
 	UnitAsleep = 0x08
 	// UnitHidden 看不見,選不到當目標。
@@ -478,12 +488,25 @@ func (s *State) advanceCombat() {
 			// 每 10 個單位行動走 1 分鐘(原版 `byte_3E092` 數到 10)。
 			s.AdvanceTime(1)
 		}
-		if u.Flags&UnitFrozen != 0 {
+		if u.Flags&UnitGrabbed != 0 {
+			// 被拖屍怪拖到水下:印 ARGH! 並擲一次掙脫,這一回合照樣用掉。
+			s.strugglingUnderwater(u)
 			continue
 		}
 		if u.Flags&UnitAsleep != 0 {
-			// 睡著的每次有 1/17 機率醒來。
-			if s.Roll(0, 16) == 16 {
+			// ★ 醒來的機率**兩條路不一樣**,而且原版就是兩支不同的函式:
+			//
+			//	怪物 / AI(`sub_A108`)  rand(0, 16) == 16   → 1/17
+			//	隊員  (`sub_A360`)      rand(0, 255) < 16   → 1/16
+			//
+			// 而隊員那條**不論醒不醒都印 "Zzzzz..." 並用掉這一回合** ——
+			// 少了那句話,玩家只會看到自己的角色莫名其妙不動(`docs/re/67`)。
+			if s.playerControlled(u) {
+				if s.Roll(0, 255) < 16 {
+					u.Flags &^= UnitAsleep
+				}
+				s.Log(s.unitName(u) + MsgZzzzz)
+			} else if s.Roll(0, 16) == 16 {
 				u.Flags &^= UnitAsleep
 				s.Log(s.unitName(u) + "醒了。")
 			}
