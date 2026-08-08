@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       imagemagick \
       python3 \
       python3-pil \
+      python3-numpy \
       git \
       unzip \
       p7zip-full \

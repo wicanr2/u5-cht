@@ -759,6 +759,7 @@ func main() {
 		"原版 Ultima V(DOS 版)資料目錄;版權素材由玩家自備,不隨本專案散布")
 	fmtowns := flag.String("fmtowns", "re_work/fmtowns/iso/U5_E",
 		"FM Towns 版 U5_E 目錄(未壓縮 tileset 來源)")
+	mute := flag.Bool("mute", false, "不要開音訊裝置(headless / 沒有音效卡時用)")
 	audioDir := flag.String("audio", "assets/audio",
 		"渲染好的配樂目錄(ogg;由 .EUP 離線轉出,不入 git)")
 	fontPrefix := flag.String("font", "assets/fonts/eten-15",
@@ -896,18 +897,22 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		st.BeginMainMenu()
 	}
 
-	// 配樂。⚠ 目前**沒有後端**(傳 nil)—— `.EUP` → ogg 的離線渲染還沒做,
-	// 所以接上去也還沒有聲音。先把管線與「缺什麼」的回報接好:曲號在引擎裡
-	// 已經會正確切換(`docs/re/87`),缺的只有音訊本身。
-	// ⚠ 讀不到 `U5_BGM.TBL` 只是「沒有 FM Towns 資料」,不擋遊戲。
+	// 配樂。⚠ 讀不到 `U5_BGM.TBL` 只是「沒有 FM Towns 資料」,不擋遊戲。
+	//
+	// ⚠ 後端要在**確定有檔案**之後才建 —— `eaudio.NewContext` 一個程式只能叫
+	// 一次,而沒有 ogg 時建了它只會白佔一個音訊裝置。
+	var backend audio.Backend
+	if !*mute {
+		backend = audio.NewEbitenBackend()
+	}
 	var music *audio.Player
-	if mp, err := audio.New(*fmtowns, *audioDir, nil); err != nil {
+	if mp, err := audio.New(*fmtowns, *audioDir, backend); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠ 配樂:%v\n", err)
 	} else {
 		music = mp
 		if n := len(mp.Missing()); n > 0 {
 			fmt.Fprintf(os.Stderr,
-				"⚠ 配樂:%d/%d 首還沒渲染成 %s(離線轉檔還沒做,遊戲照樣可玩)\n",
+				"⚠ 配樂:%d/%d 首還沒渲染成 %s —— 跑 tools/render_music.sh 產生(遊戲照樣可玩)\n",
 				n, u5data.BGMSongCount, audio.Ext)
 		}
 	}
