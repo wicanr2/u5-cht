@@ -187,3 +187,74 @@ func TestWindChangeScrollOnlyWorksOutsideDungeons(t *testing.T) {
 		t.Errorf("地牢裡的風向竟然被改成 %d", s.Wind)
 	}
 }
+
+// TestFailedIsOnlyPrintedForScrollsAndPotions —— ★ `Failed!` 是那兩段專屬的收尾。
+//
+// 原版 `sub_1A5E8` 的 `var_10` 一開始是 1,**只有卷軸與藥水**兩個分支會把它
+// 換成函式的回傳值,而結尾 `if (var_10 == 0) 印 "Failed!"`。月石與其餘道具
+// 都跳過那個賦值 ⇒ 它們永遠不會印。
+func TestFailedIsOnlyPrintedForScrollsAndPotions(t *testing.T) {
+	// 換風卷軸在地牢裡回失敗 → 該印。
+	s := scrollScene(t)
+	s.Dungeon = &DungeonState{Index: 0, Location: u5data.DungeonLocationBase}
+	s.Messages = nil
+	s.Use(UseScrollFirst + ScrollWindChange)
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgFailed) {
+		t.Errorf("卷軸失敗該印「%s」:%q", MsgFailed, s.Messages)
+	}
+
+	// 沒中毒的人喝解毒藥水 → 該印。
+	//
+	// ⚠ 要重試:藥水有 1/8 機率走偏(`docs/re/71`),走偏之後跑的是別的顏色,
+	// 而別的顏色可能成功。第一版沒重試,紅了一次,訊息是「眼前一片通透……」
+	// —— **白**藥水的句子。同一個坑第二次。
+	s2 := scrollScene(t)
+	for i := 0; i < s2.PartySize && i < len(s2.Roster); i++ {
+		s2.Roster[i].Status = u5data.StatusGood
+	}
+	failed := false
+	for i := 0; i < 40 && !failed; i++ {
+		for j := 0; j < s2.PartySize && j < len(s2.Roster); j++ {
+			s2.Roster[j].Status = u5data.StatusGood
+		}
+		s2.Inventory.Potions[PotionCurePoison] = 1
+		s2.Messages = nil
+		s2.Use(UsePotionFirst + PotionCurePoison)
+		failed = strings.Contains(strings.Join(s2.Messages, "|"), MsgFailed)
+	}
+	if !failed {
+		t.Errorf("喝了 40 瓶沒用的解毒藥水都沒印「%s」:%q", MsgFailed, s2.Messages)
+	}
+
+	// ★ 月石埋不下去時**不該**印 —— 那一段跳過 `var_10` 的賦值。
+	s3 := scrollScene(t)
+	s3.Inventory.Moonstones[0] = u5data.Moonstone{Location: u5data.MoonstoneInHand}
+	s3.Dungeon = &DungeonState{Index: 0, Location: u5data.DungeonLocationBase}
+	s3.Messages = nil
+	s3.Use(UseMoonstoneFirst)
+	if strings.Contains(strings.Join(s3.Messages, "|"), MsgFailed) {
+		t.Errorf("月石失敗**不該**印「%s」:%q", MsgFailed, s3.Messages)
+	}
+}
+
+// TestTheWoodenBoxOnlyPrintsItsName —— ★ 這是一個**假缺口**。
+//
+// `use.go` 原本印「(木盒的用法尚未實作)」,理由是「原版印『Box- How?』
+// 再依答案分支」。那條路不存在:`sub_1A5E8` 的 case 37 整段只有
+// `push offset aBoxHow; call sub_23C18`,而字串是 `aBoxHow db 'Box',0Ah`
+// —— **就只有 "Box"**。我把 IDA 的自動命名當成了原版的字串內容。
+func TestTheWoodenBoxOnlyPrintsItsName(t *testing.T) {
+	s := scrollScene(t)
+	s.SandalwoodBox = true
+	s.Messages = nil
+	if !s.Use(UseWoodenBox) {
+		t.Errorf("木盒該回成功(原版只是印個名字):%q", s.Messages)
+	}
+	joined := strings.Join(s.Messages, "|")
+	if !strings.Contains(joined, MsgItemWoodenBox) {
+		t.Errorf("沒印木盒的名字:%q", s.Messages)
+	}
+	if strings.Contains(joined, "尚未實作") {
+		t.Error("還在說「尚未實作」—— 原版就只有這一句話")
+	}
+}

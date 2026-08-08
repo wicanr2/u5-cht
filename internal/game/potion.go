@@ -89,7 +89,10 @@ func (s *State) DrinkPotion(i int) bool {
 	// 喝的人:戰場上是**此刻行動中的那個單位**;戰場外原版問「On who:」。
 	who := s.potionDrinker()
 	if who < 0 {
-		return false
+		// ⚠ 回 **true**:原版這條路 `jmp loc_1A2F1` 直接把 `eax`(= 負的
+		// 目標索引)當回傳值,而 U 的收尾判的是 `var_10 == 0` ——
+		// 負數不是 0,所以**不會**印 "Failed!"。回 false 會多印一句。
+		return true
 	}
 
 	// ★ 1/8 的瓶子不照顏色走。

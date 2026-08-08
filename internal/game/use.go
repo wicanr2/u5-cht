@@ -24,11 +24,19 @@ import (
 //	+19       byte_3DFC0      王冠      │
 //	+20       byte_3DFC1      權杖      ┘
 //	+21..+28  byte_3E050[8]   八顆月石(== 0xFF 才列)   → sub_1A2F8(i−21)
-//	+29..+31  byte_3DFC4[3]   三塊碎片  ┐
-//	+32       byte_3DFC8      圖紙      │
-//	+33       byte_3DFC9      徽章      ├ case 29..37
-//	+34       byte_3DFCA      木盒      │
-//	+35..+37  byte_3DFCB..CD  望遠鏡 / 六分儀 / 懷錶 ┘
+//	+29..+31  byte_3DFC4[3]   三塊碎片    ┐
+//	+32       byte_3DFC8      望遠鏡      │
+//	+33       byte_3DFC9      圖紙        │
+//	+34       byte_3DFCA      六分儀      ├ case 29..37
+//	+35       byte_3DFCB      懷錶        │
+//	+36       byte_3DFCC      徽章        │
+//	+37       byte_3DFCD      檀香木盒    ┘
+//
+// ⚠ 後六筆的順序**用跳表自己的 case 標註核對過**(`aSpyglass` = case 32、
+// `aPlans` = 33、`aSextant` = 34、`aWatchThePocket` = 35、`aBadge` = 36、
+// 木盒 = 37),不是照 `sub_1E8D4` 的抄寫順序猜的 —— 我第一版就猜錯了兩筆。
+// 另一個獨立佐證是存檔:`SavePlansOffset = 0x0215 ↔ byte_3DFC9`、
+// 已驗過的檀香木盒 `0x0219 ↔ byte_3DFCD`,兩端夾住中間四筆。
 //
 // 分派在 `sub_1A5E8`,而**前三段是在進跳表之前就被接走的**:
 //
@@ -94,10 +102,15 @@ const (
 func (s *State) Use(item int) bool {
 	switch {
 	// ★ 三段在跳表之前:順序與原版一致(卷軸 → 藥水 → 月石 → 跳表)。
+	//
+	// ⚠ **只有這兩段的回傳值會被讀**:原版 `var_10` 一開始是 1,
+	// 只有卷軸與藥水那兩個分支會把它換成函式的回傳值,而結尾
+	// `if (var_10 == 0) 印 "Failed!"`。月石與其餘道具都跳過那個賦值,
+	// 所以永遠不會印。⇒ **「Failed!」是卷軸與藥水專屬的收尾**。
 	case item >= UseScrollFirst && item <= UseScrollLast:
-		return s.ReadScroll(item - UseScrollFirst)
+		return s.useOrFail(s.ReadScroll(item - UseScrollFirst))
 	case item >= UsePotionFirst && item <= UsePotionLast:
-		return s.DrinkPotion(item - UsePotionFirst)
+		return s.useOrFail(s.DrinkPotion(item - UsePotionFirst))
 	case item >= UseMoonstoneFirst && item <= UseMoonstoneLast:
 		return s.BuryMoonstone(item - UseMoonstoneFirst)
 	case item == UseCarpet:
@@ -130,9 +143,21 @@ func (s *State) Use(item int) bool {
 		s.Log(MsgShardOnlyAtFlame)
 		return false
 	case item == UseWoodenBox:
-		// 原版印「Box- How?」再依答案分支,而那條路還沒逆完。
-		s.Log(MsgBoxHow)
-		return false
+		// ⚠⚠ **更正**:這裡原本寫「原版印『Box- How?』再依答案分支,
+		// 而那條路還沒逆完」,並印一句「(木盒的用法尚未實作)」。
+		//
+		// **沒有那條路。** `sub_1A5E8` 的 case 37(`loc_1AB32`)整段只有兩行:
+		//
+		//	push offset aBoxHow ; call sub_23C18 ; jmp loc_1AB3C
+		//
+		// 而那個字串是 `aBoxHow db 'Box',0Ah` —— **就只有 "Box"**。
+		// IDA 的自動命名 `aBoxHow` 把鄰居的字尾黏進來了,而我把那個
+		// **工具產生的名字**當成了原版的字串內容。
+		//
+		// 檀香木盒的用途在別處(不列顛王城堡的 NPC 那條線,`docs/re/36`),
+		// U 對它就是印一個名字。⇒ 這不是缺口,是一個假缺口(`docs/re/77`)。
+		s.Log(MsgItemWoodenBox)
+		return true
 	}
 	s.Log(MsgNoUsableItems)
 	return false
@@ -293,4 +318,14 @@ func (s *State) useBadge() bool {
 // isDaylight 回報現在是不是白天。與抬頭看天用同一組邊界(6 時 ≤ hour < 18 時)。
 func (s *State) isDaylight() bool {
 	return s.Clock.Hour >= skyDayFrom && s.Clock.Hour < skyDayUntil
+}
+
+// useOrFail 是原版 U 的收尾(`sub_1A5E8` 的 `if (var_10 == 0) 印 "Failed!"`)。
+//
+// ⚠ 只有卷軸與藥水會走到這裡 —— 見 `Use` 裡的說明。
+func (s *State) useOrFail(ok bool) bool {
+	if !ok {
+		s.Log(MsgFailed)
+	}
+	return ok
 }
