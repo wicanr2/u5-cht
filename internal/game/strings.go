@@ -214,6 +214,16 @@ const (
 	// " dragged under!" / " regurgitated!"
 	MsgDraggedUnder = "被拖入水中!"
 	MsgRegurgitated = "被吐了出來!"
+	// " hit!" —— 隊員被打中只有這一句,**不報數字**(原版 `sub_1F840`)。
+	MsgWasHit = "被擊中了!"
+	// 怪物的四個傷勢等級(`sub_BAFC` 回 1..4,1 最重)。
+	//
+	// ⚠ 原版**從不告訴玩家怪物掉了幾點血** —— 只有這四句形容詞。
+	// 改成報數字等於洩漏原版刻意藏起來的資訊。
+	MsgWoundCritical = "已然垂危!"
+	MsgWoundHeavily  = "傷勢沉重!"
+	MsgWoundLightly  = "受了輕傷!"
+	MsgWoundBarely   = "只受了皮肉傷!"
 	// "\nWARNING: NO SKIFFS ON BOARD!\n" / "\nNo skiffs on board!\n"
 	MsgNoSkiffs = "船上沒有小艇。"
 	// "\nNo land nearby!\n"

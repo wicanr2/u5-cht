@@ -448,7 +448,9 @@ func (s *State) applyDamage(attacker, target, dmg int) {
 		}
 		ch.HP = uint16(hp)
 		if !t.Dead() {
-			s.Log(tn + "受了 " + itoa(dmg) + " 點傷。")
+			// ★ 隊員被打**只說一句「被擊中了」,不報數字**(原版 `sub_1F840`
+			// 的 `" hit!"`)—— 血量在 Ztats 看得到,不必在訊息欄重複。
+			s.Log(tn + MsgWasHit)
 		}
 	} else {
 		// ⚠ 原版在這裡是位元組減法:傷害是負數時怪物**反而回血**。
@@ -462,7 +464,10 @@ func (s *State) applyDamage(attacker, target, dmg int) {
 			t.Flags |= UnitDead
 			xp = s.killCreature(target)
 		} else {
-			s.Log(tn + "受了 " + itoa(dmg) + " 點傷。")
+			// ★ 怪物被打**報的是傷勢等級,不是數字**(原版 `sub_1F840` 的四句)。
+			// 這是刻意的設計:玩家看不到敵人的血量,只能靠形容詞判斷 ——
+			// 報數字等於洩漏原版藏起來的資訊。
+			s.Log(tn + s.woundReport(target))
 			s.maybeDivide(target)
 		}
 	}
@@ -591,4 +596,75 @@ func (s *State) corpserGrab(attacker, target int) bool {
 	t.Flags |= UnitGrabbed
 	s.Log(s.unitName(t) + MsgDraggedUnder)
 	return true
+}
+
+
+// 傷勢等級與「打怕了就跑」(原版 `sub_BAFC`)
+//
+// 這一支同時做兩件事,而引擎原本兩件都沒有:
+//
+//	① 把怪物的血量換成四句形容詞 —— 玩家判斷敵人狀況的唯一依據
+//	② **設逃跑旗標** —— 打到剩 1/4 血以下的怪物會跑
+//
+// `docs/re/16` 原本寫「逃跑就是靠走出邊緣完成的,沒有另外的『逃跑判定』」——
+// 那句話錯了,判定就在這裡(`docs/re/68`)。
+//
+//	上限 = byte_3F055[生物 × 8]
+//	if (上限/4     > 血) { 等級 = 1; 逃 }                      ; critical
+//	if (上限/2     > 血) { 等級 = 2; rand(0,256) > 251 也逃 }   ; heavily
+//	if (上限×3/4   > 血) { 等級 = 3 }                          ; lightly
+//	否則                  { 等級 = 4 }                          ; barely
+//
+// ⚠ 第三個門檻原版算的是 `(上限/4/2)*3`,不是 `上限*3/4` ——
+// 整數除法先做,兩者在上限不是 8 的倍數時**會差**。照原版的順序算。
+
+// WoundLevel 是四個傷勢等級,1 最重。
+const (
+	WoundCritical = 1
+	WoundHeavily  = 2
+	WoundLightly  = 3
+	WoundBarely   = 4
+)
+
+// woundLevel 算傷勢等級,並依原版的規則決定要不要掛上逃跑旗標。
+func (s *State) woundLevel(idx int) int {
+	u := &s.Combat.Units[idx]
+	st := s.creatureOf(u)
+	if st == nil {
+		return WoundBarely
+	}
+	hp := int(u.HP)
+	quarter := int(st.MaxHP) / 4
+	flee := false
+	level := WoundBarely
+	switch {
+	case quarter > hp:
+		level, flee = WoundCritical, true
+	case quarter*2 > hp:
+		level = WoundHeavily
+		// 半血以下還有一小段機率會跑(原版 `rand(0, 256) > 0FBh`)。
+		flee = s.Roll(0, 256) > 0xFB
+	case (quarter*2/2)*3 > hp:
+		// ⚠ 照原版的算式:先 `sar eax,1` 再 `lea esi,[esi+esi*2]`。
+		level = WoundLightly
+	}
+	if flee {
+		u.Flags |= UnitFleeing
+	} else {
+		u.Flags &^= UnitFleeing
+	}
+	return level
+}
+
+// woundReport 回傳要接在名字後面的那句話。
+func (s *State) woundReport(idx int) string {
+	switch s.woundLevel(idx) {
+	case WoundCritical:
+		return MsgWoundCritical
+	case WoundHeavily:
+		return MsgWoundHeavily
+	case WoundLightly:
+		return MsgWoundLightly
+	}
+	return MsgWoundBarely
 }

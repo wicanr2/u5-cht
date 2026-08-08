@@ -205,3 +205,87 @@ func corpserArena(t *testing.T) *State {
 	s.Messages = nil
 	return s
 }
+
+// TestWoundLevelsAreMonotonic:血越少,等級越重(1 最重)。
+//
+// 這條擋的是把跳表的四個 case 接反 —— IDA 的 case 標註是
+// case 1 → critical、case 4 → barely,而 `sub_BAFC` 回 1 給「血最少」。
+// 順序接反的話,滿血的怪物會被報成「已然垂危」,而測試不會自己發現。
+func TestWoundLevelsAreMonotonic(t *testing.T) {
+	s := corpserArena(t)
+	monster := -1
+	for i := range s.Combat.Units {
+		u := &s.Combat.Units[i]
+		if u.Flags != 0 && !u.IsParty() && s.creatureOf(u) != nil {
+			monster = i
+			break
+		}
+	}
+	if monster < 0 {
+		t.Skip("戰場上沒有查得到屬性的怪物")
+	}
+	u := &s.Combat.Units[monster]
+	max := int(s.creatureOf(u).MaxHP)
+	if max < 8 {
+		t.Skip("這隻怪的上限太低,四個區間分不開")
+	}
+	prev := 0
+	for _, hp := range []int{1, max / 4, max / 2, max} {
+		u.HP = hp
+		lv := s.woundLevel(monster)
+		if lv < 1 || lv > 4 {
+			t.Fatalf("血 %d/%d 的等級是 %d,超出 1..4", hp, max, lv)
+		}
+		if lv < prev {
+			t.Fatalf("血 %d/%d 的等級 %d 比更少血時的 %d 還輕 —— 順序反了",
+				hp, max, lv, prev)
+		}
+		prev = lv
+	}
+	// 滿血一定是最輕的那一級。
+	u.HP = max
+	if lv := s.woundLevel(monster); lv != WoundBarely {
+		t.Errorf("滿血的等級是 %d,預期 %d(皮肉傷)", lv, WoundBarely)
+	}
+	// 剩一點血一定是最重的。
+	u.HP = 1
+	if lv := s.woundLevel(monster); lv != WoundCritical {
+		t.Errorf("剩 1 點血的等級是 %d,預期 %d(垂危)", lv, WoundCritical)
+	}
+}
+
+// TestBadlyHurtMonstersFlee 是這次補上的機制。
+//
+// `docs/re/16` 原本寫「沒有另外的逃跑判定」—— 判定就在 `sub_BAFC`:
+// 血低於 1/4 一定掛逃跑旗標。
+func TestBadlyHurtMonstersFlee(t *testing.T) {
+	s := corpserArena(t)
+	monster := -1
+	for i := range s.Combat.Units {
+		u := &s.Combat.Units[i]
+		if u.Flags != 0 && !u.IsParty() && s.creatureOf(u) != nil {
+			monster = i
+			break
+		}
+	}
+	if monster < 0 {
+		t.Skip("戰場上沒有查得到屬性的怪物")
+	}
+	u := &s.Combat.Units[monster]
+	max := int(s.creatureOf(u).MaxHP)
+	if max < 8 {
+		t.Skip("這隻怪的上限太低")
+	}
+	// 剩一點血 → 一定跑。
+	u.HP, u.Flags = 1, u.Flags&^UnitFleeing
+	s.woundLevel(monster)
+	if u.Flags&UnitFleeing == 0 {
+		t.Error("血低於 1/4 卻沒掛逃跑旗標")
+	}
+	// ★ 滿血 → 一定不跑,而且會**清掉**既有的旗標(原版 `and …, 0FDh`)。
+	u.HP, u.Flags = max, u.Flags|UnitFleeing
+	s.woundLevel(monster)
+	if u.Flags&UnitFleeing != 0 {
+		t.Error("滿血卻還掛著逃跑旗標 —— 原版會把它清掉")
+	}
+}

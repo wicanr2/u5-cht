@@ -168,3 +168,103 @@ loc_A595:
   —— 三個全域都還沒定名,與 `docs/re/57` 的「兩個地點吸魔法」是**不同的閘門**
 - 跳表裡沒對到字串的那些 case(A / B 等)
 - `sub_1F840` 的其餘命中結果:`' killed!'`、`' slept!'`、`' hit!'`
+
+---
+
+## 追記:`sub_1F840` 整支讀完 —— 原版從不告訴你怪物掉了幾點血
+
+上面的「還沒追」列了 `sub_1F840` 的其餘命中結果。讀完之後那不是三句話,
+是一整套**刻意隱藏數字**的回報設計,而引擎原本把它換成了數字。
+
+### 一、命中結果的分派
+
+```
+esi = 目標旗標;  byte_3E0B2 = 這一擊的結果旗標
+byte_3E0B2 &= 0FEh
+if (byte_3E0B2 & 20h) 印 <名字> " grazed!" + 音效
+if (byte_3E0B2 & 20h) return            ; 擦傷就到此為止
+if (byte_3E0B2 & 02h) return
+if (目標旗標 & 20h) { 印 <名字> " killed!"; byte_3E0B2 |= 1 }
+if (byte_3E0B2 & 04h) { 印 <名字> " slept!"; return }
+if (byte_3E0B2 & 08h) return
+印 <名字>
+if (目標是隊員) {
+    if (攻擊者是拖屍怪) → " dragged under!"(見上文)
+    else                → " hit!"           ★ 就這樣,沒有數字
+} else {
+    等級 = sub_BAFC(目標)                    ★ 傷勢等級 1..4
+    1 → " critical!"   2 → " heavily wounded!"
+    3 → " lightly wounded!"   4 → " barely wounded!"
+}
+```
+
+★ **隊員被打只說 `hit!`,怪物被打只給一句形容詞。** 原版一次都沒有印過
+「掉了幾點血」—— 玩家判斷敵人狀況的唯一依據就是那四句話。
+引擎原本兩邊都印「受了 N 點傷」,等於把原版刻意藏起來的資訊送出去。
+
+四個 case 的對應是 IDA 自己標的(`jumptable 0001F96C case 1..4`),
+不必靠猜:`case 1 → critical`、`case 4 → barely`。
+
+### 二、★ `sub_BAFC` 同時是「逃跑判定」
+
+`docs/re/16` 寫著:
+
+> `sub_16454`(能不能走)對**出界**的格子只在逃跑旗標成立時放行:
+> 逃跑就是靠走出邊緣完成的,**沒有另外的「逃跑判定」**。
+
+前半對,**後半錯了**。判定就在 `sub_BAFC` 裡,與傷勢等級同一支:
+
+```asm
+        movzx   esi, byte_3F055[eax*8]   ; 生命上限
+        shr     esi, 2                   ; 上限 / 4
+        cmp     esi, [edi]               ; 與目前血量比
+        jle     短
+        mov     ebx, 1                   ; ★ 血 < 1/4 → critical
+        mov     [ebp+var_4], ebx         ;   並標記要逃
+        …
+        add     esi, esi                 ; 上限 / 2
+        cmp     esi, [edi]
+        jle     短
+        mov     ebx, 2                   ; 血 < 1/2 → heavily
+        push    100h / call sub_2B710    ; rand(0, 256)
+        cmp     esi, 0FBh
+        jle     短
+        mov     [ebp+var_4], 1           ; ★ 也有一小段機率要逃
+        …
+        sar     eax, 1 / lea esi,[esi+esi*2]   ; (上限/4/2)×3
+        cmp     esi, [edi]
+        jle     短
+        mov     ebx, 3                   ; 血 < 3/4 → lightly
+        …
+        mov     ebx, 4                   ; 否則 barely
+        cmp     [ebp+var_4], 0
+        jz      短
+        or      byte ptr [edi+2], 2      ; ★ 掛逃跑旗標
+        jmp     短
+        and     byte ptr [edi+2], 0FDh   ; ★ 否則**清掉**它
+```
+
+⇒ **打到剩 1/4 血以下的怪物一定會跑**;半血以下每被打一次還有
+`rand(0,256) > 251`(約 1/51)的機率跑。而血回到 3/4 以上時旗標會被**清掉** ——
+所以「治好自己的怪物會回頭再打」也是原版行為。
+
+⚠ 第三個門檻原版算的是 `(上限/4/2)×3`,**不是** `上限×3/4`。
+整數除法先做,兩者在上限不是 8 的倍數時會差一點。照原版的順序算。
+
+### 三、落地
+
+| | |
+|---|---|
+| `woundLevel(idx)` | 四級判定 + 掛 / 清逃跑旗標,逐行照 `sub_BAFC` |
+| `woundReport(idx)` | 四句形容詞 |
+| `applyDamage` | 隊員 → `MsgWasHit`;怪物 → `woundReport`。**兩邊都不再報數字** |
+
+- `TestWoundLevelsAreMonotonic` —— 擋「四個 case 接反」(接反的話滿血的怪物
+  會被報成「已然垂危」,而沒有測試會自己發現)
+- `TestBadlyHurtMonstersFlee` —— 含「滿血時旗標要被清掉」那一半
+
+### 四、還沒追的
+
+- `byte_3E0B2` 的位元語意只認出四個(0x01 killed / 0x04 slept / 0x20 grazed、
+  0x02 與 0x08 是「不要印」)。**誰設 0x20(擦傷)還沒找**,所以 `grazed!` 沒實作。
+- `sub_2C188` / `sub_2C598` 兩支音效的參數含意。
