@@ -141,3 +141,82 @@ func TestSpawnUsesTheRealWindowOrigin(t *testing.T) {
 		t.Error("還是「隊伍為中心」的近似")
 	}
 }
+
+// TestCullingJudgesByKindNotTile —— ⚠⚠ 位移 0 而不是位移 1。
+//
+// 原版是 `movzx eax, byte ptr dword_3E46C[edi*8]`(**沒有 `+1`**)⇒ 吃 `ObjKind`。
+// 第一版寫成 `ObjTile`,而 `Spawn` 與 `putObject` 都把兩欄設成同一個值,
+// 所以當時的測試完全抓不到。這一條把兩欄**故意設成不同**來釘住位移。
+func TestCullingJudgesByKindNotTile(t *testing.T) {
+	s := overworldScene(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	clearObjects(t, s)
+	s.X, s.Y = 0x58, 0x58
+	s.resetLoadWindow()
+	set := s.currentObjects()
+	far := func(slot int, kind, tile byte) {
+		o := &set.Objects[slot]
+		*o = u5data.MapObject{Kind: kind, Tile: tile,
+			X: s.WindowX + 100, Y: s.WindowY + 100, Floor: s.Floor}
+		o.Raw[u5data.ObjKind] = kind
+		o.Raw[u5data.ObjTile] = tile
+		o.Raw[u5data.ObjX] = byte(o.X)
+		o.Raw[u5data.ObjY] = byte(o.Y)
+	}
+	// (a) 種類碼是船(0x24,不是生物)、圖是 Orc(0xC0,是生物)→ **不該清**。
+	far(5, u5data.VehicleShip, 0xC0)
+	// (b) 種類碼是 Orc、圖是船 → **該清**。
+	far(6, 0xC0, u5data.VehicleShip)
+
+	s.cullDistantCreatures()
+	if set.Objects[5].Raw[u5data.ObjKind] == 0 {
+		t.Error("種類碼是船卻被清掉了 —— 判準讀成 ObjTile 了")
+	}
+	if set.Objects[6].Raw[u5data.ObjKind] != 0 {
+		t.Error("種類碼是 Orc 卻沒被清 —— 判準讀成 ObjTile 了")
+	}
+}
+
+// TestVehiclesOnTheMapAreNeverCulled —— ★ 玩家停在外面的載具不能消失。
+//
+// 靠的是 `sub_22B0` 對 `< 0x2C` 回 0。原版 `sub_2DD44` 把載具放回大地圖時寫的
+// 種類碼是 **0x25(船)/ 0x29(小艇)**,引擎的 `dismountShip` 用 `Transport`
+// (0x24..0x2B)—— 兩者都落在同一區。馬(0x10/0x11)與魔毯(0x14)也一樣。
+//
+// ⚠ 反面:**敵船(0x2C..0x2F)是生物,會被清** —— 那是對的,牠們是敵人。
+func TestVehiclesOnTheMapAreNeverCulled(t *testing.T) {
+	s := overworldScene(t)
+	if s.BaseSave == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	for _, tc := range []struct {
+		kind byte
+		name string
+		cull bool
+	}{
+		{u5data.VehicleShip, "大船 0x24", false},
+		{u5data.VehicleShip + 1, "大船 0x25(原版放回地圖用的值)", false},
+		{u5data.VehicleSkiff, "小艇 0x28", false},
+		{u5data.VehicleSkiff + 1, "小艇 0x29(原版放回地圖用的值)", false},
+		{u5data.TileHorse, "馬 0x10", false},
+		{u5data.TileCarpetObj, "魔毯", false},
+		{u5data.SpawnEnemyShip, "敵船 0x2C", true},
+		{0xC0, "Orc", true},
+	} {
+		clearObjects(t, s)
+		s.X, s.Y = 0x58, 0x58
+		s.resetLoadWindow()
+		putObject(t, s, 5, tc.kind, s.WindowX+100, s.WindowY+100)
+		s.cullDistantCreatures()
+		gone := s.currentObjects().Objects[5].Raw[u5data.ObjKind] == 0
+		if gone != tc.cull {
+			verb := "被清掉了"
+			if !gone {
+				verb = "沒被清"
+			}
+			t.Errorf("%s(0x%02X)%s,預期 cull=%v", tc.name, tc.kind, verb, tc.cull)
+		}
+	}
+}

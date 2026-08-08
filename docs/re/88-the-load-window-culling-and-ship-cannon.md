@@ -87,22 +87,61 @@ loc_F9:  mov edi, ebx
 
 `sub_2E24` 的第二趟(移動那一趟之後):
 
-```
-for (槽 = 1Fh; 槽 > 0; 槽--) {                 ; ⚠ 槽 0 掃不到
-    if (!sub_22B0(物件[槽].tile)) continue      ; ★ 只清生物
-    if (((物件X − 原點X) & 0FFh) > 1Fh) → 清
-    if (((物件Y − 原點Y) & 0FFh) > 1Fh) → 清
-    清 = sub_2B6C8(0,0,0,0,0,0, 槽)             ; 六個欄位歸零
-}
+```asm
+loc_2ED1:  mov   edi, 1Fh
+loc_2ED6:  and   edi, edi ; jle 出去                    ; ⚠ 槽 0 掃不到
+           movzx eax, byte ptr dword_3E46C[edi*8]      ; ★★ 位移 0 = Kind,**沒有 +1**
+           push  eax ; call sub_22B0                    ; ★ 只清生物
+           and   eax, eax ; jz 下一個
+           movzx eax, byte_3E0AB
+           movzx edx, byte ptr dword_3E46C+2[edi*8]
+           sub   edx, eax ; and edx, 0FFh
+           cmp   edx, 1Fh ; jg  清
+           …Y 軸同理…
+           sub_2B6C8(0,0,0,0,0,0, 槽)                   ; 六個欄位歸零
 ```
 
-★ 兩個容易做錯的地方:
+★ 三個容易做錯的地方:
 
 - **判準是視窗原點,不是隊伍座標。** 視窗不捲的回合,怪走遠了也留著。
 - **只清生物。** 少了 `sub_22B0` 這一關,**玩家停在岸邊的船會憑空消失**。
 
-`TestCullingUsesTheWindowNotTheParty` 四個案例:視窗邊界那一格留著
-(條件是 `> 0x1F` 不是 `>=`)、再遠一格清掉、船不清、槽 0 不掃。
+### `sub_22B0` 的完整真值表(逐位址算出來的,不是猜的)
+
+指令長度累加得到四個標籤的位址,兩個尾巴分別是 `loc_22E6`(**回 0**)與
+`loc_22EA`(**回 1**):
+
+| 種類碼 | 算不算生物 |
+|---|---|
+| `< 0x2C` | ❌ **不是** ← ★ **載具全部落在這裡** |
+| `0x2C..0x2F` | ✅ 是(敵船) |
+| `0x30..0x7F` | ❌ |
+| `0x80..0xB3` | ✅ |
+| `0xB4..0xB7` | ❌(四個信物) |
+| `0xB8..0xE7` | ✅ |
+| `0xE8..0xEB` | ❌ |
+| `0xEC..0xFF` | ✅(含漩渦 0xEC) |
+
+⇒ **船不會消失是靠 `< 0x2C` 回 0**:原版 `sub_2DD44` 把離場時騎著的載具放回
+大地圖時寫的種類碼是 **0x25(船)或 0x29(小艇)**;引擎的 `dismountShip` 用
+`Transport`(0x24..0x2B)、馬是 0x10/0x11、魔毯 0x14 —— 全部 < 0x2C。
+`TestVehiclesOnTheMapAreNeverCulled` 逐個釘住,反面也釘:**敵船 0x2C 會被清**。
+
+### ⚠⚠ 一個位移錯誤(使用者指出來的)
+
+第一版把判準寫成 `IsCreatureTile(o.Raw[ObjTile])` —— **位移 1**。
+原版是 `movzx eax, byte ptr dword_3E46C[edi*8]`,**沒有 `+1`** ⇒ 吃**位移 0
+的 `ObjKind`**。同一支函式的兄弟迴圈(攻擊那一趟)本來就用 `ObjKind`,
+兩邊不一致本身就是訊號。
+
+**為什麼測試沒抓到**:`ObjectSet.Spawn` 與測試輔助 `putObject` 都把 `ObjKind`
+與 `ObjTile` 設成**同一個值** ⇒ 讀哪一個都一樣。
+真實資料會分歧(存檔載入的物件、`turnBroadside` 只改 `ObjTile` 的敵船),
+那時就會清錯槽。已補 `TestCullingJudgesByKindNotTile`:
+種類碼是船而圖是 Orc → 不清;種類碼是 Orc 而圖是船 → 清。
+
+⇒ 教訓:**「兩個欄位在測試資料裡永遠相等」會讓位移錯誤隱形。**
+釘位移的測試必須讓那兩欄不同。
 
 ## 2. ⚠⚠ `sub_2B24` 的第二個參數是死的 —— 影主那條路是**空轉**
 

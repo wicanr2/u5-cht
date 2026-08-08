@@ -74,15 +74,23 @@ const CullFromSlot = 0x1F
 // cullDistantCreatures 把離視窗太遠的生物整槽清掉(原版 `sub_2E24` 的尾段)。
 //
 //	for (槽 = 0x1F; 槽 > 0; 槽--) {
-//	    if (!sub_22B0(物件[槽].tile)) continue        ; 不是生物就不清
+//	    if (!sub_22B0(物件[槽].Kind)) continue        ; ★ 位移 0,不是位移 1
 //	    if (((物件X − 原點X) & 0xFF) > 0x1F) → 清
 //	    if (((物件Y − 原點Y) & 0xFF) > 0x1F) → 清
 //	}
 //
-// ★ 兩件事要注意:
+// ★ 三件事要注意:
 //   - 判準是**視窗原點**不是隊伍座標 ⇒ 視窗不捲的那些回合,怪走遠了也不會被清。
-//   - 只清**生物**(`IsCreatureTile`)⇒ 船、馬、寶箱、屍體留在原地不會被清掉。
+//   - 只清**生物**(`IsCreatureTile`)⇒ 船、馬、小艇、寶箱、屍體不會被清掉。
 //     少了這個條件,玩家停在岸邊的船會憑空消失。
+//     ★ 靠的是 `sub_22B0` 對 `< 0x2C` 回 0,而載具碼是 0x10/0x14/0x24/0x28 ——
+//     原版 `sub_2DD44` 把載具放回地圖時寫的種類碼是 **0x25(船)或 0x29(小艇)**,
+//     兩個都 < 0x2C ⇒ 引擎的 `dismountShip` 用 `Transport`(0x24..0x2B)也落在同一區。
+//   - ⚠⚠ **判準吃 `ObjKind`(位移 0),不是 `ObjTile`(位移 1)。**
+//     原版是 `movzx eax, byte ptr dword_3E46C[edi*8]` —— 沒有 `+1`。
+//     第一版寫成 `ObjTile`,而 `Spawn` 與測試輔助都把兩個欄位設成同一個值,
+//     所以測試抓不到。兩者一旦分歧(存檔載入的物件、`turnBroadside` 改過的敵船)
+//     就會清錯槽。`TestCullingJudgesByKindNotTile` 用「兩欄故意不同」釘住它。
 func (s *State) cullDistantCreatures() {
 	set := s.currentObjects()
 	if set == nil {
@@ -90,7 +98,7 @@ func (s *State) cullDistantCreatures() {
 	}
 	for slot := CullFromSlot; slot > 0; slot-- {
 		o := &set.Objects[slot]
-		if !u5data.IsCreatureTile(o.Raw[u5data.ObjTile]) {
+		if !u5data.IsCreatureTile(o.Raw[u5data.ObjKind]) {
 			continue
 		}
 		dx := (int(o.Raw[u5data.ObjX]) - s.WindowX) & 0xFF
