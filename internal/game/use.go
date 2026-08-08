@@ -134,14 +134,20 @@ func (s *State) Use(item int) bool {
 	case item == UseBadge:
 		return s.useBadge()
 	case item >= UseShardFirst && item <= UseShardLast:
-		// 碎片的用法是「丟進聖火」,而那條路走的是聖火那一支
-		//(`docs/re/26`),不是這裡。這裡只擋住「身上沒有」。
-		if !s.Shards[item-UseShardFirst] {
-			s.Log(MsgDontHaveThat)
-			return false
-		}
-		s.Log(MsgShardOnlyAtFlame)
-		return false
+		// ⚠⚠ **更正**:這裡原本寫「碎片的用法是丟進聖火,而那條路走的是聖火
+		// 那一支(`docs/re/26`),不是這裡」,然後印一句「碎片只能投入聖火」
+		// 就回失敗。
+		//
+		// **這裡就是那條路。** 跳表 case 29..31 全部指向 `loc_1A9A3`:
+		//
+		//	mov eax, [ebp+var_C] ; sub eax, 1Dh ; push eax ; call sub_1A38C
+		//
+		// 而 `sub_1A38C` 就是「舉起碎片 → 走到聖火前 → 投進去 → 暗影君主的
+		// 末日」整條。引擎的 `UseGemShard` **早就把它實作完了** ——
+		// 只是**沒有任何地方呼叫它**,而 U 這一格反而主動拒絕。
+		//
+		// ⇒ 做完了卻接不到,等於沒做(`docs/re/80`)。
+		return s.UseGemShard(item - UseShardFirst)
 	case item == UseWoodenBox:
 		// ⚠⚠ **更正**:這裡原本寫「原版印『Box- How?』再依答案分支,
 		// 而那條路還沒逆完」,並印一句「(木盒的用法尚未實作)」。

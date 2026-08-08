@@ -451,7 +451,6 @@ const (
 	MsgPosition         = "位置:"
 	MsgPocketWatch      = "懷錶顯示:"
 	MsgBadgeWorn        = "徽章戴上了!"
-	MsgShardOnlyAtFlame = "碎片只能投入聖火。"
 
 	// 卷軸(原版 `sub_19ED8`)。名字保留咒語縮寫的語感,但效果句照原版譯。
 	//

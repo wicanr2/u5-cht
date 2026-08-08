@@ -385,3 +385,82 @@ func TestCollisionDamagesTheHullAndLowersSails(t *testing.T) {
 		t.Errorf("撞完朝向變了:0x%02X", s.Transport)
 	}
 }
+
+// ─── 做完了卻沒人叫的三支(`docs/re/80`)──────────────────────────────
+
+// TestRoughSeasActuallyFiresOnDeepWater —— ★★ `RoughSeas` 原本沒有呼叫者。
+//
+// 上一輪把 `RoughSeas` 寫好了、也有測試,但**沒有任何地方叫它** ⇒
+// 遊戲裡的風浪永遠不會發生。這條測的是**入口**,不是效果。
+func TestRoughSeasActuallyFiresOnDeepWater(t *testing.T) {
+	s := shipScene(t, 100)
+	if !s.SetTileAt(s.X, s.Y, u5data.RoughSeasTile) {
+		t.Skip("寫不進地圖")
+	}
+	// 小艇踩在深水上 → 該有風浪。
+	s.Transport = u5data.VehicleSkiff
+	s.Messages = nil
+	s.RoughSeasHere()
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgRoughSeas) {
+		t.Errorf("小艇在深水上沒有風浪:%q", s.Messages)
+	}
+	// 步行不算。
+	s.Transport = u5data.VehicleWalk
+	s.Messages = nil
+	s.RoughSeasHere()
+	if strings.Contains(strings.Join(s.Messages, "|"), MsgRoughSeas) {
+		t.Error("步行竟然也有風浪")
+	}
+	// 淺灘不算(原版比的是 `esi == 1`,單一個 tile 值)。
+	s.Transport = u5data.VehicleSkiff
+	s.SetTileAt(s.X, s.Y, u5data.TileShallowWater)
+	s.Messages = nil
+	s.RoughSeasHere()
+	if strings.Contains(strings.Join(s.Messages, "|"), MsgRoughSeas) {
+		t.Error("淺灘竟然也有風浪 —— 原版只認 tile 1")
+	}
+}
+
+// TestWindIsHiddenInDungeonsAndAtArarat —— `sub_2A984` 的三道閘門。
+func TestWindIsHiddenInDungeonsAndAtArarat(t *testing.T) {
+	s := shipScene(t, 100)
+	s.Location, s.Floor = 0, 0
+	if !s.WindShown() {
+		t.Error("大地圖上該畫風向")
+	}
+	s.Location = SightAlwaysDarkLocation // ★ 亞拉臘號殘骸
+	if s.WindShown() {
+		t.Errorf("地點 %d(亞拉臘號)不該畫風向", SightAlwaysDarkLocation)
+	}
+	s.Location = 0
+	s.Floor = -1
+	if s.WindShown() {
+		t.Error("地下世界不該走這一條(原版是另一個分支)")
+	}
+	s.Floor = 0
+	s.Dungeon = &DungeonState{Index: 0, Location: u5data.DungeonLocationBase}
+	if s.WindShown() {
+		t.Error("地牢裡不該畫風向")
+	}
+}
+
+// TestShipHullOnlyShowsAboardAShip —— `Ship:` 與 `G:` 共用同一格。
+func TestShipHullOnlyShowsAboardAShip(t *testing.T) {
+	s := shipScene(t, 100)
+	s.Transport = u5data.VehicleWalk
+	if _, ok := s.ShipHullShown(); ok {
+		t.Error("步行時不該畫船身耐久")
+	}
+	// ★ 遮罩是 0xF8 → 揚帆組與收帆組都算。
+	for _, v := range []byte{u5data.VehicleSailing, u5data.VehicleShip} {
+		s.Transport = v
+		if _, ok := s.ShipHullShown(); !ok {
+			t.Errorf("載具 %#x 該畫船身耐久(遮罩是 0xF8,兩組都算)", v)
+		}
+	}
+	// 小艇不算(0x28 & 0xF8 = 0x28)。
+	s.Transport = u5data.VehicleSkiff
+	if _, ok := s.ShipHullShown(); ok {
+		t.Error("小艇不該畫船身耐久")
+	}
+}

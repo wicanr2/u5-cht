@@ -252,6 +252,35 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 		s.Text.Draw(dst, PanelX, y, line)
 	}
 
+	// ★ 原版狀態列的四樣東西(`sub_2A1E8` / `sub_2A0C4` / `sub_2A984`),
+	// 引擎的右欄**一樣都沒畫**(`docs/re/80`):
+	//
+	//	F:<糧食>      永遠畫
+	//	Ship:<耐久>   ★ 只在**揚著帆的大船上而且不在戰鬥中**才畫
+	//	              (`byte_3E08C & 0F8h == 20h` 且 `byte_3E0A3 < 80h`);
+	//	              否則那個位置畫的是 G:<金幣>
+	//	<月>-<日>-<年>
+	//	<模式字母>    byte_3E08A 非 0 時畫('P'/'N'/'T'/'Q'/'C')
+	//
+	// ⚠ **Ship 與 G 共用同一格**:原版 `jnz short loc_2A29F` → `sub_2A0C4`,
+	// 兩者是 if/else。所以在船上看不到金幣 —— 那不是遺漏,是版面只有一格。
+	y += LineHeight
+	second := fmt.Sprintf("G:%d", st.Inventory.Gold)
+	if hull, ok := st.ShipHullShown(); ok {
+		second = fmt.Sprintf("船:%d", hull)
+	}
+	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("糧:%-5d %s", st.Inventory.Food, second))
+	y += LineHeight
+	line := st.Clock.DateString()
+	if st.CombatMode != 0 {
+		// 模式字母原版直接畫那個位元組('P' 防護 / 'N' 抗魔 / 'T' 停時…)。
+		line += "  [" + string(rune(st.CombatMode)) + "]"
+	}
+	if st.WindShown() {
+		line += "  " + st.WindName() + "風"
+	}
+	s.Text.Draw(dst, PanelX, y, line)
+
 	// 隊伍:名字 + HP。原版右欄就是這個位置。
 	y += LineHeight
 	for _, c := range st.Party() {

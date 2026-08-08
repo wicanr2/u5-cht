@@ -86,6 +86,28 @@ func (s *State) IsSailing() bool {
 	return k == u5data.VehicleShip || k == u5data.VehicleSailing
 }
 
+// WindShown 回報狀態列此刻該不該畫風向(原版 `sub_2A984` 的三道閘門)。
+//
+// ⚠⚠ **這一支與 `WindName` 原本都沒有呼叫者** —— 狀態列從來沒畫過風向,
+// 而風向是航海的核心資訊(頂風走不動)。同一類問題見 `docs/re/80`。
+//
+//	byte_3E0A3 >= 0x21  → 不畫(地牢與戰鬥)
+//	byte_3E0A3 == 0x19  → 不畫(★ 亞拉臘號殘骸)
+//	byte_3E0A5 >= 0x80  → 走另一條分支(地下世界)
+func (s *State) WindShown() bool {
+	if s.InDungeon() || s.InCombat() {
+		return false
+	}
+	if s.Location >= u5data.DungeonLocationBase {
+		return false
+	}
+	// ★ 亞拉臘號殘骸不畫 —— 與 `SightAlwaysDarkLocation` 是同一個地點編號。
+	if s.Location == SightAlwaysDarkLocation {
+		return false
+	}
+	return s.Floor >= 0
+}
+
 // WindName 是給狀態列用的風向名。
 func (s *State) WindName() string {
 	if s.Wind < 0 || s.Wind >= u5data.WindCount {

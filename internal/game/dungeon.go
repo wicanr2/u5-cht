@@ -147,16 +147,6 @@ func (s *State) DungeonTurn(left bool) {
 	s.Log("汝轉向" + d.Facing.Name() + "。")
 }
 
-// DungeonTurnAround 轉身 180 度。**在門口也做得到** —— 原版的
-// 「Not in doorway!」只擋左右轉,轉身走的是 default case。
-func (s *State) DungeonTurnAround() {
-	d := s.Dungeon
-	if d == nil {
-		return
-	}
-	d.Facing = d.Facing.TurnLeft().TurnLeft()
-	s.Log("汝轉向" + d.Facing.Name() + "。")
-}
 
 // DungeonForward 往面向的方向走一步。back 為真時後退(朝向不變)。
 func (s *State) DungeonForward(back bool) {

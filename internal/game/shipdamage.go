@@ -94,6 +94,24 @@ func (s *State) RoughSeas() {
 	s.DamageShip()
 }
 
+// RoughSeasHere 是「移動之後」該不該遇到風浪(原版 `sub_2D9D0` 的
+// `cmp esi, 1` 那一段,`esi` 是腳下的 tile)。
+//
+// ⚠⚠ **這一支原本沒有任何呼叫者。** `RoughSeas` 上一輪就寫好了、也有測試,
+// 但**沒有人叫它** ⇒ 遊戲裡的風浪永遠不會發生。這與卷軸 / 藥水 / 月石 / 碎片
+// 是同一類:**做完了卻接不到,等於沒做**(`docs/re/80`)。
+//
+// 觸發條件兩個都要成立:腳下是**深水**(tile 1),而且載具是小艇或魔毯。
+func (s *State) RoughSeasHere() {
+	if s.InScene() || s.InDungeon() || s.InCombat() {
+		return
+	}
+	if s.TileAt(s.X, s.Y) != u5data.RoughSeasTile {
+		return
+	}
+	s.RoughSeas()
+}
+
 // turnShipInstead 是大船的轉向(原版 `sub_2CCFC` 的大船分支)。
 //
 // 回傳 true 代表**這一步被用掉了**,呼叫端不要移動。三種情況:
@@ -177,4 +195,26 @@ func (s *State) blockedMove(nx, ny int) {
 	s.DamageShip()
 	// 撞完自動收帆(原版 `mov byte_3E167, 0`)。
 	s.Transport = u5data.VehicleShip | (s.Transport & 0x03)
+}
+
+// ShipHullShown 回報狀態列該不該畫船身耐久,以及要畫多少
+// (原版 `sub_2A1E8` 的 `Ship:` 分支)。
+//
+// 兩個條件都要成立:**不在戰鬥中**(`byte_3E0A3 < 0x80`)而且
+// **載具是揚著帆的大船**(`byte_3E08C & 0xF8 == 0x20`)。
+//
+// ⚠ 遮罩是 **0xF8**,涵蓋 0x20..0x27 —— 揚帆組(0x20..0x23)**與**收帆組
+// (0x24..0x27)都算。所以收了帆照樣看得到耐久,只有下了船才看不到。
+func (s *State) ShipHullShown() (int, bool) {
+	if s.InCombat() {
+		return 0, false
+	}
+	if !u5data.ShipTakesDamage(s.Transport) {
+		return 0, false
+	}
+	// ⚠ 原版讀的是 `dword_3E470+1` = **物件槽 0(隊伍自己)的 +5** ——
+	// 上了船之後那一槽就是這艘船。引擎把「正在騎的船」的耐久放在
+	// `State.ShipHull`(`DamageShip` 也是改那一個),兩者是同一件事的
+	// 兩種存法;這裡跟著引擎的模型,不去讀物件槽,免得兩個來源分歧。
+	return s.ShipHull, true
 }

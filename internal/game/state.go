@@ -779,6 +779,8 @@ func (s *State) moveInWorld(d Direction) {
 	}
 	// ★ 踏進沼澤要**再**擲一次中毒 —— 見 `swampPoisonOnArrival` 的說明。
 	s.swampPoisonOnArrival()
+	// ★ 小艇 / 魔毯走到深水上會遇到風浪(原版 `sub_2D9D0` 的 `cmp esi, 1`)。
+	s.RoughSeasHere()
 	// 踩到瀑布就掉下去;世界上只有一個瀑布通往幽冥界
 	//(原版 `sub_2D9D0` 的 `tile & 0xFC == 0xD4` → `sub_10A1C`)。
 	if s.TileAt(s.X, s.Y)&0xFC == FallTileGroup {

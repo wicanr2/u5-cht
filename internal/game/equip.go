@@ -315,33 +315,6 @@ func (s *State) ringVanishesOnWearing(member int, item byte) bool {
 	return true
 }
 
-// equip 換裝:背包 −1、身上原本那件放回背包。
-//
-// 武器有個例外:右手滿了就往左手放(原版的 0x1C 既收盾也收第二把武器)。
-// 兩手都滿才換掉右手 —— 不然玩家永遠裝不上第二把。
-func (s *State) equip(member int, slot EquipSlot, item byte) bool {
-	if member < 0 || member >= len(s.Roster) {
-		return false
-	}
-	if s.Inventory.Items[item] <= 0 {
-		s.Log(MsgDontHaveThat)
-		return false
-	}
-	c := &s.Roster[member]
-	if slot == SlotWeapon && c.Raw[u5data.CharWeapon] != u5data.ItemNone &&
-		c.Raw[u5data.CharShield] == u5data.ItemNone {
-		slot = SlotShield
-	}
-	off := slotOffset[slot]
-	if old := c.Raw[off]; old != u5data.ItemNone {
-		s.Inventory.Items[old]++
-	}
-	c.Raw[off] = item
-	s.Inventory.Items[item]--
-	s.Log(fmt.Sprintf(MsgEquipped, c.Name, s.equipName(int(item))))
-	return true
-}
-
 // Unequip 把某個欄位上的東西卸回背包。
 func (s *State) Unequip(member int, slot EquipSlot) bool {
 	if member < 0 || member >= len(s.Roster) || slot < 0 || slot >= SlotCount {
