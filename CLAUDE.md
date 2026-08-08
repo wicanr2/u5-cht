@@ -88,7 +88,7 @@ IDA Pro 反組譯 ──┬─ ★ FM Towns WORRIORS.EXP(32-bit P3,可能可反�
 一手證據:`Readme.txt` 自述為 **The Exodus Project — Ultima V Upgrade Release 1.0(2001-08-21)**,
 目標是「add MIDI music to the game」;`upgrade/TILES.16` 與原版 **md5 完全相同**。
 
-- **可用價值**:19 首 `.XMI`(`U5THEME` `BRITLAND` `STONES` `WRLDBLW` `RULEBRIT` `MONARCH` `GREYSON` `LADYNAN` `ENGGMNT` `REUNION` `HALLS` `FANFARE` `HORNPIPE` `AMIGA` `BLCKTHRN` `SETM` `TRNTLLA`…)+ AIL/MIDPAK 驅動。→ **離線轉 ogg**(XMI→MID→fluidsynth+SoundFont),不跑模擬器。
+- **可用價值**:15 首 `.XMI`(`U5THEME` `BRITLAND` `STONES` `WRLDBLW` `RULEBRIT` `MONARCH` `GREYSON` `LADYNAN` `ENGGMNT` `REUNION` `HALLS` `FANFARE` `HORNPIPE` `AMIGA` `BLCKTHRN` `SETM` `TRNTLLA`…)+ AIL/MIDPAK 驅動。→ **離線轉 ogg**(XMI→MID→fluidsynth+SoundFont),不跑模擬器。
 - **意外的 oracle**:它改了 8 個檔(`ULTIMA.EXE` `DATA.OVL` `FONT.OVL` `INTRO.OVL` `TOWN.OVL` `DUNGEON.OVL` `ENDGAME.OVL` `MAINOUT.OVL`)。**原版 vs patch 版逐 byte diff = 現成的 overlay 結構線索**(哪裡有空隙、呼叫怎麼掛)。作者 mcmagi 即 u3-cht 用的那份 U3 反組譯文件作者,其公開文件同為參考來源。
 - ⚠ **不要**把 upgrade 版當基準本體。基準是原版;upgrade 只供音樂與 diff。
 
@@ -172,7 +172,7 @@ IDA Pro 反組譯 ──┬─ ★ FM Towns WORRIORS.EXP(32-bit P3,可能可反�
 | 類別 | 唯一來源 |
 |---|---|
 | tileset / sprite / 場景圖 | 原版 `TILES.16`/`.4`、FM Towns `EGA*.TIL` 與 `.TIF`、PC-98 `TILES.CH`(§2) |
-| 音樂 | FM Towns **CDDA 兩軌**、15 首 `.EUP`、upgrade 的 19 首 `.XMI`、PC-98 `UL*.BIN` |
+| 音樂 | FM Towns **CDDA 兩軌**、15 首 `.EUP`、upgrade 的 15 首 `.XMI`、PC-98 `UL*.BIN` |
 | 音效 | 原版 `.SND`(FM Towns) |
 | 文字 | 原版 `.TLK`/`.DAT`/`DATA.OVL` 抽出後翻譯,譯文走 i18n 覆蓋層 |
 | 地圖 / NPC / 數值 | 原版 `.DAT`/`.NPC`/`.CBT`,不手調平衡 |
@@ -417,7 +417,7 @@ char sub_CD28()                    // ← ★ 參數列是空的
 | **P3** | IDA 逆向 oracle 主攻(依 §4.2 分派)。**第一件事:實測 Hex-Rays 能否反編譯 `WORRIORS.EXP`(P3 格式)** —— 結果決定後續是讀 C 還是讀組語。接著:`WORRIORJ ⊖ WORRIORS` diff 定位 DBCS 文字路徑、`.TLK` 索引與控制碼語意、時間與月相、NPC 排程、戰鬥與魔法公式;DOS 的 overlay 載入機制另案 | 每條結論在 `docs/re/` 有筆記(輸入檔 + SHA-256 + IDA 位址),且**與 DOSBox 實測一致** |
 | **P4** | 引擎補完:城鎮/城堡/地底世界/地牢/戰鬥/NPC 對話/魔法/船與氣球/存檔 | **正常玩家路徑**可從開場走到主要城鎮(見下方鐵則) |
 | **P5** | 全文中文化:`.TLK` ×4 + 7 個明文 `.DAT` + `DATA.OVL` 名表 + `.OVL` 硬編字串 | 逐畫面巡查,玩家可見文字 0 殘留英文(美術內嵌字母另計並誠實揭露) |
-| **P6** | 音樂與美術主題。音樂三來源:**FM Towns 兩條 CDDA**(直接轉 ogg,最省)、**15 首 `.EUP`**(EUPHONY,u1-cht 逆過可複用)、**upgrade 的 19 首 `.XMI`**(→MID→fluidsynth);場景對應**要逆向**(`docs/re/87`;`.TBL` 只給曲號→檔名與音量)。美術主題:EGA / CGA / Hercules / **FM Towns 直色 `.TIF`** / PC-98 | 熱鍵切換不掉 NPC、不崩(u1-cht 踩過);顏色對得上各版實機截圖(⚠ TIF FillOrder=2、`.SND` 是 sign-magnitude PCM);音樂隨場景切換 |
+| **P6** | 音樂與美術主題。音樂三來源:**FM Towns 兩條 CDDA**(直接轉 ogg,最省)、**15 首 `.EUP`**(EUPHONY,u1-cht 逆過可複用)、**upgrade 的 15 首 `.XMI`**(→MID→fluidsynth);場景對應**要逆向**(`docs/re/87`;`.TBL` 只給曲號→檔名與音量)。美術主題:EGA / CGA / Hercules / **FM Towns 直色 `.TIF`** / PC-98 | 熱鍵切換不掉 NPC、不崩(u1-cht 踩過);顏色對得上各版實機截圖(⚠ TIF FillOrder=2、`.SND` 是 sign-magnitude PCM);音樂隨場景切換 |
 | **P7** | 打包 Linux / Windows / macOS + CI + game tester 回歸 | 解壓即玩;`retro-game-playtest` 驗收通過 |
 | **P8** | README(§7)+ 攻略 / 文件收尾 | §7 的引用要求全部滿足 |
 | **後補** | PC-98 的 YM2203 曲譜(`UL01–15.BIN` + `OPNDRV.COM`)還原與 PC-98 美術主題;其他平台(Apple II / C64 / Amiga / Atari ST,需自備媒體) | 顏色與聲音對得上實機;每種格式的破解過程寫成 `docs/re/` 可重跑筆記 |

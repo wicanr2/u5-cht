@@ -24,7 +24,7 @@
 | 版本 | 位置 | 定位 |
 |---|---|---|
 | DOS 1988 | `org_game/Ultima_V_-_...1988.zip` | **資料格式主線**(玩家最普遍)、overlay 機制來源 |
-| DOS + Exodus MIDI Upgrade(2001) | 同上 `upgrade/` | 19 首 `.XMI` 音樂;8 個被 patch 的檔可當 overlay 結構 oracle。**沒有 VGA 美術** |
+| DOS + Exodus MIDI Upgrade(2001) | 同上 `upgrade/` | 15 首 `.XMI` 音樂;8 個被 patch 的檔可當 overlay 結構 oracle。**沒有 VGA 美術** |
 | **FM Towns 日文版(1992)** | `org_game/fmtown/*.7z` | ★ **逆向主目標**(P3 32-bit,Hex-Rays 可用);英日雙執行檔;未壓縮 tileset;英日對照文字;CDDA + EUP 音樂 |
 | PC-98 日文版 | `org_game/【PC98】*.rar` | 輔助:第二個未壓縮 tileset oracle、YM2203 音樂 |
 | 《軟體世界》U5 手冊 | `org_game/manuel/*.rar`(61 張 JPG) | 中文譯名與背景的**權威來源**;README 必須引用(`CLAUDE.md §7.2`) |
@@ -131,6 +131,7 @@
 | 航行節奏(頂風延遲)還沒實作 | `sailRhythm` 早就有了 | **陳舊標記**:實作完成時沒回來改那一格 | `docs/re/23` |
 | 0x020D 是寶珠 | 是**不列顛王的護符**;U5 沒有寶珠(那是 U6) | 拿後續作品的道具清單套到本作 | `docs/re/44` |
 | SFX 只有 A 級/B 級兩批而 WALK 是 B 級 | WALK / DOKU / TAKI2 / DAME2 都是 A 級 | 只數了 `sub_2C46C` 的 17 個直接呼叫點,沒發現還有一層轉接 | `docs/re/92` |
+| upgrade 的 `.XMI` 有 **19 首** | **15 首**(15 個檔各一個 `EVNT` chunk)| 數了檔名清單裡的詞而不是數檔案 | `docs/formats/13` |
 | 怪物移動本身全檔找不到 | 在 `sub_2D38` 的**最後一行** | 讀了那支函式但沒讀到尾巴 —— 「找不到」的成因是自己沒讀完 | `docs/re/85` |
 | `sub_27F0` 為 0 → 移動,否則不動 | 兩條分支行為相同(`sub_2B24` 的第二參數 8 寫 0 讀) | 假設參數會被用到,沒查它有沒有讀取點 | `docs/re/88` |
 

@@ -45,3 +45,26 @@ docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
 echo "== 兩條 CDDA"
 "$ROOT/tools/cdda2ogg.sh" "$OUT" || echo "  (跳過:找不到光碟壓縮檔)"
 echo "完成 → $OUT"
+
+# ── XMI(DOS upgrade 的 15 首)→ 標準 MIDI
+#
+# ⚠ **停在 `.mid`**,不往下渲染 —— 那 15 首瞄準的是 General MIDI / MT-32 硬體,
+# 而 GM 音色住在玩家的音源卡裡**不在原版資料上**(`docs/formats/13` §4)。
+# 要渲染成 ogg 得先決定用哪一份第三方音色庫,那是 `CLAUDE.md §3.0` 的例外,
+# 必須由使用者放行。遊玩音樂本身已由上面的 .EUP + CDDA 完成。
+UPG="${UPG:-$ROOT/gamedata/upgrade}"
+if compgen -G "$UPG/*.XMI" > /dev/null; then
+  echo "== XMI → MIDI(DOS upgrade 的 15 首)"
+  docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
+    -v "$ROOT":/work -w /work "$IMAGE" bash -c '
+      mkdir -p build/mid
+      n=0
+      for f in gamedata/upgrade/*.XMI; do
+        b=$(basename "$f" .XMI)
+        python3 tools/xmi2mid.py "$f" "build/mid/$b.mid" > /dev/null && n=$((n+1))
+      done
+      echo "✓ $n 首 → build/mid(⚠ 渲染成 ogg 待決,見 docs/formats/13 §4)"
+    '
+else
+  echo "(沒有 $UPG/*.XMI,跳過)"
+fi
