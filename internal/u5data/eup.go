@@ -1,7 +1,6 @@
 package u5data
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,66 +9,117 @@ import (
 
 // FM Towns 的 EUPHONY 樂曲 `.EUP` 與 FM 音色庫 `FM_BANK.FMB`
 //
-// 推導與佐證見 `docs/formats/12-eup-and-fmb.md`。
+// 推導與佐證見 `docs/formats/12-eup-and-fmb.md`;整條音訊鏈路見 `docs/audio-pipeline.md`。
 //
-// ★ 這一份**只解碼,不合成**。FM 參數的語意還沒定案(見 `FMVoice.Params`),
-// 所以不猜 —— 解出來的事件與音色先當資料放著,渲染是另一件事。
+// ⚠⚠ **這一份的第一版把事件模型讀錯了。** 當時以為「每 6 byte 一筆事件、
+// `0x9n` 是 note-on、`0x8n` 是 note-off」,而真相是**一個音符佔 12 byte**:
+// `0x9n` 是前半、`0x8n` 是後半。一手資料的證據是**配對率 100%**
+// (882/882 的 `0x9n` 後面緊接 `0x8n`,882/882 的 `0x8n` 前面緊接 `0x9n`)。
+// 詳見 `docs/formats/12` §2.1。
 
 const (
 	// EUPSignature 是事件區前面的簽章。
 	EUPSignature = "EUPHONY "
-	// EUPEventSize 是一筆事件的位元組數。
-	EUPEventSize = 6
-	// eupHeaderAfterSig 是簽章之後、事件開始之前的位元組數。
-	//
-	// ★ 這個 16 是**推出來的**:簽章 8 byte + 8 byte 小檔頭。驗證方式是
-	// 「從 sig+16 起以 6 為步長讀,note-on 與 note-off 的筆數會相等」——
-	// 相位錯 2 的話 status 欄會落在別的位置,兩者立刻不相等
-	// (實測 sig+0x40 那個錯相位:status 值域 0..120、高 nibble 亂七八糟)。
+	// EUPRecordSize 是一筆記錄的位元組數。音符事件佔**兩筆**。
+	EUPRecordSize = 6
+	// eupHeaderAfterSig 是簽章之後、事件開始之前的位元組數(8 byte 小檔頭)。
 	eupHeaderAfterSig = 16
+
+	// EUPTempoOffset 是速度欄相對於簽章的位移。
+	//
+	// ★ 十五首的值是 88/90/59/67 —— 都是合理的 BPM,而且**有意義地變化**:
+	// 曲 4(`M5.EUP`)是 59(最慢、也最長,73 小節 297 秒)、曲 8 是 67。
+	// 若它不是速度,不會剛好落在音樂 BPM 的範圍又與曲子性格相符。
+	EUPTempoOffset = 15
+	// eupUnknown14 是速度欄前面那一格:十四首是 51,只有 `M92.EUP` 是 112。
+	// ⬜ 語意未定(疑為拍號 / 每小節拍數)。留著給下一輪。
+	eupUnknown14 = 14
 )
 
-// EUP 事件的 status 高 nibble。
+// EUP 記錄的 status 高 nibble。
 const (
-	EUPNoteOff = 0x8
-	EUPNoteOn  = 0x9
-	// EUPProgram 是選音色(MIDI 的 program change)。byte4 = `FM_BANK.FMB` 的索引。
+	// EUPNote 是音符的**前半**(後半是 `EUPNoteTail`)。
+	EUPNote = 0x9
+	// EUPNoteTail 是音符的後半。⚠ **不是 note-off** —— 見本檔開頭。
+	EUPNoteTail = 0x8
+	// EUPProgram 是選音色(MIDI 的 program change)。`Data1` = `FM_BANK.FMB` 的索引。
 	EUPProgram = 0xC
+	// EUPBarEnd 是小節結束(`0xF2`)。
+	//
+	// ★ 它的時間欄固定是 **384** = 96 ppqn × 4 拍 ⇒ 4/4 一小節。
+	// 而所有音符的小節內 tick 都 < 384(實測最大 381)—— 兩者互相佐證。
+	EUPBarEnd = 0xF2
+	// EUPTicksPerBar 是一小節的 tick 數。
+	EUPTicksPerBar = 384
+	// EUPTicksPerQuarter 是四分音符的 tick 數(`eupplayer` 的 `96 * tempo`)。
+	EUPTicksPerQuarter = 96
 )
 
-// EUPEvent 是一筆 6 byte 事件。
-//
-//	+0  status  高 nibble = 種類、低 nibble = 聲道
-//	+1  step    ★ 距離**上一筆**事件的 tick 數(delta,不是絕對時間)
-//	+2  gate    u16 LE(+2 低位、+3 高位)—— 疑為音長,但 note-on 常常是 0
-//	+4  data1   note-on/off 是音高;note-off 一律 **0**;program change 是音色編號
-//	+5  data2   note-on/off 是力度(絕大多數 0x40);program change 是 0xFF
-type EUPEvent struct {
-	Status byte
-	Step   byte
-	Gate   uint16
-	Data1  byte
-	Data2  byte
+// EUPNoteEvent 是一個音符(原始的 12 byte 已經拆好)。
+type EUPNoteEvent struct {
+	// Channel 是 FM 聲道 0..5。
+	//
+	// ★ 前半記錄的 `[1]` **100% 等於 status 的低 nibble**(882/882)⇒ 兩者都是聲道。
+	// 後半記錄的 `[1]` 只有 6/882 相等 ⇒ 那一格是別的東西(疑為音長)。
+	Channel int
+	// Bar 是第幾小節(從 0 起),Tick 是小節內的位置 0..383。
+	Bar  int
+	Tick int
+	// Note 是音高、Velocity 是力度(絕大多數 0x40)。
+	Note     byte
+	Velocity byte
+	// Tail 是後半那 6 個位元組,原樣保留。
+	//
+	// ⬜ 欄位語意未定。已知:`[0]` 高 nibble 固定 8、低 nibble 是同一個聲道;
+	// `[1]` 值域廣(12/8/5/13/4/0/10/11…),疑為**音長**;`[5]` 幾乎都是 0x40。
+	// 要定案得追 `TBIOS.BIN`(`docs/re/89`)或比對 `eupplayer` 的音長處理。
+	Tail [EUPRecordSize]byte
 }
 
-// Kind 是 status 的高 nibble。
-func (e EUPEvent) Kind() byte { return e.Status >> 4 }
+// AbsTick 是從曲子開頭算起的 tick。
+func (e EUPNoteEvent) AbsTick() int { return e.Bar*EUPTicksPerBar + e.Tick }
 
-// Channel 是 status 的低 nibble。
-func (e EUPEvent) Channel() int { return int(e.Status & 0x0F) }
+// EUPProgramEvent 是一次選音色。
+type EUPProgramEvent struct {
+	Channel int
+	Voice   int // `FM_BANK.FMB` 的索引 0..127
+}
 
 // EUPSong 是一首解出來的曲子。
 type EUPSong struct {
 	// Title 是檔頭 0x20 起的曲名("M1"、"M8"…)。
 	Title string
-	// Events 是照檔案順序的事件,含 program change。
-	Events []EUPEvent
-	// TotalTicks 是所有 step 的和 —— 曲長的 tick 數。
-	//
-	// ⬜ **tick → 秒的換算還沒定案。** 檔頭 sig+8 那 8 byte 裡有兩個會隨曲子變的
-	// 位元組(疑為速度),語意未追;`../u1-cht` 的 EUP 渲染器用 0.0108 s/tick
-	// (≈ 48 ppqn @ 115 bpm)。要下結論得追驅動程式怎麼讀,不從長度反推。
-	TotalTicks int
+	// Tempo 是速度欄的值(BPM)。
+	Tempo int
+	// Bars 是小節數(`0xF2` 的個數)。
+	Bars int
+	// Notes 照時間順序。
+	Notes []EUPNoteEvent
+	// Programs 照出現順序 —— 通常在最前面,六個聲道各一次。
+	Programs []EUPProgramEvent
+	// Unknown14 是速度欄前面那一格(十四首 51、`M92` 112)。⬜ 語意未定。
+	Unknown14 byte
+}
+
+// Duration 是曲長(秒)。
+//
+//	每 tick 的秒數 = 60 / (96 × 速度)          ← `eupplayer` 的 `60e6/(96*t)` µs
+//	曲長 = 小節數 × 384 × 每 tick 的秒數
+//
+// ⇒ 實測十五首是 11..297 秒,合計 23.3 分鐘 —— 對遊戲配樂是合理的量。
+func (s *EUPSong) Duration() float64 {
+	if s.Tempo <= 0 {
+		return 0
+	}
+	return float64(s.Bars*EUPTicksPerBar) * 60 / float64(EUPTicksPerQuarter*s.Tempo)
+}
+
+// TickSeconds 是一個 tick 幾秒。
+func (s *EUPSong) TickSeconds() float64 {
+	if s.Tempo <= 0 {
+		return 0
+	}
+	return 60 / float64(EUPTicksPerQuarter*s.Tempo)
 }
 
 // ParseEUP 解一首 `.EUP`。
@@ -78,27 +128,60 @@ func ParseEUP(raw []byte) (*EUPSong, error) {
 	if sig < 0 {
 		return nil, fmt.Errorf("找不到 %q 簽章", EUPSignature)
 	}
-	s := &EUPSong{}
+	if sig+eupHeaderAfterSig > len(raw) {
+		return nil, fmt.Errorf("簽章之後不足 %d byte", eupHeaderAfterSig)
+	}
+	s := &EUPSong{
+		Tempo:     int(raw[sig+EUPTempoOffset]),
+		Unknown14: raw[sig+eupUnknown14],
+	}
 	if len(raw) > 0x28 {
 		s.Title = strings.TrimRight(string(raw[0x20:0x28]), "\x00 ")
 	}
-	for i := sig + eupHeaderAfterSig; i+EUPEventSize <= len(raw); i += EUPEventSize {
-		e := EUPEvent{
-			Status: raw[i],
-			Step:   raw[i+1],
-			Gate:   binary.LittleEndian.Uint16(raw[i+2 : i+4]),
-			Data1:  raw[i+4],
-			Data2:  raw[i+5],
-		}
-		// 0xFF 是結束(實測四首都落在檔尾前 0x2FC..0x300,後面是填充)。
-		if e.Status == 0xFF {
+
+	at := func(i int) []byte { return raw[i : i+EUPRecordSize] }
+	i := sig + eupHeaderAfterSig
+	for i+EUPRecordSize <= len(raw) {
+		r := at(i)
+		if r[0] == 0xFF {
 			break
 		}
-		s.TotalTicks += int(e.Step)
-		s.Events = append(s.Events, e)
+		switch r[0] >> 4 {
+		case EUPNote:
+			// ★ 音符佔兩筆 —— 後半一定緊跟在後面。
+			if i+2*EUPRecordSize > len(raw) {
+				return nil, fmt.Errorf("位移 0x%X 的音符缺後半", i)
+			}
+			tail := at(i + EUPRecordSize)
+			if tail[0]>>4 != EUPNoteTail {
+				return nil, fmt.Errorf("位移 0x%X 的音符後半是 0x%02X,預期 0x8n", i, tail[0])
+			}
+			n := EUPNoteEvent{
+				Channel:  int(r[0] & 0x0F),
+				Bar:      s.Bars,
+				Tick:     int(r[2]) + 0x80*int(r[3]),
+				Note:     r[4],
+				Velocity: r[5],
+			}
+			copy(n.Tail[:], tail)
+			s.Notes = append(s.Notes, n)
+			i += 2 * EUPRecordSize
+
+		case EUPProgram:
+			s.Programs = append(s.Programs, EUPProgramEvent{
+				Channel: int(r[0] & 0x0F), Voice: int(r[4]),
+			})
+			i += EUPRecordSize
+
+		default:
+			if r[0] == EUPBarEnd {
+				s.Bars++
+			}
+			i += EUPRecordSize
+		}
 	}
-	if len(s.Events) == 0 {
-		return nil, fmt.Errorf("解不出任何事件")
+	if len(s.Notes) == 0 {
+		return nil, fmt.Errorf("解不出任何音符")
 	}
 	return s, nil
 }
@@ -116,49 +199,21 @@ func LoadEUP(dir, name string) (*EUPSong, error) {
 	return song, nil
 }
 
-// NoteCounts 數 note-on 與 note-off 的筆數。
-//
-// ⚠ `find_unwired.py` 會把這一支與 `Programs` 列成「只有測試引用」——
-// **那是對的**:`NoteCounts` 存在的目的就是當相位的證據(見下),
-// `Programs` 是給還沒寫的離線渲染器用的。已在原地寫明,免得下一輪當死碼刪掉。
-//
-// ★ 這是「欄位配置對不對」的**決定性檢查**:一首正常的曲子裡兩者必須幾乎相等
-// (差 0 或 1 —— 最後一個音可能沒收尾)。相位讀錯的話 status 欄根本不是 status,
-// 兩個數字就不會有這個關係。`TestEUPFieldLayoutIsProvenByNoteBalance` 用它把
-// 相位釘死,不必相信註解裡的 16。
-func (s *EUPSong) NoteCounts() (on, off int) {
-	for _, e := range s.Events {
-		switch e.Kind() {
-		case EUPNoteOn:
-			on++
-		case EUPNoteOff:
-			off++
+// VoiceOf 回報某個聲道用的音色索引,沒選過就回 −1。
+func (s *EUPSong) VoiceOf(ch int) int {
+	v := -1
+	for _, p := range s.Programs {
+		if p.Channel == ch {
+			v = p.Voice
 		}
 	}
-	return
-}
-
-// Programs 回報每個聲道最後選到的音色編號(`FM_BANK.FMB` 的索引),−1 = 沒選過。
-func (s *EUPSong) Programs() [FMVoiceChannels]int {
-	var out [FMVoiceChannels]int
-	for i := range out {
-		out[i] = -1
-	}
-	for _, e := range s.Events {
-		if e.Kind() != EUPProgram {
-			continue
-		}
-		if ch := e.Channel(); ch < len(out) {
-			out[ch] = int(e.Data1)
-		}
-	}
-	return out
+	return v
 }
 
 // FM 音色庫 `FM_BANK.FMB`
 
 const (
-	// FMBankHeader 是檔案開頭那 8 byte(M1 那份是八個空白)。
+	// FMBankHeader 是檔案開頭那 8 byte。
 	FMBankHeader = 8
 	// FMVoiceSize 是一筆音色的位元組數。
 	FMVoiceSize = 48
@@ -166,34 +221,72 @@ const (
 	FMVoiceNameSize = 8
 	// FMVoiceCount 是音色數。
 	//
-	// ★ 8 + 128 × 48 = 6152 = 檔案大小,**整除且無餘數** ⇒ 佈局定案。
-	// 而 EUP 的 program change 值域落在 0..127 ⇒ 兩個獨立來源一致。
+	// ★ 8 + 128 × 48 = 6152 = 檔案大小,**整除且無餘數**;外部資料也記載
+	// 「FMB 剛好 6,152 byte」;而 EUP 的 program change 值域落在 0..127
+	// ⇒ **三個獨立來源一致**。
 	FMVoiceCount = 128
-	// FMVoiceChannels 是 EUP 用得到的聲道數(對上 `U5_BGM.TBL` 的六欄音量)。
+	// FMVoiceChannels 是 EUP 用得到的 FM 聲道數(對上 `U5_BGM.TBL` 的六欄音量)。
 	FMVoiceChannels = 6
+	// FMOperators 是每個音色的運算子數(YM2612 是 4-op)。
+	FMOperators = 4
 )
+
+// FMOperator 是一個運算子的參數(已從打包位元組拆開)。
+type FMOperator struct {
+	Detune   byte // DT 0..7
+	Multiple byte // MUL 0..15
+	TotalLvl byte // TL 0..127(越大越輕)
+	KeyScale byte // KS 0..3
+	Attack   byte // AR 0..31
+	Decay    byte // DR 0..31
+	Sustain  byte // SR 0..31
+	SusLevel byte // SL 0..15
+	Release  byte // RR 0..15
+}
 
 // FMVoice 是一筆 FM 音色。
 type FMVoice struct {
 	Name string
-	// Params 是名字後面那 40 byte,**原樣保留**。
+	Op   [FMOperators]FMOperator
+	// Algorithm 是 0..7、Feedback 是 0..7(同一個位元組 +32)。
+	Algorithm byte
+	Feedback  byte
+	// Pan 是 +33:高兩位是 L/R 輸出、低六位是 AMS/PMS。
 	//
-	// ⬜ **語意未定案。** 兩個候選佈局都說得通:
-	//
-	//	(a) 10 個參數 × 4 個運算子(參數優先):TRUMP1 讀成
-	//	    MUL=01 01 02 02、TL=18 11 00 00、AR=10 10 15 15、DR=0d 10 14 00、
-	//	    SR=00 00 00 00、SL/RR=5f 40 0f 1f…(TL 前兩個有衰減、後兩個 0
-	//	    ⇒ 後兩個是載波,合理)
-	//	(b) 4 個運算子 × 8 個參數 + 8 個共用(運算子優先):讀出來第三、四個
-	//	    運算子幾乎全 0,不太合理
-	//
-	// ⇒ (a) 看起來對,但「看起來對」不是證據。要定案得追驅動程式怎麼把它寫進
-	// YM2612 的暫存器(`sub_34xxx` 那一族)。在那之前**不解釋這 40 byte**,
-	// 免得做出一個「聽起來像但不是原版音色」的合成器(`CLAUDE.md §3.0`)。
-	Params [FMVoiceSize - FMVoiceNameSize]byte
+	// ★ 實測 126 個有名字的音色**全部 ≥ 192** ⇒ L 與 R 兩個輸出位元永遠都開。
+	Pan byte
+	// Raw 是名字後面那 40 byte,原樣保留(給比對與除錯用)。
+	Raw [FMVoiceSize - FMVoiceNameSize]byte
 }
 
 // ParseFMBank 解 `FM_BANK.FMB`。
+//
+// # 佈局(相對於一筆記錄的開頭,名字佔 0..7)
+//
+//	+8 +9 +10 +11   DT/MUL    運算子 0..3   (DT = 高 4 bit & 7、MUL = 低 4 bit)
+//	+12..+15        TL        0..127
+//	+16..+19        KS/AR     (KS = 位元 6-7、AR = 低 5 bit)
+//	+20..+23        DR        低 5 bit
+//	+24..+27        SR        低 5 bit
+//	+28..+31        SL/RR     (SL = 高 4 bit、RR = 低 4 bit)
+//	+32             FB/ALG    (FB = 位元 3-5、ALG = 低 3 bit)
+//	+33             L/R + AMS/PMS
+//	+34..+47        全 0(14 byte)
+//
+// ★★ **這個佈局有兩個獨立來源**:
+//
+//  1. **一手否證**:拿 YM2612 各欄位的位元寬度去掃全部 126 個有名字的音色,
+//     每一組的實測值域都剛好塞得進對應欄位,而且**互換就爆掉** ——
+//     `KS/AR` 上限 223、`SL/RR` 上限 255 都放不進 `TL`(≤127)或 `SR`(≤31)。
+//     最決定性的兩個:`+32` 實測 0..**61** 而 FB/ALG 的寬度剛好是 0..63;
+//     `+33` 全部 ≥ 192 ⇒ L/R 位元永遠都開,正是音樂音色庫該有的樣子。
+//  2. **外部來源**:`gzaffin/eupmini`(EUPHONY 播放器)的
+//     `TownsFmEmulator_Operator::setInstrumentParameter` 逐行讀 `instrument[8]`
+//     `[12]` `[16]` `[20]` `[24]` `[28]`,運算子以 `instrument + n`(n = 0..3)
+//     取偏移 ⇒ **與 (1) 完全吻合**。
+//
+// ⚠ 這仍然不是「原版 BIOS 的一手證據」(`docs/re/89`:解析在 `TBIOS.BIN` 裡),
+// 但兩個獨立來源互相確認,比單靠社群文件強得多。有疑慮時回頭讀 `Raw`。
 func ParseFMBank(raw []byte) ([]FMVoice, error) {
 	want := FMBankHeader + FMVoiceCount*FMVoiceSize
 	if len(raw) != want {
@@ -203,8 +296,25 @@ func ParseFMBank(raw []byte) ([]FMVoice, error) {
 	out := make([]FMVoice, FMVoiceCount)
 	for i := range out {
 		r := raw[FMBankHeader+i*FMVoiceSize:][:FMVoiceSize]
-		out[i].Name = strings.TrimRight(string(r[:FMVoiceNameSize]), "\x00 ")
-		copy(out[i].Params[:], r[FMVoiceNameSize:])
+		v := &out[i]
+		v.Name = strings.TrimRight(string(r[:FMVoiceNameSize]), "\x00 ")
+		copy(v.Raw[:], r[FMVoiceNameSize:])
+		for n := 0; n < FMOperators; n++ {
+			v.Op[n] = FMOperator{
+				Detune:   (r[8+n] >> 4) & 7,
+				Multiple: r[8+n] & 0x0F,
+				TotalLvl: r[12+n] & 0x7F,
+				KeyScale: (r[16+n] >> 6) & 3,
+				Attack:   r[16+n] & 0x1F,
+				Decay:    r[20+n] & 0x1F,
+				Sustain:  r[24+n] & 0x1F,
+				SusLevel: (r[28+n] >> 4) & 0x0F,
+				Release:  r[28+n] & 0x0F,
+			}
+		}
+		v.Algorithm = r[32] & 7
+		v.Feedback = (r[32] >> 3) & 7
+		v.Pan = r[33]
 	}
 	return out, nil
 }
