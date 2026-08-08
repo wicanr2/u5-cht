@@ -1,6 +1,7 @@
 package u5data
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,10 +104,10 @@ func TestSoundPCMIsSignMagnitudeNotTwosComplement(t *testing.T) {
 	}
 }
 
-// `Loops()` 的判準必須只挑出環境音 —— 一次性音效判成迴圈的話遊戲裡會卡著不停。
+// 欄位語意是「迴圈起點 / 長度」,而 25 個檔案在這個語意下**全部自洽**。
 //
-// ⚠ 這條測的是**判準**,不是原版證實的規則(見 `snd.go` 的說明):
-// BEEP 與 SUITEKI3 的 +0x14 是 1,DOKU 與 MAHOU1 是 0/0,兩者都不該算迴圈。
+// 三種形態都是合法的「不迴圈」寫法:長度 0、長度 1(繞著一個取樣轉)、起點與長度都 0。
+// `Loops()` 判的是「這個迴圈聽得出來嗎」——那一層才是判準。
 func TestOnlyAmbientSoundsLoop(t *testing.T) {
 	dir := fmtownsDir(t)
 	set, err := LoadSoundSet(dir)
@@ -129,7 +130,7 @@ func TestOnlyAmbientSoundsLoop(t *testing.T) {
 			t.Errorf("%s 應該要迴圈(它是環境音)", name)
 		}
 	}
-	// 一取樣的「迴圈」不算 —— BEEP 與 SUITEKI3 的 +0x14 正好是 1。
+	// 三種「不迴圈」的寫法都要被判成不迴圈。
 	for _, name := range []string{"BEEP.SND", "SUITEKI3.SND", "DOKU.SND", "MAHOU1.SND"} {
 		if s := set[name]; s != nil && s.Loops() {
 			t.Errorf("%s 被判成迴圈(起點 %d 長度 %d),那是判準沒守住",
@@ -165,5 +166,70 @@ func TestSignMagnitudeHasTwoZeros(t *testing.T) {
 	}
 	if sndSample(0xFF) != -127 {
 		t.Errorf("0xFF → %d,預期 −127", sndSample(0xFF))
+	}
+}
+
+// 迴圈欄位在「起點 + 長度」的語意下必須對**每一個**檔案都自洽。
+//
+// 合法的形態只有四種:真迴圈(起點 + 長度 == 全長且長度 > 1)、長度 0、
+// 長度 1、起點與長度都 0。出現第五種就代表這個語意讀錯了。
+func TestLoopFieldsAreConsistentForEveryFile(t *testing.T) {
+	dir := fmtownsDir(t)
+	set, err := LoadSoundSet(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, s := range set {
+		n := len(s.PCM)
+		switch {
+		case s.LoopLen == 0:
+		case s.LoopLen == 1 && s.LoopStart+1 == n:
+		case s.LoopStart+s.LoopLen == n:
+		default:
+			t.Errorf("%s:起點 %d 長度 %d 全長 %d —— 不符任何一種形態",
+				name, s.LoopStart, s.LoopLen, n)
+		}
+	}
+}
+
+// 基準音高(+0x1C)只有 60 與 61 兩種,而那正是播放時傳給驅動程式的數字。
+//
+// `sub_2C4F4` 裡有一處 `push 3Ch; push 3` = 「用音高 **60** 播第 3 號音效」。
+func TestBaseNoteIsSixtyOrSixtyOne(t *testing.T) {
+	dir := fmtownsDir(t)
+	table, err := LoadSoundTable(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual := map[string]string{}
+	for _, e := range names {
+		actual[strings.ToUpper(e.Name())] = e.Name()
+	}
+	seen := map[uint32]int{}
+	for _, e := range table {
+		// ⚠ `SUITEKI3.SND` 的名字欄位溢出成 12 B(`suiteki2suit`),
+		// 後面每個欄位都往後挪了 4 B —— 它的 +0x1C 讀出來是 1,不是音高。
+		// 這是那一個檔案的資料瑕疵,不是格式問題,所以照實跳過而不是放寬判準。
+		if strings.EqualFold(e.File, "SUITEKI3.SND") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, actual[strings.ToUpper(e.File)]))
+		if err != nil {
+			t.Fatal(err)
+		}
+		note := binary.LittleEndian.Uint32(raw[0x1C:])
+		seen[note]++
+	}
+	for note, n := range seen {
+		if note != 60 && note != 61 {
+			t.Errorf("有 %d 個檔案的基準音高是 %d,預期只有 60 / 61", n, note)
+		}
+	}
+	if len(seen) == 0 {
+		t.Error("一個檔案都沒讀到")
 	}
 }
