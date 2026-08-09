@@ -218,8 +218,12 @@ func (s *State) SpeakWord(spoken string) bool {
 		}
 		s.DungeonSeal[i] ^= u5data.DungeonSealedBit
 		s.SetTileAt(x, y, u5data.ToggleDungeonSeal(tile, i))
-		if s.DungeonSeal[i]&u5data.DungeonSealedBit != 0 {
-			s.Log(e.DisplayName() + "的入口被封住了。")
+		// ⚠⚠ **兩句話此前是反的。** 旗標的 bit 7 設著代表**通的**,
+		// 清掉才是崩塌(`u5data.DungeonIsSealed` 的檔頭列了四條證據)。
+		// 而 U5 的主線正是「八座地牢一開始進不去,要各自喊對那個字」——
+		// 反過來的話玩家第一次喊對反而把路封死了。
+		if u5data.DungeonIsSealed(s.DungeonSeal[i]) {
+			s.Log(e.DisplayName() + "的入口崩塌了。")
 		} else {
 			s.Log(e.DisplayName() + "的入口開了。")
 		}

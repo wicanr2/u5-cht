@@ -1108,6 +1108,11 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.ShrineQuestGiven = sv.CodexLearned
 	s.ShrineFlag = sv.ShrineFlag
 	s.DungeonSeal = sv.DungeonSeal
+	// ★ 旗標存在存檔裡,而地形來自唯讀的 `BRIT.DAT` ⇒ 載入之後要依旗標
+	// 把地形改寫回去(原版 `sub_105E4` 在每次載入地圖區塊時做,`docs/re/99` §5e)。
+	// 少了這一步:開局八座地牢入口全是通的(原版全是崩塌的),
+	// 而存檔裡「已經開封」的紀錄也會失效。
+	defer s.applyWorldFlags()
 	s.ShadowlordAt = sv.ShadowlordAt
 	s.ShadowlordHere = sv.ShadowlordHere
 	s.RemovedNPC = sv.RemovedNPC

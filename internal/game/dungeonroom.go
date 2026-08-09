@@ -79,3 +79,61 @@ func (s *State) applyClearedRooms() {
 		}
 	}
 }
+
+// 世界地圖依旗標重建:崩塌的地牢入口與毀壞的聖壇(原版 `sub_105E4`)
+//
+// 原版**每次載入世界地圖區塊**都重跑一次:
+//
+//	區塊裡的 tile 22 / 23 / 24(洞穴 / 礦坑 / 地牢)
+//	    → 若 sub_1056C(區塊) 為真,改寫成 0xDF(崩塌的入口)
+//	區塊裡的 tile 25(神秘聖壇)
+//	    → 若 sub_105AC(區塊) 為真,改寫成 0x1A(毀壞的聖壇)
+//
+//	sub_1056C:八座地牢的區塊表裡找到 → `byte_3E0E0[i] == 0`;找不到 → **真**
+//	sub_105AC:八座聖壇的區塊表裡找到 → `byte_3E0E8[i] > 0x7F`;找不到 → 假
+//
+// ⇒ 開局八個旗標全是 0(`INIT.GAM` 實測)⇒ **八座地牢入口都是崩塌的**,
+// 而引擎此前直接用 `BRIT.DAT` 的原始地形 ⇒ 一開局所有地牢都能走進去,
+// 包括末日。喊力量之言反而會把路封死(訊息也是反的)。
+//
+// ⬜ **兩處已知差異**,都寫在這裡而不是假裝一樣:
+//
+//  1. 原版是**整個區塊**掃 22/23/24 → 同一區塊裡**其他**的洞穴與礦坑也會
+//     一起崩塌。這裡只改八個入口本身 —— 要做整區塊得先把 `byte_55140`
+//     那張區塊表 dump 出來。
+//  2. 原版的判準是「區塊不在表裡 → 真」,所以**不在任何地牢區塊裡的**
+//     洞穴/礦坑一律崩塌。同 1,需要那張表才能重現。
+
+// applyWorldFlags 依旗標把八座地牢入口與八座聖壇的地形改寫回去。
+//
+// 載入存檔之後要跑一次 —— 旗標存在存檔裡,而地形來自唯讀的 `BRIT.DAT`。
+func (s *State) applyWorldFlags() {
+	if s.World == nil {
+		return
+	}
+	for i := range u5data.DungeonEntrances {
+		e := u5data.DungeonEntrances[i]
+		if !u5data.DungeonIsSealed(s.DungeonSeal[i]) {
+			continue
+		}
+		// ⚠ 只在那一格**目前是原始入口地形**時才改 —— 已經是 0xDF 就不必動,
+		// 而動了也無害(冪等),但少一次寫入比較容易在測試裡看清因果。
+		if s.TileAt(e.X, e.Y) == u5data.DungeonEntranceTile[i] {
+			s.SetTileAt(e.X, e.Y, u5data.TileDungeonSealed)
+		}
+	}
+	for i := range s.ShrineFlag {
+		if s.ShrineFlag[i]&u5data.ShrineDesecratedBit == 0 {
+			continue
+		}
+		sh := u5data.Shrines[i]
+		// ⚠ 靈性聖壇的座標是 (0,0) —— 它在**幽冥界**,不在地表這張圖上。
+		// 不擋掉的話會把地表 (0,0) 那一格改成聖壇。
+		if sh.X == 0 && sh.Y == 0 {
+			continue
+		}
+		if s.TileAt(sh.X, sh.Y) == u5data.TileShrine {
+			s.SetTileAt(sh.X, sh.Y, u5data.TileShrineDesecrated)
+		}
+	}
+}

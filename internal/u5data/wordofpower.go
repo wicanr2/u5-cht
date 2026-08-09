@@ -169,8 +169,29 @@ const ShadowlordSpawnAhead = 2
 // ShrineDesecrated 是 `byte_3E0E8[i]` 裡「已被玷污」的位元。
 const ShrineDesecratedBit = 0x80
 
-// DungeonSealedBit 是 `byte_3E0E0[i]` 裡「已被封印」的位元。
+// DungeonSealedBit 是 `byte_3E0E0[i]` 的 bit 7。
+//
+// ⚠⚠ **極性與名字直覺相反:這個位元「設著」代表入口是通的,「清掉」才是崩塌。**
+// 四條獨立證據(`docs/re/99` §5e):
+//
+//  1. `sub_1056C` 是 `cmp byte_3E0E0[edx], 0; setz al` —— **等於 0 才回真**,
+//     而回真那一條就是把入口地形改寫成 `0xDF`(崩塌)。
+//  2. `INIT.GAM` 與 `SAVED.GAM` 的這八個位元組**全是 0** ⇒ 開局全部崩塌。
+//  3. `byte_55E18`(八座入口的原始地形)= `18 16 16 18 18 17 17 16`,
+//     正是 `sub_105E4` 會改寫成 `0xDF` 的那三個值(0x16 洞穴 / 0x17 礦坑 /
+//     0x18 地牢)。⇒ 兩支函式講的是同一件事。
+//  4. tile `0xDF` 的 look 文字是「the collapsed entrance to the dungeon」——
+//     那是**預設會看到**的敘述,不是特例。
+//
+// ⇒ 喊力量之言(`xor byte_3E0E0[i], 80h`)是把 0 變成 0x80 = **開封**,
+// 不是封印。這正是 U5 的主線:八座地牢一開始進不去,要各自喊對那個字。
 const DungeonSealedBit = 0x80
+
+// DungeonIsSealed 回報第 i 座地牢的入口是不是崩塌的。
+//
+// ⚠ 一定要走這一支,不要自己寫 `flag & DungeonSealedBit != 0` ——
+// 那個直覺寫法**方向剛好相反**(見上面)。
+func DungeonIsSealed(flag byte) bool { return flag&DungeonSealedBit == 0 }
 
 // YellInputMax 是 Yell 指令讀幾個字元(`sub_17E74` 的 `push 0Ch`)。
 const YellInputMax = 12

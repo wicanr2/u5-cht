@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **1102** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **1104** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -180,7 +180,9 @@
 | `sub_10208` | `sub_10208`  /  **空函式**  /  —  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_102B4` | call sub_102B4 | `48-dungeon-wandering-monster-and-arena.md` |
 | `sub_10334` | ⬜ `sub_10334` 的 `arg_4 == 1`/`3` 兩條(房間戰鬥走的是 3), | `48-dungeon-wandering-monster-and-arena.md` |
-| `sub_105E4` | 其餘未讀:`sub_105E4`、`sub_BBA0`、`sub_92C0`、`sub_F9A0` / `sub_FA20` | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_1056C` | `sub_1056C`  /  `u5data.DungeonIsSealed()`(★ 極性與名字直覺相反) / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_105AC` | `sub_105AC`  /  `ShrineFlag[i] & ShrineDesecratedBit`(這一邊極性正常) / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_105E4` | 3  /  `byte_55E18` = `18 16 16 18 18 17 17 16`(八座入口的**原始**地形),正是 `sub_105E4` 會改寫成 `0xDF` 的那三個值 ⇒ 兩支函式講同一件事  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_10738` | sub_10738   memchr(byte_404F4, 0x1B, 0x400)     ← 在世界地圖的 32×32 視窗裡找 tile 0x1B | `31-line-of-sight.md`, `88-the-load-window-culling-and-ship-cannon.md` |
 | `sub_10878` | sub_10878(dx, dy) | `88-the-load-window-culling-and-ship-cannon.md` |
 | `sub_10910` | call    sub_10910               ; → byte_3E0A5 == 0 ? "A:BRIT.OOL" : "A:UNDER.OOL" | `11-map-objects.md` |
@@ -499,7 +501,7 @@
 | `sub_2D174` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2D2D0` | 主要函式  /  `sub_2CCFC`(★ 真正的航行閘門)、`sub_2D174`(移動分派)、`sub_2D014`(改座標)、`sub_2D2D0`(揚帆的節奏)、`sub_2B24`(★ 怪物移動)、`sub_… | `23-wind-and-sailing.md`, `38-terrain-movement-cost.md`, `68-troll-bridge-and-collision.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `85-monsters-move-and-terrain-slows-them.md` |
 | `sub_2D478` | `sub_1EFC8`(清單瀏覽器)、`sub_CAC` / `sub_4074` / `sub_2D478`(Attack 三支)  / | `49-command-table-and-two-empty-keys.md`, `60-command-echo-and-menu-keys.md` |
-| `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md` |
+| `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_2D72C` | 7  /  `sub_2D72C`(依腳下 tile 進場景)、`sub_1678`、`sub_C778`、跳表 case 62(走不到)  / | `03-scene-entry-and-tile-semantics.md`, `27-codex-and-the-shrine-chamber.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md` |
 | `sub_2D944` | `sub_2D944`、`sub_92C0`(NPC 腳下的 tile 與 `byte_3E579` 排程欄,疑為門 / 床)、 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_2D998` | ✅ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69` | `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
@@ -680,8 +682,8 @@
 | `byte_3E0DB` | if (byte_3E0DB != i) return;                    // ← 現身的不是這一位:**沉默** | `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md` |
 | `byte_3E0DC` | for (i = 0; i < 8 && !(byte_3E0DC & (1 << i)); i++) ;   // ★ 由小到大,停在第一個 | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `byte_3E0DE` | 0x0328**  /  2  /  `byte_3E0DE`  /  已在寶典上讀到的美德(**寶典 `sub_1D850` 設的,不是聖壇**)  / | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `27-codex-and-the-shrine-chamber.md` |
-| `byte_3E0E0` | 0x032A**  /  8  /  `byte_3E0E0`  /  八座地牢入口,bit 0x80 = 已封印  / | `26-yell-words-of-power-shadowlords.md` |
-| `byte_3E0E8` | `byte_3E0E8`(8)→`byte_3E0F0`(14)→`byte_3E100`/`3E120`/`3E140`(各 32) | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md` |
+| `byte_3E0E0` | ⇒ 喊力量之言(`xor byte_3E0E0[i], 80h`,`docs/re/26` §3.2)是把 0 變成 0x80 = | `26-yell-words-of-power-shadowlords.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `byte_3E0E8` | `byte_3E0E8`(8)→`byte_3E0F0`(14)→`byte_3E100`/`3E120`/`3E140`(各 32) | `25-shrines.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_3E0F0` | `byte_3E0E8`(8)→`byte_3E0F0`(14)→`byte_3E100`/`3E120`/`3E140`(各 32) | `29-npc-behaviour-and-arrest.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_3E100` | `byte_3E0E8`(8)→`byte_3E0F0`(14)→`byte_3E100`/`3E120`/`3E140`(各 32) | `29-npc-behaviour-and-arrest.md` |
 | `byte_3E160` | →`byte_3E160..3E16B`(12 個單位元組)→`dword_3E16C`(512)→ **這一段**。 | `29-npc-behaviour-and-arrest.md` |
@@ -825,12 +827,12 @@
 | `byte_54DDB` | `byte_54DDB`  /  46  /  「終極智慧之寶典就在汝眼前……」  / | `27-codex-and-the-shrine-chamber.md` |
 | `byte_55110` | `byte_55110` / `byte_55116`  /  `u5data.DungeonRoomAlwaysArmed()`  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_55116` | `byte_55110` / `byte_55116`  /  `u5data.DungeonRoomAlwaysArmed()`  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
-| `byte_55140` | 座標與品質來自 `byte_55140 + 0x110` 起的三段並列表: | `33-get-command.md` |
+| `byte_55140` | 一律崩塌。引擎只改八個入口本身 —— 要做整區塊得先 dump `byte_55140`。 | `33-get-command.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_55384` | ⚠ Hex-Rays 把 `word_3EF34` 整個折掉了:`byte_55384[edi + eax*8]` 被印成 | `10-shop-prices-and-trade.md` |
 | `byte_55DD4` | 資料  /  `byte_55DD4` / `byte_55DDC` / `byte_55DE4`(地牢獎品三張並列表)  / | `33-get-command.md` |
 | `byte_55DDC` | 資料  /  `byte_55DD4` / `byte_55DDC` / `byte_55DE4`(地牢獎品三張並列表)  / | `33-get-command.md` |
 | `byte_55DE4` | 資料  /  `byte_55DD4` / `byte_55DDC` / `byte_55DE4`(地牢獎品三張並列表)  / | `33-get-command.md` |
-| `byte_55E18` | `off_55DF8`(字)、`byte_41114`/`byte_4113C`(地牢入口座標)、`byte_55E18`(入口地形); | `26-yell-words-of-power-shadowlords.md` |
+| `byte_55E18` | 3  /  `byte_55E18` = `18 16 16 18 18 17 17 16`(八座入口的**原始**地形),正是 `sub_105E4` 會改寫成 `0xDF` 的那三個值 ⇒ 兩支函式講同一件事  / | `26-yell-words-of-power-shadowlords.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_55E20` | 戰鬥中的力場**:`sub_20360(單位, byte_55E20[種類])`,效果碼 0x33..0x36, | `17-magic.md` |
 | `byte_55E24` | 格子編號取自 `byte_55E24`(FM Towns 線性位址 0x55E24,檔案位移 +0x200): | `17-magic.md`, `18-dungeons.md` |
 | `byte_55E50` | dword_3E3DC  / = byte_55E50[i];                   // 2 / 4 / 8 | `28-shadowlords-and-blackthorn.md` |

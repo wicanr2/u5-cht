@@ -128,3 +128,121 @@ func TestRoomMemoryIsPerDungeon(t *testing.T) {
 		t.Error("0x21 與 0x22 該共用同一批位元(DungeonRoomBlock 的修正)")
 	}
 }
+
+// deepWaterTile 是深水(`look#1` = deep water)。
+//
+// ⚠ 這裡就地定義而不是加進 `u5data` —— 只有這一條測試需要它,
+// 而 `u5data` 裡再多一個 tile 常數會讓「哪些 tile 有名字」更難數。
+const deepWaterTile = 0x01
+
+// TestDungeonsStartCollapsed —— ★★★ 開局八座地牢入口都是崩塌的。
+//
+// 這是 U5 的主線閘門:要各自喊對力量之言才進得去。引擎此前直接用
+// `BRIT.DAT` 的原始地形 ⇒ 一開局所有地牢都能走進去,包括末日。
+//
+// 極性的證據見 `u5data.DungeonIsSealed` 的檔頭(四條獨立來源)。
+func TestDungeonsStartCollapsed(t *testing.T) {
+	s := worldState(t)
+	if s.World == nil {
+		t.Skip("沒有世界地圖")
+	}
+	// 開局:八個旗標全 0(`INIT.GAM` 實測)。
+	s.DungeonSeal = [u5data.VirtueCount]byte{}
+	s.applyWorldFlags()
+	collapsed := 0
+	for i := range u5data.DungeonEntrances {
+		e := u5data.DungeonEntrances[i]
+		got := s.TileAt(e.X, e.Y)
+		if got == u5data.TileDungeonSealed {
+			collapsed++
+			continue
+		}
+		// ★ **末日(DOOM)的座標 (128,128) 在地表是深水** —— 它是從幽冥界
+		// 進去的,地表上沒有入口。`applyWorldFlags` 的「目前是原始入口地形
+		// 才改」那道守衛正是為了這種格子,所以它不會被誤改成崩塌。
+		if e.Name == "DOOM" && got == deepWaterTile {
+			continue
+		}
+		t.Errorf("%s 的入口是 0x%02X,開局應該是崩塌的 0x%02X",
+			e.DisplayName(), got, u5data.TileDungeonSealed)
+	}
+	// 反對照:不能一個都沒改(那樣上面的迴圈會全部走 continue 而不報錯)。
+	if collapsed != len(u5data.DungeonEntrances)-1 {
+		t.Errorf("只有 %d 座崩塌,預期 %d 座(末日在幽冥界)",
+			collapsed, len(u5data.DungeonEntrances)-1)
+	}
+}
+
+// TestOpenedDungeonStaysOpen —— 反對照:旗標設著(= 已開封)就不改寫。
+//
+// 少了這一條,「開局全崩塌」與「永遠全崩塌」用同一個觀察分不開 ——
+// 而後者會讓遊戲整個過不去。
+func TestOpenedDungeonStaysOpen(t *testing.T) {
+	s := worldState(t)
+	if s.World == nil {
+		t.Skip("沒有世界地圖")
+	}
+	for i := range s.DungeonSeal {
+		s.DungeonSeal[i] = u5data.DungeonSealedBit // ★ 設著 = 通的
+	}
+	// 先把地形擺成原始入口,再看 applyWorldFlags 會不會動它。
+	for i := range u5data.DungeonEntrances {
+		e := u5data.DungeonEntrances[i]
+		s.SetTileAt(e.X, e.Y, u5data.DungeonEntranceTile[i])
+	}
+	s.applyWorldFlags()
+	for i := range u5data.DungeonEntrances {
+		e := u5data.DungeonEntrances[i]
+		if got := s.TileAt(e.X, e.Y); got != u5data.DungeonEntranceTile[i] {
+			t.Errorf("%s 已開封卻被改成 0x%02X", e.DisplayName(), got)
+		}
+	}
+}
+
+// TestDungeonIsSealedHasTheOppositePolarity —— ★ 釘住那個反直覺的極性。
+//
+// `flag & 0x80 != 0` 這個直覺寫法方向剛好相反。這條測試存在的理由就是
+// 讓「順手改回直覺寫法」的人立刻紅燈。
+func TestDungeonIsSealedHasTheOppositePolarity(t *testing.T) {
+	if !u5data.DungeonIsSealed(0) {
+		t.Error("旗標 0 應該是崩塌(`sub_1056C` 的 `setz`)")
+	}
+	if u5data.DungeonIsSealed(u5data.DungeonSealedBit) {
+		t.Error("旗標 0x80 應該是通的 —— 喊力量之言把 0 變成 0x80 是開封")
+	}
+}
+
+// TestDesecratedShrineShowsAsRuined —— 被玷污的聖壇在地圖上是毀壞的樣子。
+//
+// ⚠ 聖壇那一邊的極性是**正常的**(`& 0x80` 設著 = 毀壞),與地牢相反。
+// 兩支原版函式(`sub_1056C` / `sub_105AC`)一個 `setz` 一個 `setnbe`。
+func TestDesecratedShrineShowsAsRuined(t *testing.T) {
+	s := worldState(t)
+	if s.World == nil {
+		t.Skip("沒有世界地圖")
+	}
+	// 挑一座不在 (0,0) 的(靈性聖壇在幽冥界)。
+	v := -1
+	for i := range u5data.Shrines {
+		if u5data.Shrines[i].X != 0 || u5data.Shrines[i].Y != 0 {
+			v = i
+			break
+		}
+	}
+	if v < 0 {
+		t.Skip("沒有地表聖壇")
+	}
+	sh := u5data.Shrines[v]
+	s.SetTileAt(sh.X, sh.Y, u5data.TileShrine)
+	s.ShrineFlag[v] = 0 // 沒被玷污 → 不動
+	s.applyWorldFlags()
+	if got := s.TileAt(sh.X, sh.Y); got != u5data.TileShrine {
+		t.Fatalf("%s 沒被玷污卻改成 0x%02X", sh.NameZH, got)
+	}
+	s.ShrineFlag[v] = u5data.ShrineDesecratedBit
+	s.applyWorldFlags()
+	if got := s.TileAt(sh.X, sh.Y); got != u5data.TileShrineDesecrated {
+		t.Errorf("%s 被玷污卻是 0x%02X,預期 0x%02X",
+			sh.NameZH, got, u5data.TileShrineDesecrated)
+	}
+}
