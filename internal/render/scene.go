@@ -1,12 +1,10 @@
 package render
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/wicanr2/u5-cht/internal/game"
-	"github.com/wicanr2/u5-cht/internal/i18n"
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
@@ -58,6 +56,8 @@ var (
 	ColorBackground = color.NRGBA{R: 0x10, G: 0x10, B: 0x28, A: 0xFF}
 	ColorText       = color.NRGBA{R: 0xE8, G: 0xE8, B: 0xD8, A: 0xFF}
 	ColorMarker     = color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
+	// ColorRule 是現代版面的分隔線 —— 比正文暗,只當分界不搶注意力。
+	ColorRule = color.NRGBA{R: 0x50, G: 0x50, B: 0x68, A: 0xFF}
 )
 
 // Scene 是「畫面上該有什麼」的完整描述。它不知道 ebiten 存在。
@@ -74,6 +74,13 @@ type Scene struct {
 	DungeonItems u5data.PictureSet
 	// IntroArt 是 STORY1-6.16 —— 開場的插圖。
 	IntroArt []u5data.PictureSet
+	// UI 是版面模式(原版 / 現代,見 `panel.go`)。零值是 `UIOriginal`,
+	// 而**預設是現代** —— 建構 Scene 的地方要明寫,不要靠零值。
+	UI UIMode
+	// ShowDebug 打開右欄的座標與地形碼(不是原版的欄位,開發時看的)。
+	ShowDebug bool
+	// panelBottom 是右欄這一帧真正畫到的 y —— 訊息欄據此往下讓。
+	panelBottom int
 	// HelpOpen 開著時整頁畫指令說明(F1),`HelpPage` 是第幾頁。
 	//
 	// ⚠ 用一個 bool 而不是「HelpPage = -1 代表關閉」——
@@ -339,97 +346,31 @@ func (s *Scene) drawTile(dst *image.NRGBA, idx, x, y int) {
 }
 
 func (s *Scene) drawPanel(dst *image.NRGBA) {
-	if s.Text == nil {
+	if s.Text == nil || s.State == nil {
 		return
 	}
-	st := s.State
-	if st == nil {
-		return
-	}
-	y := MapOriginY
-	y = s.Text.DrawLines(dst, PanelX, y, []string{"創世紀 V", "命運勇士"})
-	y += LineHeight / 2
-	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("%s  業報 %2d", st.Clock, st.Karma))
-	y += LineHeight
-	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("座標 %3d,%3d  地形 %3d", st.X, st.Y, st.TileAt(st.X, st.Y)))
-	y += LineHeight
-	if st.InScene() {
-		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("★ %s 第 %d 層  居民 %d",
-			st.LocationName(), st.Floor+1, len(st.VisibleNPCs())))
+	// 兩種版面畫的是同一批資料(`panelData`),差別只在怎麼排。
+	var bottom int
+	if s.UI == UIModern {
+		bottom = s.drawPanelModern(dst, s.ShowDebug)
 	} else {
-		// 地點名取自原版執行檔的地點表(u5data.Locations),不是自己打的清單。
-		line := "不列顛尼亞"
-		if st.Floor < 0 {
-			line = "地下世界"
-		}
-		if loc, ok := u5data.LocationAt(st.X, st.Y); ok {
-			line = "★ " + loc.DisplayName()
-		}
-		s.Text.Draw(dst, PanelX, y, line)
+		bottom = s.drawPanelOriginal(dst, s.ShowDebug)
 	}
+	s.panelBottom = bottom
+	// 分隔線:狀態與對話之間。
+	drawPanelRule(dst, s.messageTop()-LineHeight/2)
+}
 
-	// ★ 原版狀態列的四樣東西(`sub_2A1E8` / `sub_2A0C4` / `sub_2A984`),
-	// 引擎的右欄**一樣都沒畫**(`docs/re/80`):
-	//
-	//	F:<糧食>      永遠畫
-	//	Ship:<耐久>   ★ 只在**揚著帆的大船上而且不在戰鬥中**才畫
-	//	              (`byte_3E08C & 0F8h == 20h` 且 `byte_3E0A3 < 80h`);
-	//	              否則那個位置畫的是 G:<金幣>
-	//	<月>-<日>-<年>
-	//	<模式字母>    byte_3E08A 非 0 時畫('P'/'N'/'T'/'Q'/'C')
-	//
-	// ⚠ **Ship 與 G 共用同一格**:原版 `jnz short loc_2A29F` → `sub_2A0C4`,
-	// 兩者是 if/else。所以在船上看不到金幣 —— 那不是遺漏,是版面只有一格。
-	y += LineHeight
-	second := fmt.Sprintf("G:%d", st.Inventory.Gold)
-	if hull, ok := st.ShipHullShown(); ok {
-		second = fmt.Sprintf("船:%d", hull)
+// messageTop 是訊息欄的起點。
+//
+// ⚠ 取「原版的分界」與「右欄真正畫到哪」的**較低者**,不是常數 ——
+// 右欄的高度會隨版面模式、隊伍人數、除錯欄位變動,寫死就會疊字。
+func (s *Scene) messageTop() int {
+	top := PanelMinMessageTop
+	if b := s.panelBottom + LineHeight/2; b > top {
+		top = b
 	}
-	s.Text.Draw(dst, PanelX, y, fmt.Sprintf("糧:%-5d %s", st.Inventory.Food, second))
-	y += LineHeight
-	line := st.Clock.DateString()
-	if st.CombatMode != 0 {
-		// 模式字母原版直接畫那個位元組('P' 防護 / 'N' 抗魔 / 'T' 停時…)。
-		line += "  [" + string(rune(st.CombatMode)) + "]"
-	}
-	if st.WindShown() {
-		// ⚠ `WindName()` 已經帶「風」字了(`WindNameZH` = 無風 / 北風 / …)——
-		// 這裡再接一個「風」會印成「無風風」。並排比對時抓到的
-		// (`docs/playtest-checkpoints.md` A1)。
-		line += "  " + st.WindName()
-	}
-	s.Text.Draw(dst, PanelX, y, line)
-
-	// 隊伍:名字 + HP + **狀態**。原版右欄就是這個位置。
-	//
-	// ★ 原版一行是 `Elwood     60G` —— 名字、HP、然後**一個狀態字母**
-	// (`G` 良好 / `P` 中毒 / `S` 沉睡 / `D` 身亡 / `C` 被惑,
-	// 治療所 `sub_12838` 直接 `cmp byte_3DDBF[32*i], 'P'` 這樣比)。
-	// **原版這一欄沒有職業** —— 職業在 `Ztats` 裡。
-	//
-	// 這裡把那個字母展開成完整的中文說明(使用者指示 2026-08-09):
-	// 一個字母對中文玩家沒有意義,而「中毒」「沉睡」是他**要據此行動**的資訊
-	// (該不該用解毒藥、該不該叫醒)。展開之後職業就讓位給狀態 ——
-	// 這同時比原來更貼近原版的欄位組成。
-	//
-	// ⚠ 狀態**一律顯示**,康健也印。原版的字母也是一直在 ——
-	// 「只在異常時顯示」會讓玩家不確定是沒事還是沒更新。
-	// ⚠ **三欄用固定像素位置畫,不用 `%-9s` 補空白。** 中文名字一個字 16 px、
-	// ASCII 一個字 8 px,而 `%-9s` 補的是**位元組**:`Elwood`(6 B)補三個空白
-	// 剛好 72 px,`夏米諾`(9 B)一個都不補只有 48 px ⇒ HP 欄會左右跳。
-	// 原本只有名字 + HP 時看不出來(兩欄都靠左),加了第三欄就整排歪掉。
-	y += LineHeight
-	for _, c := range st.Party() {
-		s.Text.Draw(dst, PanelX, y, i18n.Name(c.Name))
-		s.Text.Draw(dst, PanelX+partyHPColumn, y, fmt.Sprintf("%3d/%-3d", c.HP, c.MaxHP))
-		s.Text.Draw(dst, PanelX+partyStatusColumn, y, u5data.StatusName(c.Status))
-		y += LineHeight
-	}
-
-	// 分隔線:狀態與對話之間
-	for x := PanelX; x < PanelX+PanelWidth; x++ {
-		SetPixel(dst, x, PanelTextY-LineHeight/2, ColorText)
-	}
+	return top
 }
 
 // drawHints 在地圖下方畫操作提示。
@@ -549,7 +490,8 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	for _, m := range s.State.Messages {
 		lines = append(lines, Wrap(m, PanelWidth)...)
 	}
-	avail := (CanvasHeight - 8 - PanelTextY) / LineHeight
+	top := s.messageTop()
+	avail := (CanvasHeight - 8 - top) / LineHeight
 	switch s.State.Prompt {
 	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell, game.PromptBlackthorn, game.PromptText:
 		avail-- // 留一行給輸入列
@@ -568,7 +510,7 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 	if len(lines) > avail {
 		lines = lines[len(lines)-avail:]
 	}
-	y := s.Text.DrawLines(dst, PanelX, PanelTextY, lines)
+	y := s.Text.DrawLines(dst, PanelX, top, lines)
 	s.drawInputLine(dst, y)
 }
 

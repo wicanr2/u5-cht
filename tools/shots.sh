@@ -47,4 +47,7 @@ run "$OUT/22-quit.png" --quit
 run "$OUT/23-help.png" --help-page 0
 # 主選單:原版開機看到的第一個畫面(六個項目,第二項是建立新角色)。
 run "$OUT/24-menu.png" --menu
+# 兩種版面並列(F2 切換):現代版面分組留白、原版版面照原版右欄。
+run "$OUT/25-ui-modern.png"   --ui modern   --script 'Tn"name"'
+run "$OUT/26-ui-original.png" --ui original --script 'Tn"name"' 
 echo "→ $OUT"

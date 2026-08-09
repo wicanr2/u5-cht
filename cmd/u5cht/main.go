@@ -39,6 +39,7 @@ const (
 	msgSaveFailed         = "存檔失敗:"
 	msgLoaded             = "已讀回存檔。"
 	msgNoSaveToLoad       = "找不到存檔。"
+	msgUIMode             = "版面:"
 )
 
 // version 由建置時的 -ldflags 注入。
@@ -185,6 +186,24 @@ func (g *game) Update() error {
 		return nil
 	}
 	if g.help.IsOpen() {
+		return nil
+	}
+	// F2 切換版面(原版 ⇄ 現代)、F3 切換右欄的除錯欄位。
+	//
+	// ⚠ 都掛功能鍵 —— 原版把 A–Z 全用光了(見 F1 說明)。
+	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
+		if g.scene.UI == render.UIModern {
+			g.scene.UI = render.UIOriginal
+		} else {
+			g.scene.UI = render.UIModern
+		}
+		g.state.Log(msgUIMode + render.UIModeNames[g.scene.UI])
+		g.dirty = true
+		return nil
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
+		g.scene.ShowDebug = !g.scene.ShowDebug
+		g.dirty = true
 		return nil
 	}
 	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
@@ -963,6 +982,10 @@ func main() {
 	newChar := flag.Bool("create", false,
 		"直接走建角流程(吉普賽的七題八德),覆寫載入的那名聖者")
 	// ⚠ 主選單現在是**預設**(原版就是這樣)。留 `-menu` 是為了不打斷舊腳本。
+	uiFlag := flag.String("ui", "modern",
+		"版面模式:modern(分組留白,預設)/ original(照原版右欄的緊密版面);遊戲中按 F2 切換")
+	debugPanel := flag.Bool("debug-panel", false,
+		"右欄多顯示座標與地形碼(開發用;原版沒有這兩欄)")
 	_ = flag.Bool("menu", true, "開機先進主選單(原版的六個項目;**預設開啟**,留著是為了不打斷舊腳本)")
 	skipMenu := flag.Bool("continue", false,
 		"跳過主選單直接讀檔進遊戲(開發 / 回歸測試用;原版沒有這條路)")
@@ -1141,6 +1164,11 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		}
 	}
 
+	uiMode, uiOK := render.ParseUIMode(*uiFlag)
+	if !uiOK {
+		fmt.Fprintf(os.Stderr, "⚠ 不認得的版面 %q,改用現代版面(可用:modern / original)\n", *uiFlag)
+	}
+
 	g := &game{
 		state:    st,
 		music:    music,
@@ -1149,6 +1177,8 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 		saveFile: *saveFile,
 		scene: &render.Scene{
 			State:        st,
+			UI:           uiMode,
+			ShowDebug:    *debugPanel,
 			Tiles:        bundle.Tiles,
 			Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
 			DungeonViews: bundle.DungeonViews,

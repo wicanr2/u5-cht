@@ -510,6 +510,7 @@ func cmdScene(args []string) error {
 	quitAsk := false
 	helpOpen, helpPage := false, 0
 	startMenu := false
+	uiMode, showDebug := render.UIModern, false
 	beamFrame := 0
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
@@ -527,6 +528,18 @@ func cmdScene(args []string) error {
 		// ⚠ 這不是遊戲狀態,是應用層的 `internal/appui`。
 		case "--quit":
 			quitAsk = true
+		// 版面模式:`--ui original` / `--ui modern`(預設現代)。
+		case "--ui":
+			if i+1 < len(args) {
+				if m, ok := render.ParseUIMode(args[i+1]); ok {
+					uiMode = m
+				} else {
+					return fmt.Errorf("不認得的版面 %q(可用:original / modern)", args[i+1])
+				}
+			}
+		// 右欄多顯示座標與地形碼(開發用,不是原版欄位)。
+		case "--debug-panel":
+			showDebug = true
 		// 開機先進主選單(原版的六個項目)—— 之後用 `u`/`d`/`m` 驅動。
 		case "--menu":
 			startMenu = true
@@ -625,6 +638,8 @@ func cmdScene(args []string) error {
 		DungeonItems: bundle.DungeonItems,
 		IntroArt:     bundle.IntroArt,
 		QuitAsk:      quitAsk,
+		UI:           uiMode,
+		ShowDebug:    showDebug,
 		HelpOpen:     helpOpen,
 		HelpPage:     helpPage,
 	}
