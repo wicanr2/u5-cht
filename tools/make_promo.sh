@@ -49,11 +49,13 @@ bg() { # $1 out —— 徑向漸層底
 
 card() { # $1 out $2 中標 $3 英標 $4 副標 —— 鎏金浮雕標題卡
   bg "$TMP/_bg.png"
+  # ⚠ 三行都掛在 center 上,而位移全是**往下** ⇒ 整塊的視覺重心會落在畫面下半。
+  # 抽幀讀圖才看得出來(第一版就是這樣)。整塊往上提 70px 才是真的置中。
   convert "$TMP/_bg.png" -gravity center \
-    -font "$FB" -fill "$GOLDSH" -pointsize 88 -annotate +4+4 "$3" \
-    -fill "$GOLD" -pointsize 88 -annotate +0+0 "$3" \
-    -font "$FB" -fill "$CREAM" -pointsize 60 -annotate +0+96 "$2" \
-    -font "$FR" -fill "$GOLD" -pointsize 28 -annotate +0+180 "$4" "$1"
+    -font "$FB" -fill "$GOLDSH" -pointsize 88 -annotate +4-66 "$3" \
+    -fill "$GOLD" -pointsize 88 -annotate +0-70 "$3" \
+    -font "$FB" -fill "$CREAM" -pointsize 60 -annotate +0+26 "$2" \
+    -font "$FR" -fill "$GOLD" -pointsize 28 -annotate +0+110 "$4" "$1"
 }
 
 slide_frame() { # $1 out $2 截圖 $3 字幕 —— 金框置中
@@ -64,11 +66,16 @@ slide_frame() { # $1 out $2 截圖 $3 字幕 —— 金框置中
     -font "$FM" -fill "$CREAM" -gravity south -pointsize 34 -annotate +0+28 "$3" "$1"
 }
 
-slide_full() { # $1 out $2 截圖 $3 字幕 —— 滿版 + 下三分之一字幕條
-  convert "$SHOT/$2" -resize ${W}x${H}^ -gravity center -extent ${W}x${H} "$TMP/_sc.png"
-  convert "$TMP/_sc.png" \
-    -fill "#000000cc" -draw "rectangle 0,608 ${W},720" \
-    -font "$FM" -fill "$CREAM" -gravity south -pointsize 36 -annotate +0+34 "$3" "$1"
+slide_big() { # $1 out $2 截圖 $3 字幕 —— 放到最大但**不裁切**,字幕在下方
+  # ⚠ 原本這裡用 `-resize ${W}x${H}^ -extent`(填滿再裁)—— 而遊戲畫面是
+  # 640×400(1.6:1)、影片是 16:9,裁下去**右邊的狀態欄與底部的提示列會被切掉**。
+  # 抽幀讀圖才發現:右欄的標題只剩半行、提示列被字幕條蓋住一半。
+  # ⇒ 改成「等比放到最大再置中」,一格都不裁 —— 遊戲畫面本身就是內容,不能裁。
+  convert "$SHOT/$2" -resize x608 "$TMP/_sc.png"
+  bg "$TMP/_bg.png"
+  convert "$TMP/_bg.png" "$TMP/_sc.png" -gravity north -geometry +0+4 -composite \
+    -fill "#000000cc" -draw "rectangle 0,616 ${W},720" \
+    -font "$FM" -fill "$CREAM" -gravity south -pointsize 36 -annotate +0+32 "$3" "$1"
 }
 
 split_ba() { # $1 out $2 左圖 $3 右圖 $4 左標 $5 右標 $6 字幕 —— 左右對比
@@ -87,9 +94,9 @@ split_ba() { # $1 out $2 左圖 $3 右圖 $4 左標 $5 右標 $6 字幕 —— �
 dcard() { # $1 out $2 引文 $3 出處 —— 左對齊 + 巨型引號
   bg "$TMP/_bg.png"
   convert "$TMP/_bg.png" \
-    -font "$FB" -fill "#ffd04033" -gravity northwest -pointsize 260 -annotate +40-40 '"' \
-    -font "$FM" -fill "$CREAM" -gravity west -pointsize 40 -annotate +120+0 "$2" \
-    -font "$FR" -fill "$GOLD" -gravity southeast -pointsize 26 -annotate +80+80 "$3" "$1"
+    -font "$FB" -fill "#ffd0405c" -gravity northwest -pointsize 300 -annotate +48-56 '"' \
+    -font "$FM" -fill "$CREAM" -gravity west -pointsize 44 -annotate +140-30 "$2" \
+    -font "$FR" -fill "$GOLD" -gravity southeast -pointsize 26 -annotate +80+90 "$3" "$1"
 }
 
 seg() { # $1 png $2 out.mp4 $3 秒 —— 靜態 + 淡入淡出(**不用 zoompan**)
@@ -106,11 +113,11 @@ seg() { # $1 png $2 out.mp4 $3 秒 —— 靜態 + 淡入淡出(**不用 zoompan
 echo "→ 產生分鏡圖"
 card        "$TMP/00.png" '創世紀 V:命運勇士' 'Ultima V' '1988 年的不列顛尼亞 · 全程繁體中文'
 dcard       "$TMP/01.png" '當美德變成統治的工具,\n汝要如何自處?' '不列顛王失蹤,黑棘登位'
-slide_full  "$TMP/02.png" 01-world.png       '256×256 格的不列顛尼亞,由原版地圖分塊拼成'
+slide_big   "$TMP/02.png" 01-world.png       '256×256 格的不列顛尼亞,由原版地圖分塊拼成'
 slide_frame "$TMP/03.png" 02-town.png        '三十二個地點,NPC 依原版的時刻表走動'
 slide_frame "$TMP/04.png" 03-talk.png        '1,712 段 NPC 對白全數中譯 —— 關鍵字對話照原版'
 slide_frame "$TMP/05.png" 04-shop.png        '八種商店、194 段店家對白,價格照原版的表'
-slide_full  "$TMP/06.png" 05-combat.png      '11×11 戰場,命中與傷害公式來自反組譯'
+slide_big   "$TMP/06.png" 05-combat.png      '11×11 戰場,命中與傷害公式來自反組譯'
 slide_frame "$TMP/07.png" 06-dungeon.png     '地牢第一人稱透視 —— 沒點火把是全黑的,原版就是這樣'
 split_ba    "$TMP/08.png" 15-night.png 16-night-torch.png '入夜' '點起火把' '視線遮蔽與夜間照明照原版的光照半徑'
 split_ba    "$TMP/09.png" 25-ui-modern.png 26-ui-original.png '現代版面' '原版版面' 'F2 隨時切換兩種版面'
