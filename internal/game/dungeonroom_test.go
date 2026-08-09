@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/wicanr2/u5-cht/internal/u5data"
@@ -244,5 +245,201 @@ func TestDesecratedShrineShowsAsRuined(t *testing.T) {
 	if got := s.TileAt(sh.X, sh.Y); got != u5data.TileShrineDesecrated {
 		t.Errorf("%s 被玷污卻是 0x%02X,預期 0x%02X",
 			sh.NameZH, got, u5data.TileShrineDesecrated)
+	}
+}
+
+// TestCollapsedEntranceCannotBeEntered —— ★★★ 崩塌的入口按 E 只印「What?」。
+//
+// 那道門在**分派表的定義域**上,不在進入函式裡:原版 `sub_2D72C` 是
+// `switch (tile − 0x10)`,而 `0xDF − 0x10 = 0xCF > 0x2E` → default → 「What?」。
+func TestCollapsedEntranceCannotBeEntered(t *testing.T) {
+	s := worldState(t)
+	if s.World == nil {
+		t.Skip("沒有世界地圖")
+	}
+	const n = 1 // 輕蔑 —— 隨便挑一座地表上的
+	e := u5data.DungeonEntrances[n]
+	s.X, s.Y = e.X, e.Y
+	s.Transport = u5data.VehicleWalk
+	s.DungeonSeal[n] = 0 // 崩塌
+	s.applyWorldFlags()
+	s.Messages = nil
+	s.Enter()
+	if s.Dungeon != nil {
+		t.Fatal("崩塌的入口竟然進去了")
+	}
+	if !strings.Contains(strings.Join(s.Messages, "|"), MsgWhat) {
+		t.Errorf("沒印「%s」:%q", MsgWhat, s.Messages)
+	}
+}
+
+// TestWordOfPowerOpensTheWayThrough —— ★★★ **無 debug 的正常玩家路徑**。
+//
+// 這一條是防 soft-lock 的:開局全部崩塌 + 進入被 tile 擋住 ⇒ 只要力量之言
+// 那條路有一處不對,整個遊戲就過不去。所以要一路走完:
+//
+//	崩塌 → 按 E 進不去 → 站在入口喊那個字 → 地形變回原樣 → 按 E 進得去
+func TestWordOfPowerOpensTheWayThrough(t *testing.T) {
+	// ⚠ 用 `dungeonState` 而不是 `worldState` —— 這條要真的走進地牢,
+	// 所以 `s.Dungeons` 不能是 nil(`worldState` 沒載它,測試會**跳過**)。
+	s := dungeonState(t)
+	s.Location, s.Floor = 0, 0
+	if s.World == nil || s.Dungeons == nil {
+		t.Skip("沒有世界地圖或地牢資料")
+	}
+	const n = 1
+	e := u5data.DungeonEntrances[n]
+	s.Transport = u5data.VehicleWalk
+	s.DungeonSeal[n] = 0
+	s.applyWorldFlags()
+	if got := s.TileAt(e.X, e.Y); got != u5data.TileDungeonSealed {
+		t.Fatalf("開局地形是 0x%02X,預期崩塌", got)
+	}
+
+	// ★ 喊力量之言要站在入口**旁邊**,不是站在上面 —— 原版掃的是視窗緩衝裡
+	// 玩家那一格的 −1 / +32 / +1 / −32(`docs/re/26` §3.1),四個鄰格。
+	// 而**進入**要站在上面。兩件事的站位不同,照原版。
+	s.X, s.Y = e.X+1, e.Y
+	word := u5data.WordsOfPower[n]
+	s.Messages = nil
+	if !s.SpeakWord(word) {
+		t.Fatalf("喊 %q 沒有效果:%q", word, s.Messages)
+	}
+	if got := s.TileAt(e.X, e.Y); got != u5data.DungeonEntranceTile[n] {
+		t.Fatalf("喊完之後地形是 0x%02X,預期回到 0x%02X",
+			got, u5data.DungeonEntranceTile[n])
+	}
+	if u5data.DungeonIsSealed(s.DungeonSeal[n]) {
+		t.Fatal("喊完之後旗標還是「崩塌」—— 極性反了")
+	}
+	// ★ 訊息要說「開了」,不是「崩塌了」。
+	if !strings.Contains(strings.Join(s.Messages, "|"), "入口開了") {
+		t.Errorf("沒說入口開了:%q", s.Messages)
+	}
+
+	// 現在站上去按 E 該進得去。
+	s.X, s.Y = e.X, e.Y
+	s.Messages = nil
+	s.Enter()
+	if s.Dungeon == nil {
+		t.Fatalf("喊開之後還是進不去:%q", s.Messages)
+	}
+	// 反對照:再喊一次會封回去,而封回去之後又進不去。
+	s.LeaveDungeon()
+	s.X, s.Y = e.X+1, e.Y
+	s.SpeakWord(word)
+	if got := s.TileAt(e.X, e.Y); got != u5data.TileDungeonSealed {
+		t.Errorf("再喊一次地形是 0x%02X,預期又崩塌(XOR 是對稱的)", got)
+	}
+}
+
+// TestTheThreeEntranceTilesCoverTheEightDungeons —— 兩張表不能漂移。
+//
+// `DungeonEntranceTiles`(分派表的三個 case)與 `DungeonEntranceTile`
+// (八座各自的原始地形)出處不同,所以刻意不合併 —— 但後者的每一個值
+// 都必須在前者裡,否則某座地牢會變成「地形對但按 E 不認」。
+func TestTheThreeEntranceTilesCoverTheEightDungeons(t *testing.T) {
+	for i, tile := range u5data.DungeonEntranceTile {
+		if !u5data.IsDungeonEntranceTile(tile) {
+			t.Errorf("%s 的入口地形 0x%02X 不在三個 case 裡",
+				u5data.DungeonEntrances[i].Name, tile)
+		}
+	}
+	// 反對照:崩塌的地形不算入口(那就是整個機制的重點)。
+	if u5data.IsDungeonEntranceTile(u5data.TileDungeonSealed) {
+		t.Error("崩塌的地形被當成入口了")
+	}
+}
+
+// TestThreeFieldsSurviveASaveRoundTrip —— ★ 三個新接上的存檔欄位。
+//
+// 位移都是從 `sub_27D24` 的讀取序列推出來,再拿 `INIT.GAM` 驗過
+// (0x02D5 = 0xFF 正是「沒指定」的哨兵)。這條測試釘住 round-trip。
+func TestThreeFieldsSurviveASaveRoundTrip(t *testing.T) {
+	s := roomScene(t, 0, 5)
+	// 指定第 1 位、走 137 回合、清掉兩間房。
+	if s.PartySize < 2 {
+		t.Skip("隊伍太小")
+	}
+	s.Roster[1].Status = u5data.StatusGood
+	if !s.SetActivePlayer('2') {
+		t.Fatal("'2' 不被當成指定行動者的鍵")
+	}
+	s.turnsSinceAlms = 137
+	s.markRoomCleared(0x23, byte(u5data.DungeonRoomF|5))
+	s.markRoomCleared(0x26, byte(u5data.DungeonRoomF|9))
+	before := s.roomsCleared
+
+	// ⚠ `ExportSave` 需要**底稿** —— 引擎只解出部分欄位,把未解欄位清成 0
+	// 會讓存檔在原版裡壞掉(見 `savegame.go` 的說明)。
+	base := s.BaseSave
+	if base == nil {
+		t.Skip("沒有底稿存檔")
+	}
+	sv, err := s.ExportSave(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := sv.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// ★ 直接驗**位元組**,不只驗 round-trip —— round-trip 用錯的位移
+	// 也會通過(寫進去再從同一個地方讀出來)。
+	if got := raw[u5data.SaveActiveMemberOffset]; got != 1 {
+		t.Errorf("0x%04X 是 %d,預期 1", u5data.SaveActiveMemberOffset, got)
+	}
+	if got := raw[u5data.SaveTurnCounterOffset]; got != 137 {
+		t.Errorf("0x%04X 是 %d,預期 137", u5data.SaveTurnCounterOffset, got)
+	}
+	span := raw[u5data.SaveRoomsClearedOffset : u5data.SaveRoomsClearedOffset+u5data.RoomsClearedBytes]
+	for i := range before {
+		if span[i] != before[i] {
+			t.Errorf("房間位元陣列第 %d 個位元組是 0x%02X,預期 0x%02X", i, span[i], before[i])
+		}
+	}
+
+	back, err := u5data.ParseSave(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2 := roomScene(t, 0, 5)
+	s2.LoadFrom(back)
+	if got := s2.ActiveMember(); got != 1 {
+		t.Errorf("讀回來的指定行動者是 %d,預期 1", got)
+	}
+	if got := s2.TurnsSinceAlms(); got != 137 {
+		t.Errorf("讀回來的回合計數是 %d,預期 137", got)
+	}
+	if !s2.roomIsCleared(0x23, byte(u5data.DungeonRoomF|5)) ||
+		!s2.roomIsCleared(0x26, byte(u5data.DungeonRoomF|9)) {
+		t.Error("讀回來之後房間紀錄不見了")
+	}
+	// 反對照:沒清過的房間不能變成清過。
+	if s2.roomIsCleared(0x23, byte(u5data.DungeonRoomF|6)) {
+		t.Error("沒清過的房間被讀成清過了")
+	}
+}
+
+// TestRoomsClearedSpanIsFourteenBytes —— ★★ 14 這個長度本身是一條證據。
+//
+// 索引是 `DungeonRoomBlock*16 + 房號`,而 `DungeonRoomBlock` 有「≥1 就 −1」
+// 的修正 ⇒ 八座地牢只佔 7 個區塊 ⇒ 7 × 16 = 112 位元 = 14 位元組。
+// 原版 `sub_27D24` 的 `push 0Eh` 獨立佐證了那個共用區塊的怪處。
+func TestRoomsClearedSpanIsFourteenBytes(t *testing.T) {
+	if u5data.RoomsClearedBytes != 14 {
+		t.Fatalf("長度是 %d,原版讀 0x0E = 14", u5data.RoomsClearedBytes)
+	}
+	// 最大索引要塞得進去。
+	maxIdx := u5data.DungeonRoomBlock(u5data.DungeonLocationBase+u5data.DungeonCount-1)*
+		u5data.DungeonRoomsPerDungeon + u5data.DungeonRoomsPerDungeon - 1
+	if maxIdx/8 >= u5data.RoomsClearedBytes {
+		t.Errorf("最大索引 %d 需要 %d 位元組,只有 %d",
+			maxIdx, maxIdx/8+1, u5data.RoomsClearedBytes)
+	}
+	// ★ 而且要**剛好**塞滿 —— 差一個位元組就表示索引方式不是那個修正版。
+	if maxIdx/8 != u5data.RoomsClearedBytes-1 {
+		t.Errorf("最大索引 %d 落在第 %d 個位元組,預期剛好是最後一個(%d)",
+			maxIdx, maxIdx/8, u5data.RoomsClearedBytes-1)
 	}
 }

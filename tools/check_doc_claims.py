@@ -165,7 +165,10 @@ def main() -> int:
         # 原本只收小寫,於是那一份每次都被報成「索引沒收錄」——
         # 而它其實一直都在索引裡。**閘門的假警報比沒有閘門糟**:
         # 每次都亮的那一行會讓人連真的那幾行一起跳過。
-        listed = set(re.findall(r"\b(\d\d-[A-Za-z0-9-]+\.md)\b", index.read_text(errors="replace")))
+        #
+        # ⚠⚠ 編號也**不只兩位數**:`100-…` 進來時 `\d\d` 會在 `10` 之後要求 `-`
+        # 卻讀到 `0` ⇒ 整份匹配不到 ⇒ 又是一筆假警報。編號一律 `\d{2,}`。
+        listed = set(re.findall(r"\b(\d{2,}-[A-Za-z0-9-]+\.md)\b", index.read_text(errors="replace")))
         orphans = sorted(
             d.name
             for d in (ROOT / args.docs / "re").glob("*.md")

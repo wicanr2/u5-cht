@@ -54,11 +54,47 @@ var sightDawnRamp = [6]int{2, 5, 10, 20, 34, 49}
 // = 25 = 亞拉臘號(ARARAT)的殘骸。整個地點寫死走夜間半徑。
 const SightAlwaysDarkLocation = 25
 
+// onOverworld 回報現在是不是在大地圖上(不在場景、戰鬥、地牢裡)。
+//
+// 這是 `sub_2D9D0`(大地圖主迴圈)成立的條件 —— 三個主迴圈互斥
+// (`docs/re/81`),所以「不在另外兩個裡」就是在大地圖上。
+func (s *State) onOverworld() bool {
+	return !s.InScene() && !s.InCombat() && !s.InDungeon()
+}
+
+// DarknessExemptMode 是「站在黑暗格上仍然照原本算光照」的模式值
+// (原版 `cmp byte_3E08A, 0Eh`)。⬜ 語意未定,照字面比對。
+const DarknessExemptMode = 0x0E
+
 // LightRadius2 是現在的視野平方半徑(原版 `byte_3E0B5`)。
 //
 // 判斷順序照 `sub_29304`,不可重排 —— 尤其兩個下限是**先咒語後火把**,
 // 而且是「不足才補」:同時有咒語與火把時火把那一關會被跳過。
 func (s *State) LightRadius2() int {
+	// ★★ **站在「黑暗」那一格上,視野強制歸零**(原版 `sub_2D944`,
+	// 大地圖主迴圈 `sub_2D9D0` 的第一件事):
+	//
+	//	if (腳下 tile == 0FFh && byte_3E08A != 0Eh) { byte_3E0B5 = 0; … }
+	//	else                                        sub_29304(0)   ; 重算光照
+	//
+	// tile 0xFF 是 look 表第 255 筆「**darkness!**」,而它在 `UNDER.DAT`
+	// 出現 106 次、在 `BRIT.DAT` **一次都沒有** ⇒ 是幽冥界專屬的格子。
+	// 站上去伸手不見五指,連火把與 In Lor 都不補 —— 因為原版是**直接寫 0**
+	// 而不是走那條「不足才補」的鏈。
+	//
+	// ⬜ `byte_3E08A != 0x0E` 那個豁免:`byte_3E08A` 平常放的是模式字母
+	// ('T' 停止時間、'Q' 速度加倍),而 0x0E 是誰寫進去的還沒掃。
+	// 照字面比對,不猜語意。
+	//
+	// ⚠⚠ **只在大地圖上判。** `sub_2D944` 的唯一呼叫者是大地圖主迴圈
+	// `sub_2D9D0`,而引擎的 `TileAt` 在**場景資料缺失或座標出界**時回的
+	// `u5data.TileBlank` **也是 0xFF** —— 同一個值兩個意思。
+	// 少了這道閘門,任何沒載入場景的狀態(單元測試、剛建好的 State)
+	// 都會變成全黑,而症狀看起來像「光照公式壞了」。
+	if s.onOverworld() && s.TileAt(s.X, s.Y) == u5data.TileDarkness &&
+		s.CombatMode != DarknessExemptMode {
+		return 0
+	}
 	r := SightRadiusNight
 	switch {
 	case s.Location == SightAlwaysDarkLocation:

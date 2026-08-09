@@ -246,11 +246,12 @@ func (s *State) stepNPC(i int) {
 		rt.Mode = ModeIdle
 		return
 	case ModeUpAway, ModeDownAway, ModeUpToPlayer, ModeDownToPlayer:
-		// 跨樓層:原版先走到樓梯口再上下樓。樓梯口的選擇(`sub_89EC`)
-		// 還沒還原,先直接換層 —— 這是本檔唯一還沒逐格對上原版的地方,
-		// 而它只在 NPC 換樓層的那一刻發生。
-		rt.X, rt.Y, rt.Floor = tx, ty, tf
-		rt.Mode = ModeIdle
+		// ✅ 跨樓層:先走到樓梯口再上下樓(原版 `sub_92C0` + `sub_89EC`,
+		// 見 `npcstairs.go`)。此前是直接換層 —— 玩家會看到 NPC 憑空消失。
+		//
+		// ⚠ 走不到樓梯就**這一回合不動**,不要退回瞬移:原版
+		// `sub_89EC` 回 0 之後就 `return`,而重試由 `retryPath` 的計數管。
+		s.stepNPCToStairs(i)
 		return
 	}
 

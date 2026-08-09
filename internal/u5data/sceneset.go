@@ -92,6 +92,14 @@ const (
 	LadderUp = 0xC8
 	// LadderDown 是往下的梯子。
 	LadderDown = 0xC9
+
+	// NPCStairBase / NPCStairMask 是 `sub_92C0` 收的那一族樓梯格。
+	//
+	// ⚠⚠ **遮罩是 0xF4 不是 0xFC** ⇒ 除了 0xC4..0xC7(四個朝向)還收
+	// **0xCC..0xCF**(bit 3 沒被遮住)。`StairsFacing` 用的是 `StairsMask`
+	// = 0xFC,定義域比較窄 —— 兩支的範圍不同,不要互相套用。
+	NPCStairBase = 0xC4
+	NPCStairMask = 0xF4
 	// TrapDoor 是另一個往下的出口(原版 sub_EA0 與 0xC9 同樣處理)。
 	TrapDoor = 0x86
 )

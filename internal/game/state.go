@@ -484,7 +484,7 @@ type State struct {
 	//
 	// 索引 = `u5data.DungeonRoomIndex(地點碼, tile)`,8 座 × 16 間 = 128 位元。
 	// ⬜ **存檔位移還沒定位** ⇒ 重開遊戲之後房間會全部恢復(原版會記著)。
-	roomsCleared [16]byte
+	roomsCleared [u5data.RoomsClearedBytes]byte
 	// turnsSinceAlms 是維生開銷每回合 +1 的計數器(原版 `byte_3E09B`,上限 255)。
 	//
 	// ★ 施捨給乞丐拿業報時歸零 —— 那個「>= 100」的閘門就是靠它節流的
@@ -1005,8 +1005,27 @@ func (s *State) Enter() {
 		s.ReadCodex()
 		return
 	}
+	// ★★★ **崩塌的入口進不去,而擋住它的就是 tile 本身。**
+	//
+	// 原版 `sub_2D72C` 是一個 `switch (tile − 0x10)`,47 個 case:
+	// 洞穴(0x16)/ 礦坑(0x17)/ 地牢(0x18)分別是 case 22/23/24,
+	// 三者都印一句地形名再進 `sub_2D564`。而崩塌的入口是 **0xDF**,
+	// `0xDF − 0x10 = 0xCF > 0x2E` ⇒ 落到 **default**,印「What?」就結束。
+	//
+	// ⇒ 那道門不在 `sub_2D564` 裡(它只查座標、載具與末日的三個位元組),
+	// 而在**分派表的定義域**上。所以引擎這裡要先看 tile 再查座標。
+	if s.TileAt(s.X, s.Y) == u5data.TileDungeonSealed {
+		s.Log(MsgWhat)
+		return
+	}
 	// 地牢入口與城鎮共用同一張地點表(索引 0x20..0x27),先查地牢。
 	if n, ok := u5data.DungeonAt(s.X, s.Y); ok {
+		// ⚠ 座標對上了還要 tile 也對 —— 原版是 tile 分派,座標只是第二道。
+		// 少了這一條,地形被改成別的東西之後(月門、地震)還是進得去。
+		if !u5data.IsDungeonEntranceTile(s.TileAt(s.X, s.Y)) {
+			s.Log(MsgWhat)
+			return
+		}
 		if s.Transport != u5data.VehicleWalk && s.Transport != u5data.VehicleWalk+1 {
 			s.Log("得下來走路才進得去!")
 			return
@@ -1108,6 +1127,14 @@ func (s *State) LoadFrom(sv *u5data.Save) {
 	s.ShrineQuestGiven = sv.CodexLearned
 	s.ShrineFlag = sv.ShrineFlag
 	s.DungeonSeal = sv.DungeonSeal
+	// ✅ 三個此前只留在記憶體裡的欄位,位移已釘死(`docs/re/99` §5f)。
+	//
+	// ⚠ `activeSet` 一定要一起設成 true —— 那個旗標存在的理由是
+	// 「結構常值的零值 0 不能被當成『指定了第一位』」,而從存檔載入時
+	// 我們確實知道值是多少(0xFF 就是沒指定)。
+	s.activeMember, s.activeSet = sv.ActiveMember, true
+	s.turnsSinceAlms = int(sv.TurnCounter)
+	s.roomsCleared = sv.RoomsCleared
 	// ★ 旗標存在存檔裡,而地形來自唯讀的 `BRIT.DAT` ⇒ 載入之後要依旗標
 	// 把地形改寫回去(原版 `sub_105E4` 在每次載入地圖區塊時做,`docs/re/99` §5e)。
 	// 少了這一步:開局八座地牢入口全是通的(原版全是崩塌的),

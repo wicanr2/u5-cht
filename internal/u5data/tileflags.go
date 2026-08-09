@@ -143,9 +143,26 @@ func TileBlocksNPC(tile int) bool {
 }
 
 // 樓梯的 tile。`sub_9358` 對「模式 3」的 NPC 特別放行這兩個值。
+//
+// ⚠⚠ **這兩個名字此前是反的。** 同一組值在 `sceneset.go` 裡叫
+// `LadderUp = 0xC8` / `LadderDown = 0xC9`,而 `ClimbDelta` 對 0xC8 回 **+1**
+// (往上)—— 兩個檔案給同一個值取了相反的名字。
+//
+// `sub_92C0`(NPC 判斷腳下能不能通往目標樓層)獨立佐證了 `sceneset.go` 那邊:
+//
+//	當前樓層 >  目標樓層(要往下)→ 找 tile **0xC9**
+//	當前樓層 <= 目標樓層(要往上)→ 找 tile **0xC8**
+//
+// ⇒ 以 `sceneset.go` 的 `LadderUp` / `LadderDown` 為準,這裡不再另立名字。
+// TileDarkness 是 look 表第 255 筆「darkness!」。
+//
+// ★ 它在 `UNDER.DAT` 出現 106 次、在 `BRIT.DAT` **一次都沒有**
+// ⇒ 幽冥界專屬。站上去視野歸零(`game.LightRadius2`,原版 `sub_2D944`)。
+const TileDarkness = 0xFF
+
 const (
-	TileStairsDown = 0xC8
-	TileStairsUp   = 0xC9
+	TileStairsDown = LadderDown
+	TileStairsUp   = LadderUp
 )
 
 // 投射物的穿透規則(原版 `byte_60018`,位址 0x60018)

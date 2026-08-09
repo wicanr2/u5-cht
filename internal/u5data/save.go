@@ -27,6 +27,14 @@ const (
 	// SaveFileSize 是存檔大小。
 	SaveFileSize = 4192
 
+	// LocationCodeMax 是 `byte_3E0A3` 的合理上限。
+	//
+	// ⚠⚠ **不是 `len(Locations)` = 32。** 地點表其實有 **40 筆**:前 32 筆是
+	// 城鎮與城堡,後 8 筆是地牢(`sub_2D564` 掃索引 0x20..0x27,見 `dungeon.go`)。
+	// 拿 32 當上限會讓**在地牢裡存不了檔** —— 而原版的 `byte_3E0A3` 在地牢裡
+	// 就是 0x21..0x28。
+	LocationCodeMax = DungeonLocationBase + DungeonCount - 1
+
 	// 角色名冊:16 筆 32 B 的角色紀錄,從位移 2 開始。
 	SaveRosterOffset = 0x0002
 	RosterSize       = 16
@@ -139,12 +147,23 @@ const (
 	SavePartySizeOffset = 0x02B5 // byte_3E06B
 	SaveYearOffset      = 0x02CE // word_3E084
 	SaveTimeStopOffset  = 0x02D4 // byte_3E08A('T' 停止時間、'Q' 速度加倍)
-	SaveTransportOffset = 0x02D6 // byte_3E08C(隊伍當前載具 tile)
+	// SaveActiveMemberOffset 是「指定行動者」(byte_3E08B,0xFF = 沒指定)。
+	//
+	// ★ 位移由 `sub_27D24` 的讀取序列推出來:那一段是**一格一格 `fgetc`**,
+	// 所以檔案位移與全域位址同步遞增。三個錨點交叉驗證:
+	// `byte_3E08C`=0x02D6、`byte_3E08F`=0x02D9、`byte_3E098`=0x02E2,
+	// 差值與位址差完全一致 ⇒ `byte_3E08B` = 0x02D6 − 1。
+	// 而 `INIT.GAM` / `SAVED.GAM` 這一格都是 **0xFF**,正是它的哨兵值。
+	SaveActiveMemberOffset = 0x02D5 // byte_3E08B
+	SaveTransportOffset    = 0x02D6 // byte_3E08C(隊伍當前載具 tile)
 	SaveMonthOffset     = 0x02D7 // byte_3E08D
 	SaveDayOffset       = 0x02D8 // byte_3E08E
 	SaveHourOffset      = 0x02D9 // byte_3E08F
 	SaveMinuteOffset    = 0x02DB // byte_3E091
 	SaveKarmaOffset     = 0x02E2 // byte_3E098
+	// SaveTurnCounterOffset 是每回合 +1 的計數器(byte_3E09B,上限 255)——
+	// 施捨給乞丐的業報靠它節流(`docs/re/99` §5b)。`INIT.GAM` 是 0。
+	SaveTurnCounterOffset = 0x02E5 // byte_3E09B
 	SaveLocationOffset  = 0x02ED // byte_3E0A3
 	SaveFloorOffset     = 0x02EF // byte_3E0A5
 	SaveXOffset         = 0x02F0 // byte_3E0A6
@@ -174,6 +193,16 @@ const (
 	SaveDungeonSealOffset = 0x032A
 	// SaveShrineFlagOffset 起 8 B(byte_3E0E8):八座聖壇,bit 0x80 = 已被玷污。
 	SaveShrineFlagOffset = 0x0332
+	// SaveRoomsClearedOffset 起 **14 B**(byte_3E0F0):清過的地牢房間位元陣列。
+	//
+	// ★★ **14 這個長度本身就是一條證據。** 索引是
+	// `DungeonRoomBlock(地點碼)*16 + 房號`,而 `DungeonRoomBlock` 有一個
+	// 「≥1 就 −1」的修正 ⇒ 八座地牢只佔 **7** 個區塊 ⇒ 7 × 16 = 112 位元
+	// = 剛好 14 位元組。若索引是 0..7 就會需要 16 位元組。
+	// ⇒ 原版 `sub_27D24` 的 `push 0Eh` 獨立佐證了那個共用區塊的怪處。
+	SaveRoomsClearedOffset = 0x033A
+	// RoomsClearedBytes 是那個位元陣列的長度(原版 `push 0Eh`)。
+	RoomsClearedBytes = 14
 
 	// SaveRemovedNPCOffset 起 128 B(`dword_3E36C`):**32 個地點各一個 u32**,
 	// 位元 i = 那個地點的第 i 個 NPC 已經被永久清掉(`sub_218` 設)。
@@ -415,6 +444,12 @@ type Save struct {
 	DungeonSeal [VirtueCount]byte
 	// ShrineFlag[i] 的 bit 0x80 = 第 i 座聖壇已被玷污。
 	ShrineFlag [VirtueCount]byte
+	// ActiveMember 是「指定行動者」的名冊索引;0xFF = 沒指定。
+	ActiveMember byte
+	// TurnCounter 是每回合 +1 的計數器(施捨業報的節流)。
+	TurnCounter byte
+	// RoomsCleared 是清過的地牢房間位元陣列(14 B = 7 區塊 × 16 間)。
+	RoomsCleared [RoomsClearedBytes]byte
 	// RemovedNPC[地點-1] 的位元 i = 那個地點的第 i 個 NPC 已被永久清掉。
 	RemovedNPC [RemovedNPCLocations]uint32
 
@@ -516,6 +551,9 @@ func ParseSave(raw []byte) (*Save, error) {
 	s.ShrineQuest = raw[SaveShrineQuestOffset]
 	s.CodexLearned = raw[SaveCodexLearnedOffset]
 	copy(s.DungeonSeal[:], raw[SaveDungeonSealOffset:])
+	s.ActiveMember = raw[SaveActiveMemberOffset]
+	s.TurnCounter = raw[SaveTurnCounterOffset]
+	copy(s.RoomsCleared[:], raw[SaveRoomsClearedOffset:])
 	copy(s.ShrineFlag[:], raw[SaveShrineFlagOffset:])
 	for i := range s.RemovedNPC {
 		s.RemovedNPC[i] = binary.LittleEndian.Uint32(raw[SaveRemovedNPCOffset+i*4:])
@@ -545,8 +583,8 @@ func (s *Save) validate() error {
 		return fmt.Errorf("分鐘是 %d", s.Minute)
 	case s.PartySize > MaxPartySize:
 		return fmt.Errorf("隊伍 %d 人(上限 %d)", s.PartySize, MaxPartySize)
-	case s.Location > len(Locations):
-		return fmt.Errorf("地點編號 %d 超出 0..%d", s.Location, len(Locations))
+	case s.Location > LocationCodeMax:
+		return fmt.Errorf("地點編號 %d 超出 0..%d", s.Location, LocationCodeMax)
 	}
 	// 背包欄位與角色紀錄之間隔著會漂移的那 4 B(見上方位移註解),
 	// 所以另外撞一次牆:持有數量的上限是 99,超過就是位移偏了。
@@ -675,6 +713,9 @@ func (s *Save) Encode() ([]byte, error) {
 	out[SaveHourOffset] = byte(s.Hour)
 	out[SaveMinuteOffset] = byte(s.Minute)
 	out[SaveKarmaOffset] = byte(s.Karma)
+	out[SaveActiveMemberOffset] = s.ActiveMember
+	out[SaveTurnCounterOffset] = s.TurnCounter
+	copy(out[SaveRoomsClearedOffset:], s.RoomsCleared[:])
 	out[SaveTransportOffset] = s.Transport
 	out[SaveLocationOffset] = byte(s.Location)
 	out[SaveFloorOffset] = byte(int8(s.Floor))

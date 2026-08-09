@@ -187,6 +187,29 @@ const ShrineDesecratedBit = 0x80
 // 不是封印。這正是 U5 的主線:八座地牢一開始進不去,要各自喊對那個字。
 const DungeonSealedBit = 0x80
 
+// DungeonEntranceTiles 是三種地牢入口地形(原版 `sub_2D72C` 的 case 22/23/24)。
+//
+//	0x16 a dark cave        洞穴
+//	0x17 an abandoned mine  礦坑
+//	0x18 a dungeon          地牢
+//
+// ★ 八座地牢的入口就開在這三種地形上(`byte_55E18` = `18 16 16 18 18 17 17 16`)。
+var DungeonEntranceTiles = [3]byte{0x16, 0x17, 0x18}
+
+// IsDungeonEntranceTile 回報這個地形算不算「按 E 會進地牢」的入口。
+//
+// ⚠ 這是原版**唯一**的那道門:`sub_2D72C` 的 switch 定義域只到
+// `tile − 0x10 <= 0x2E`,而崩塌的 `0xDF` 落在定義域外 → default → 印「What?」。
+// `sub_2D564`(真正的進入)本身**不查封印**,只查座標、載具與末日的三個位元組。
+func IsDungeonEntranceTile(tile byte) bool {
+	for _, t := range DungeonEntranceTiles {
+		if t == tile {
+			return true
+		}
+	}
+	return false
+}
+
 // DungeonIsSealed 回報第 i 座地牢的入口是不是崩塌的。
 //
 // ⚠ 一定要走這一支,不要自己寫 `flag & DungeonSealedBit != 0` ——

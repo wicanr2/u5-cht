@@ -66,6 +66,11 @@ func (s *State) ExportSave(base *u5data.Save) (*u5data.Save, error) {
 	out.CodexLearned = s.ShrineQuestGiven
 	out.ShrineFlag = s.ShrineFlag
 	out.DungeonSeal = s.DungeonSeal
+	// ⚠ `ActiveMember` 寫的是**原始位元組**(0xFF = 沒指定),不是 `ActiveMember()`
+	// 那支回 −1 的介面 —— 存檔欄位就是那個位元組。
+	out.ActiveMember = s.activeMember
+	out.TurnCounter = byte(s.turnsSinceAlms)
+	out.RoomsCleared = s.roomsCleared
 	out.ShadowlordAt = s.ShadowlordAt
 	out.ShadowlordHere = s.ShadowlordHere
 	out.RemovedNPC = s.RemovedNPC
