@@ -962,7 +962,10 @@ func main() {
 	playIntro := flag.Bool("intro", false, "強制播開場動畫(沒有存檔時本來就會播)")
 	newChar := flag.Bool("create", false,
 		"直接走建角流程(吉普賽的七題八德),覆寫載入的那名聖者")
-	showMenu := flag.Bool("menu", false, "開機先進主選單(原版的六個項目)")
+	// ⚠ 主選單現在是**預設**(原版就是這樣)。留 `-menu` 是為了不打斷舊腳本。
+	_ = flag.Bool("menu", true, "開機先進主選單(原版的六個項目;**預設開啟**,留著是為了不打斷舊腳本)")
+	skipMenu := flag.Bool("continue", false,
+		"跳過主選單直接讀檔進遊戲(開發 / 回歸測試用;原版沒有這條路)")
 	// 原版的「Transfer from Ultima IV」寫死讀 `a:party.sav`。現代環境沒有
 	// A 磁碟,所以路徑用旗標給;不給就在選單裡照實說,不假裝轉入。
 	u4save := flag.String("u4save", "",
@@ -1075,14 +1078,25 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	if *playIntro || !loaded {
 		st.BeginIntro()
 	}
+	_ = loaded
 	// 「從創世紀 IV 轉入」要用的存檔路徑(原版寫死 `a:party.sav`)。
 	st.U4SavePath = *u4save
 	// 建角。原版是主選單的「Create New Character」;引擎還沒有主選單,
 	// 先用旗標接上 —— 沒有它玩家只能扮演存檔裡做好的聖者。
 	// ⚠ 開場動畫還在播的時候不能同時建角,兩者都吃「任意鍵」。
+	//
+	// ★★ **開機預設進主選單**,與原版一致(2026-08-09 使用者實機回報:
+	// 「五代沒有人物建立嗎?一開始就進入遊戲?」)。
+	// 原版按下 `Journey Onward` 才進遊戲,而「Create New Character」就在
+	// 同一張選單上 —— 引擎此前直接讀檔進場,於是**建角流程玩家根本走不到**,
+	// 而它早就實作好了(`internal/game/create.go`)。
+	//
+	// ⚠ 這是「功能在、入口不在」的形狀:`find_unwired.py` 抓不到它
+	//(有測試在呼叫),而測試也全綠 —— 只有真的開起來玩才發現。
+	// `-continue` 給不想每次過選單的人(開發與回歸測試用)。
 	if *newChar && st.Prompt == gamestate.PromptNone {
 		st.BeginCreation()
-	} else if *showMenu && st.Prompt == gamestate.PromptNone {
+	} else if !*skipMenu && st.Prompt == gamestate.PromptNone {
 		st.BeginMainMenu()
 	}
 

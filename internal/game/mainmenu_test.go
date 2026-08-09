@@ -118,3 +118,33 @@ func TestTransferOnABadSaveKeepsTheMenu(t *testing.T) {
 		t.Errorf("沒有印「無法完成轉入」:%q", s.Messages)
 	}
 }
+
+// ★★ 主選單第二項要真的走到建角。
+//
+// 2026-08-09 實機回報:「五代沒有人物建立嗎?一開始就進入遊戲?」——
+// 建角流程早就實作好、還有五條測試,但 **`cmd/u5cht` 開機直接讀檔進場**,
+// 於是玩家永遠走不到那張選單。這條測試釘的是**入口**,不是流程:
+// 「功能在、入口不在」不會讓任何既有測試變紅。
+func TestMenuSecondItemStartsCreation(t *testing.T) {
+	s := newCreateState(t)
+	s.BeginMainMenu()
+	if !s.InMainMenu() {
+		t.Fatal("主選單沒開起來")
+	}
+	s.MenuMove(1)
+	if s.Menu.Cursor != MenuCreateCharacter {
+		t.Fatalf("往下一格是 %v,預期建立新角色", s.Menu.Cursor)
+	}
+	if !s.MenuChoose() {
+		t.Fatal("選了建立新角色,選單沒關")
+	}
+	if s.Prompt != PromptCreate {
+		t.Fatalf("選完之後 Prompt 是 %v,預期 PromptCreate", s.Prompt)
+	}
+	// 反對照:第一項是「繼續前行」,不該開始建角。
+	s2 := newCreateState(t)
+	s2.BeginMainMenu()
+	if !s2.MenuChoose() || s2.Prompt == PromptCreate {
+		t.Error("第一項應該直接進遊戲,不是建角")
+	}
+}

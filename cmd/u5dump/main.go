@@ -509,6 +509,7 @@ func cmdScene(args []string) error {
 	giveBox := false
 	quitAsk := false
 	helpOpen, helpPage := false, 0
+	startMenu := false
 	beamFrame := 0
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
@@ -526,6 +527,9 @@ func cmdScene(args []string) error {
 		// ⚠ 這不是遊戲狀態,是應用層的 `internal/appui`。
 		case "--quit":
 			quitAsk = true
+		// 開機先進主選單(原版的六個項目)—— 之後用 `u`/`d`/`m` 驅動。
+		case "--menu":
+			startMenu = true
 		// 畫 F1 指令說明的第 N 頁(截圖用)。
 		case "--help-page":
 			helpOpen = true
@@ -604,6 +608,11 @@ func cmdScene(args []string) error {
 		}
 	}
 	st.Log("汝已抵達不列顛尼亞。此地由不列顛王治理,然其人已然失蹤。")
+	// ★ `--menu` 讓 headless 也能驗**玩家真的會走的第一個畫面** ——
+	// 原版開機是主選單,而「Create New Character」就在那張選單上。
+	if startMenu {
+		st.BeginMainMenu()
+	}
 	if err := playScript(st, script); err != nil {
 		return err
 	}
@@ -993,6 +1002,30 @@ func playScript(st *game.State, script string) error {
 					st.CancelDirection()
 				}
 			}
+		// `u` / `d` / `m` —— 主選單:游標上、游標下、確定(Enter)。
+		// 建角問答也用 `m` 之外的 `a` / `b` 選邊(見下面)。
+		case 'u':
+			st.MenuMove(-1)
+		case 'd':
+			st.MenuMove(1)
+		case 'm':
+			switch st.Prompt {
+			case game.PromptMenu:
+				st.MenuChoose()
+			case game.PromptCreate:
+				// 建角的「繼續」鍵(開場白 / 結語按任意鍵翻頁)。
+				st.AdvanceCreation()
+			default:
+				st.Answer(true)
+			}
+		// `1` / `2` —— 建角的八德淘汰賽,選左邊或右邊那一個。
+		//
+		// ⚠ 不用 `a` / `b`:`b` 已經是地牢後退。同一個字母兩個意思,
+		// 在腳本裡看不出來,而症狀是「建角測試莫名走進地牢邏輯」。
+		case '1':
+			st.AnswerCreation(true)
+		case '2':
+			st.AnswerCreation(false)
 		// `O<方向>` —— 開門 / 開箱(原版按鍵 O,問方向)。
 		//
 		// ★ 少了這個鍵,**從尤洛小屋走不出去** —— 屋子的南牆只有一扇門,

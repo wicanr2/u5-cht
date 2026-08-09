@@ -45,4 +45,6 @@ run "$OUT/21-sandalwood.png" --scene '#17' 2 17 17 --script '~6789878767653nnnnn
 run "$OUT/22-quit.png" --quit
 # F1 指令說明的第一頁(原版沒有這個畫面 —— 1988 年靠紙本手冊)。
 run "$OUT/23-help.png" --help-page 0
+# 主選單:原版開機看到的第一個畫面(六個項目,第二項是建立新角色)。
+run "$OUT/24-menu.png" --menu
 echo "→ $OUT"
