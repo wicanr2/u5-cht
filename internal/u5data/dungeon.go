@@ -248,6 +248,43 @@ func DungeonIsRoom(tile byte) bool {
 // DungeonRoomNumber 取房號(低四位元,`sub_42CC` 的 `and al, 0Fh`)。
 func DungeonRoomNumber(tile byte) int { return int(tile & 0x0F) }
 
+// DungeonRoomClearedMask 是「這間房清過了」之後套在 tile 上的遮罩
+// (原版 `sub_FA7C` 的 `and byte ptr [esi], 0AFh`)。
+//
+// ★ `0xAF` 清掉 **0x50** 兩個位元 ⇒ `0xFn` 變成 `0xAn`,也就是
+// `DungeonRoomA` 那一族(可走的空房間),不是通道也不是牆。
+const DungeonRoomClearedMask = 0xAF
+
+// dungeonRoomAlwaysArmed 是「永遠不會被記成清過」的六間房。
+//
+// 原版 `byte_55110`(6 筆,筆數在 `byte_55116`):
+//
+//	50h 5Bh 41h 46h 4Bh 4Ch
+//
+// 鍵 = `房號 | ((地點碼 & 0x0F) << 4)` —— ⚠ 用的是**原始的低四位元**,
+// 不是 `DungeonRoomBlock` 那個有修正的索引(見 `game/dungeonroom.go`)。
+//
+// 地點碼 0x21 是第一座地牢,所以低四位元 4 / 5 = 地點碼 0x24 / 0x25
+// = 索引 3 / 4 = **謬誤(WRONG)** 與 **貪婪(COVETOUS)**:
+//
+//	謬誤   房 1、6、11、12
+//	貪婪   房 0、11
+//
+// ⚠ 這六筆是**資料不是規則** —— 不要試著從「哪幾間該有怪」推它,
+// 反過來也不要「順手補齊」成整座地牢。
+var dungeonRoomAlwaysArmed = [6]byte{0x50, 0x5B, 0x41, 0x46, 0x4B, 0x4C}
+
+// DungeonRoomAlwaysArmed 回報這一間房是不是永遠有怪。
+func DungeonRoomAlwaysArmed(location, room int) bool {
+	key := byte(room) | byte((location&0x0F)<<4)
+	for _, k := range dungeonRoomAlwaysArmed {
+		if k == key {
+			return true
+		}
+	}
+	return false
+}
+
 // DungeonCanClimbUp / Down 是 Klimb 的判定(`sub_417C`)。
 //
 // 往上:梯子(0x10 / 0x30),或這一格有「頭上的洞」而且身上有繩索。

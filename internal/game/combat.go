@@ -681,6 +681,14 @@ func (s *State) EndCombat(won bool) {
 			objs.Remove(s.Combat.fromSlot)
 		}
 	}
+	// ★ 地牢房間打完就記成「清過了」(原版 `sub_42CC` 在恢復地點碼之後
+	// `call sub_F9A0(房號)`)—— 之後踏上那一格不再開打。
+	//
+	// ⚠ 原版是**無條件**記,不看勝負;而地牢房間是全遊戲唯一 ESC 離不開的
+	// 戰場(`docs/re/73`),所以打完只有一種結局。照原樣不加勝負判斷。
+	if s.CombatMode == CombatModeRoom && s.Dungeon != nil {
+		s.markRoomCleared(s.locationCode(), s.DungeonTileHere())
+	}
 	// 把進戰鬥前的世界座標還回去(原版 `sub_2E364` 尾端把 var_4 / var_8
 	// 寫回 `byte_3E0A6/A7`)。少了這一步,打完架人會出現在戰場的格座標上。
 	s.X, s.Y = s.Combat.savedX, s.Combat.savedY

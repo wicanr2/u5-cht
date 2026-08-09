@@ -8,7 +8,7 @@
 | 主要資料 | `byte_3DDD1` = `CharRing`(記錄 0x1D)、`byte_3E09B`(回合計數器)、`byte_3E09E`(模式倒數)、`byte_3E0AE`(當前行動單位) |
 | 工具 | ★ `tools/refunc.py`(新)—— 一支函式的組語(`proc`→`endp`,**不截斷**)/ 反編譯的 C / 呼叫者 |
 | 起因 | 「完成遊戲邏輯」—— 從 `WORKLIST §5.2c` 的 25 支未讀函式往下清 |
-| 狀態 | ✅ 六個機制落地;四條舊斷言更正 |
+| 狀態 | ✅ 七個機制落地;四條舊斷言更正 |
 
 ---
 
@@ -293,6 +293,47 @@ else                        sub_B51C(自己, random(0, 20))
 ⚠ 這一支**沒有敏捷擲骰**。地牢那條(`fieldAffectsParty`)有,戰場這條沒有 ——
 兩支不同的函式,不要對齊。
 
+## 5d. ★★ 清過的地牢房間不會再有怪(`sub_F9A0` / `sub_FA20` / `sub_FA7C`)
+
+三支函式組成一個機制,而引擎此前**每次踏上房間格都會再打一場**:
+
+```
+sub_F9A0(房號)   打完一間房 → 在位元陣列 byte_3E0F0 上記一筆
+sub_FA20(房號)   查那一筆
+sub_FA7C()       ★ 進地牢時掃整座地牢的 512 格(8 層 × 64):
+                 if ((tile & 0F0h) == 0F0h && sub_FA20(tile & 0Fh))
+                     tile &= 0AFh            ; 0xFn → 0xAn
+```
+
+`& 0xAF` 清掉 **0x50** 兩個位元 ⇒ 房間格變成 `DungeonRoomA`(可走的空房間),
+**不是**通道也不是牆。用「設成 0」之類的簡化寫法會在地圖上多出一片假通道。
+
+呼叫點:`sub_42CC`(進房間)在**恢復地點碼之後**記(順序要緊 ——
+戰鬥中 `byte_3E0A3` 是 0xFF,提前呼叫會記到錯的地牢);
+`sub_5378`(地牢主迴圈)開頭套用。
+
+### ★ 六間房永遠有怪
+
+原版 `byte_55110`(筆數在 `byte_55116` = 6):`50h 5Bh 41h 46h 4Bh 4Ch`,
+鍵 = `房號 | ((地點碼 & 0x0F) << 4)`。低四位元 4 / 5 = 地點碼 0x24 / 0x25 =
+**謬誤(WRONG)** 房 1、6、11、12 與 **貪婪(COVETOUS)** 房 0、11。
+
+### ⚠⚠ 兩件事用**兩套不同的索引**
+
+| | 索引 |
+|---|---|
+| 例外清單的鍵 | `房號 \| ((地點碼 & 0x0F) << 4)` —— **原始的低四位元** |
+| 位元陣列 | `DungeonRoomBlock(地點碼)*16 + 房號` —— 有「≥1 就 −1」的修正 |
+
+⇒ **地點碼 0x21 與 0x22 在位元陣列裡共用同一批位元**,但在例外清單裡是
+不同的鍵。看起來像 bug,但 `DungeonRoomBlock` 那個修正**早就存在** ——
+`DUNGEON.CBT` 的房間查表(`DungeonRoomIndex`)用的是同一個函式。
+⇒ 不是算錯,是原版的索引方式。`TestRoomMemoryIsPerDungeon` 把它釘住,
+免得日後被「修正」掉。
+
+⬜ **存檔位移未定位** ⇒ 重開遊戲之後房間會全部恢復(原版會記著)。
+同 `byte_3E08B`(`docs/re/97` §3)的處境。
+
 ## 6. 引擎落地
 
 | 原版 | 引擎 |
@@ -309,6 +350,9 @@ else                        sub_B51C(自己, random(0, 20))
 | `sub_2EDC0` / `sub_2EDF8`(紮營讓人睡著)| `camp()` 的「不是 'P' 就睡」分支 + `putUnitToSleep()` |
 | `sub_BBA0` | `harmUnderUnit()` + `harmStandingUnit()`(接在 `afterPlayerAction` 與 `aiTurn` 之後)|
 | `sub_B8DC` | `poisonOrHurt()` |
+| `sub_F9A0` / `sub_FA20` / `sub_FA7C` | `markRoomCleared()` / `roomIsCleared()` / `applyClearedRooms()` |
+| `byte_3E0F0` | `State.roomsCleared`(⬜ 存檔位移未定位)|
+| `byte_55110` / `byte_55116` | `u5data.DungeonRoomAlwaysArmed()` |
 | `sub_165C8` / `sub_21D48` 的 `sub_2BCC8` | `camp()` 每小時 / `SleepUntilMorning()` 每 9 分鐘 |
 | `sub_16370` | `afterPlayerAction()`(`ringUpkeep` → `expireFields` → `tickCombatMode`)|
 
@@ -344,6 +388,10 @@ else                        sub_B51C(自己, random(0, 20))
 | `TestSleepFieldClearsPoison` | ★★ 睡眠力場把中毒擦掉(單一狀態位元組)|
 | `TestSleepingDeadStaysDead` | 死人不會被叫去睡 |
 | `TestHarmlessFloorDoesNothing` | 反對照:普通地板一百回合什麼都沒發生 |
+| `TestClearedRoomIsWipedOffTheMap` | ★★ `0xFn → 0xAn`,而且房號保留 |
+| `TestSixRoomsAreNeverMarkedCleared` | ★ 六筆逐一 + 四條反對照(同地牢別的房、別的地牢同房號)|
+| `TestAlwaysArmedRoomIsNotRemembered` | 例外生效,而且**不是整支關掉**(反對照)|
+| `TestRoomMemoryIsPerDungeon` | ★ 0x21 與 0x22 共用位元 —— 釘住原版的索引怪處 |
 
 ## 7. ⬜ 這一輪讀完但**判定為顯示層**的(不需要引擎邏輯)
 

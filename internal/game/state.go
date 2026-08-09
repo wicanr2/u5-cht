@@ -480,6 +480,11 @@ type State struct {
 	// mealHour 是上一次扣糧的那個小時(原版 `byte_3E090`)——
 	// 同一個小時內走幾百步也只扣一次糧。初值 −1 代表還沒結算過。
 	mealHour int
+	// roomsCleared 是「哪些地牢房間清過了」的位元陣列(原版 `byte_3E0F0`)。
+	//
+	// 索引 = `u5data.DungeonRoomIndex(地點碼, tile)`,8 座 × 16 間 = 128 位元。
+	// ⬜ **存檔位移還沒定位** ⇒ 重開遊戲之後房間會全部恢復(原版會記著)。
+	roomsCleared [16]byte
 	// turnsSinceAlms 是維生開銷每回合 +1 的計數器(原版 `byte_3E09B`,上限 255)。
 	//
 	// ★ 施捨給乞丐拿業報時歸零 —— 那個「>= 100」的閘門就是靠它節流的

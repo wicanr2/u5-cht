@@ -68,6 +68,8 @@ func (s *State) EnterDungeon(n int, fromBelow bool) bool {
 	// `sub_31DC0` 也用「地點碼 ≥ 0x21 → 9」開局(`docs/re/87`)。
 	s.playSong(SongDungeon)
 	s.Log("汝踏入了幽深的地底。")
+	// ★ 進地牢時把清過的房間從地圖上抹掉(原版 `sub_5378` 開頭 `call sub_FA7C`)。
+	s.applyClearedRooms()
 	s.spawnDungeonMonster()
 	s.onDungeonTile()
 	return true
