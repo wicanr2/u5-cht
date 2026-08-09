@@ -66,10 +66,28 @@ type Scene struct {
 	DungeonItems u5data.PictureSet
 	// IntroArt 是 STORY1-6.16 —— 開場的插圖。
 	IntroArt []u5data.PictureSet
+	// QuitAsk 開著時,最後會在整個畫面上疊一個「確定離開遊戲?」的框。
+	//
+	// ⚠ 這是**應用層**的狀態(`internal/appui`),不是 `State.Prompt` 的一員 ——
+	// 它不是原版的畫面,混進遊戲的 Prompt 列表會讓「這是不是原版行為」
+	// 變得難查(`CLAUDE.md §3.0`)。
+	QuitAsk bool
 }
 
 // Render 畫出整個 640×400 畫面。
+//
+// ⚠ 離開確認框要蓋在**所有**畫面之上(開場動畫、Ztats、選單都算),
+// 所以本體拆成 `render()`,框在這裡最後才疊 —— 否則每條 early return
+// 都得記得補一次,而漏掉的那條就是「按 F10 沒反應」的 bug。
 func (s *Scene) Render() *image.NRGBA {
+	dst := s.render()
+	if s.QuitAsk {
+		s.drawQuitDialog(dst)
+	}
+	return dst
+}
+
+func (s *Scene) render() *image.NRGBA {
 	dst := image.NewNRGBA(image.Rect(0, 0, CanvasWidth, CanvasHeight))
 	fill(dst, ColorBackground)
 
@@ -196,11 +214,19 @@ func (s *Scene) drawMapView(dst *image.NRGBA) {
 			MapOriginY+(dy+half)*TilePixels)
 	}
 
-	// 玩家位置標記。
-	// TODO(P3):換成原版的 Avatar tile —— 索引要從反編譯碼確認,不猜。
-	DrawFrame(dst,
-		MapOriginX+half*TilePixels, MapOriginY+half*TilePixels,
-		TilePixels, TilePixels, ColorMarker)
+	// 隊伍畫在正中央 —— 用**載具碼**當 tile 索引。
+	//
+	// ★ 索引公式不是猜的:存檔的載具欄位 `byte_3E08C` 本身就是 tile 碼
+	// (步行 0x1C、騎馬 0x12/0x13、揚帆 0x20..0x23、收帆 0x24..0x27、
+	// 小艇、魔毯各有各的碼),而生物 / 載具那一頁是 `NPCTileBase + 碼`
+	// (`u5data.NPCTileBase`,地牢那條路早就這樣畫)。
+	// 換句話說「隊伍現在長什麼樣」與「在什麼上面移動」在原版是同一個位元組。
+	//
+	// ⚠ **原版沒有白色方框。** 這裡原本畫的是一個 `ColorMarker` 外框當
+	// 「玩家在這」的替代品,而並排比對時它很顯眼:原版中央就是聖者的小人,
+	// 站在城鎮 tile 上時小人**蓋住**那格地形。方框反而讓人以為是選取狀態。
+	s.drawTile(dst, u5data.NPCTileBase+int(s.State.Transport),
+		MapOriginX+half*TilePixels, MapOriginY+half*TilePixels)
 }
 
 // drawTile 以 TileScale 倍(nearest)把一個 tile 畫到 (x, y)。
@@ -344,7 +370,10 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 		line += "  [" + string(rune(st.CombatMode)) + "]"
 	}
 	if st.WindShown() {
-		line += "  " + st.WindName() + "風"
+		// ⚠ `WindName()` 已經帶「風」字了(`WindNameZH` = 無風 / 北風 / …)——
+		// 這裡再接一個「風」會印成「無風風」。並排比對時抓到的
+		// (`docs/playtest-checkpoints.md` A1)。
+		line += "  " + st.WindName()
 	}
 	s.Text.Draw(dst, PanelX, y, line)
 
@@ -367,7 +396,7 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 	if s.Text == nil || s.State == nil {
 		return
 	}
-	hint := "方向鍵移動   E 進入   K 攀爬   T 交談   F5 音源   F10 離開"
+	hint := "方向鍵移動  E 進入  K 攀爬  T 交談  F5 存檔  F9 音源  F10 離開"
 	switch s.State.Prompt {
 	case game.PromptLeave:
 		hint = "Y 是 / N 否"

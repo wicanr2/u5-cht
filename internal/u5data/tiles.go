@@ -39,17 +39,27 @@ func (t *Tile) At(x, y int) byte {
 // **Tile.Pix 存的就是這一組索引。** 兩個來源在載入時都已經正規化成標準 EGA:
 // DOS 的 `TILES.16` 本來就是,FM Towns 的 `EGA*.TIL` 由 `tileColorRemap` 換過。
 //
-// ★ **色號 6 是暗黃(0xAAAA00),不是一般說的棕(0xAA5500)。**
-// 這不是選擇,是原版自己載進去的:`EGA.DRV` 與 `T1K.DRV` 都用
-// `int 10h` AH=10h/AL=02h 一次載入 17 B 的調色盤表,而那張表在
-// `DATA.OVL` 0x52EE(`EGAPaletteTableOffset`),第 7 個值是 **0x06**。
-// EGA 的調色盤值裡棕色是 **0x14**(次級綠位元),0x06 是「紅 + 綠皆為主級」= 暗黃。
+// ★★ **色號 6 是棕(0xAA5500)—— 這一格是量出來的,不是推出來的。**
+//
+// 2026-08-09 對 DOSBox 跑的原版並排取色:小屋內部 **4,184 px**、
+// 大地圖森林 **420 px**,兩處都是 **#AA5500**。換成 `machine=vgaonly`
+// 再跑一次(不同的顯示卡模擬路徑)仍是 #AA5500 ⇒ 不是模擬器的 EGA 怪癖。
+//
+// ⚠ **這與 `DATA.OVL` 0x52EE 那張表對不上,而兩件事都是真的。**
+// 那張表第 7 個值確實是 `0x06`(= 暗黃),驅動程式確實會把它餵給
+// `int 10h` AH=10h/AL=02h(推導過程見 `EGAPaletteTableOffset` 上面那一段,
+// 三條佐證都還成立)。但**玩家看到的**是 EGA 預設的棕 ——
+// 十六格裡只有第 7 格與預設不同,而那一格顯示的正是預設值,
+// 所以結論是:那張表沒有活到遊戲畫面(最可能是之後又設了一次顯示模式,
+// 而 `int 10h` 設模式會把調色盤暫存器重設回預設)。
+// 具體是哪一次 mode set 還沒追(要逆 16-bit 的 DOS `.OVL`),列為 ⬜。
+//
+// ⇒ **驗收看 reference,不看靜態推論**(`CLAUDE.md §6.1`、`rulebook/65`):
+// 表怎麼寫是資料事實,畫面是什麼顏色是行為事實,衝突時以行為為準。
+// `ParseEGAPaletteTable` 仍然照實解那張表 —— 它是真的資料,只是不是這一格的答案。
 //
 // 色號 6 佔整份 tileset 的 **7.70%**(黑與白之後第三多)—— 木地板、門、桌子、
 // 箱子、泥土全是它,所以這一格錯了每一張畫面都會偏色。
-//
-// 其餘 15 格與那張表逐一相符(`TestEGAPaletteMatchesTheTableInDataOVL`),
-// 所以這份常數現在是**從原版的表推導出來的**,不是抄慣例。
 var EGAPalette = [16]color.NRGBA{
 	{0x00, 0x00, 0x00, 0xFF}, // 0  黑
 	{0x00, 0x00, 0xAA, 0xFF}, // 1  藍
@@ -57,7 +67,7 @@ var EGAPalette = [16]color.NRGBA{
 	{0x00, 0xAA, 0xAA, 0xFF}, // 3  青
 	{0xAA, 0x00, 0x00, 0xFF}, // 4  紅
 	{0xAA, 0x00, 0xAA, 0xFF}, // 5  洋紅
-	{0xAA, 0xAA, 0x00, 0xFF}, // 6  暗黃 ★ 不是棕 —— 見 EGAPaletteTableOffset
+	{0xAA, 0x55, 0x00, 0xFF}, // 6  棕 ★ 對 DOSBox 原版取色量到的,見上面那一段
 	{0xAA, 0xAA, 0xAA, 0xFF}, // 7  淺灰
 	{0x55, 0x55, 0x55, 0xFF}, // 8  深灰
 	{0x55, 0x55, 0xFF, 0xFF}, // 9  亮藍

@@ -40,4 +40,7 @@ run "$OUT/19-credits.png"     --at 100 100 --box --script 'Zy................'
 run "$OUT/20-lighthouse.png" --at 88 116 --hour 1 --beam 10
 # 檀香木盒:不列顛王城堡二樓,坐在豎琴前彈完十三個音,牆開了走進密室(docs/re/36)
 run "$OUT/21-sandalwood.png" --scene '#17' 2 17 17 --script '~6789878767653nnnnn'
+# 離開確認框:F10 / Ctrl+Q / 關窗都走這一個框,ESC 是取消(`internal/appui`)。
+# ⚠ `--quit` 是截圖用的旗標 —— 遊戲裡由按鍵觸發,不是遊戲狀態。
+run "$OUT/22-quit.png" --quit
 echo "→ $OUT"

@@ -17,6 +17,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
+	"github.com/wicanr2/u5-cht/internal/appui"
 	"github.com/wicanr2/u5-cht/internal/assets"
 	"github.com/wicanr2/u5-cht/internal/audio"
 	gamestate "github.com/wicanr2/u5-cht/internal/game"
@@ -26,13 +27,17 @@ import (
 
 const maxMessages = 8
 
-// F5 切換音樂來源時的回饋。
+// 引擎自己加的功能(存檔、音源切換)的回饋文字。
 //
 // ⚠ 放在 `cmd` 而不是 `internal/game/strings.go`:那一份是**原版有的**文字,
 // 混進引擎自己加的功能會讓「還有哪些沒翻譯」數不清。
 const (
 	msgMusicSource        = "音樂來源:"
 	msgOneMusicSourceOnly = "只有一套音樂可用。"
+	msgSaved              = "已存檔:"
+	msgSaveFailed         = "存檔失敗:"
+	msgLoaded             = "已讀回存檔。"
+	msgNoSaveToLoad       = "找不到存檔。"
 )
 
 // version 由建置時的 -ldflags 注入。
@@ -52,6 +57,64 @@ type game struct {
 	music *audio.Player
 	// sfx 播引擎排進佇列的音效。可為 nil(沒有 FM Towns 資料 / -mute)。
 	sfx *audio.SFXPlayer
+	// quit 是離開確認框的狀態機(`internal/appui`)。ESC 永遠取消、F10 才離開。
+	quit appui.QuitDialog
+	// gamedata 是原版資料目錄 —— 讀回存檔時要再找一次存檔檔案。
+	gamedata string
+	// saveFile 是 `-save` 指定的存檔(讀回時優先用它,與開機時同一條路徑)。
+	saveFile string
+}
+
+// appKeys 把這一帧的按鍵收成 `appui.Keys`。
+//
+// ⚠ 對應集中在這一處,不散在 `Update` 各段 —— 「ESC 是不是某個分支偷偷
+// 拿去離開了」這種問題,只有集中起來才答得出來。
+func appKeys() appui.Keys {
+	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
+	return appui.Keys{
+		// ⚠ 視窗的叉叉也算「我要離開」的訊號,走同一條路(見 `SetWindowClosingHandled`)。
+		Quit: inpututil.IsKeyJustPressed(ebiten.KeyF10) ||
+			(ctrl && inpututil.IsKeyJustPressed(ebiten.KeyQ)) ||
+			ebiten.IsWindowBeingClosed(),
+		Yes:    inpututil.IsKeyJustPressed(ebiten.KeyY) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyNumpadEnter),
+		No:     inpututil.IsKeyJustPressed(ebiten.KeyN),
+		Escape: inpututil.IsKeyJustPressed(ebiten.KeyEscape),
+		Save:   inpututil.IsKeyJustPressed(ebiten.KeyF5),
+		Load:   inpututil.IsKeyJustPressed(ebiten.KeyF6),
+	}
+}
+
+// quickSave 即時存檔 —— 不離開遊戲,原地存一份。
+//
+// ⚠ **原版沒有這個功能**:U5 只能 `Q)uit & Save`,而那會結束程式。
+// 這是本重製版加的便利功能(姊妹專案 u1-cht 的 `F5` 同一回事),
+// 不動任何遊戲規則 —— 存的內容就是 `WriteSave` 那一份,與離開時存的相同。
+func (g *game) quickSave() {
+	dir, err := g.state.WriteSave(g.state.BaseSave)
+	if err != nil {
+		g.state.Log(msgSaveFailed + err.Error())
+		return
+	}
+	g.state.Log(msgSaved + dir)
+}
+
+// quickLoad 讀回存檔(F6)。
+//
+// 走的是開機時同一條 `FindSave` —— 順序是 `-save` 指定的 → 設定目錄的進度 →
+// 原版資料目錄。⚠ 所以剛按過 F5 的話讀回的就是那一份。
+func (g *game) quickLoad() {
+	sv, _, err := gamestate.FindSave(g.gamedata, g.saveFile)
+	if err != nil || sv == nil {
+		g.state.Log(msgNoSaveToLoad)
+		return
+	}
+	// ★ 物件表要一起換 —— 存檔與 `SAVED.OOL` 是一對。少了這一步,
+	// 隊伍與時間回到存檔那一刻,而地上的東西、船、怪還留在現在的狀態。
+	if so, uo := gamestate.FindSaveObjects(); so != nil {
+		g.state.Objects, g.state.UnderObjects = so, uo
+	}
+	g.state.LoadFrom(sv)
+	g.state.Log(msgLoaded)
 }
 
 func (g *game) Update() error {
@@ -69,22 +132,49 @@ func (g *game) Update() error {
 	} else {
 		g.state.TakeSFX() // ⚠ 沒有後端也要清掉,否則佇列會一直長到上限
 	}
-	// 離開語意:F10 / Ctrl+Q 才離開,ESC 永遠是取消(P5 補確認框與自動存檔)。
-	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
-	if inpututil.IsKeyJustPressed(ebiten.KeyF10) || (ctrl && inpututil.IsKeyJustPressed(ebiten.KeyQ)) {
-		// 離開前自動存檔 —— 按錯鍵不該丟進度。
+	// 離開語意:F10 / Ctrl+Q 開確認框,**ESC 永遠是取消**;F5 即時存檔、F6 讀回。
+	// 規則在 `internal/appui`(有單元測試把 ESC 的所有組合掃過)。
+	switch g.quit.Step(appKeys()) {
+	case appui.ActOpenedQuit, appui.ActCancelled:
+		g.scene.QuitAsk = g.quit.IsOpen()
+		g.dirty = true
+		return nil
+	case appui.ActSaveAndQuit:
+		// ★ 順序不能反:**先存檔,才結束**。
 		if dir, err := g.state.WriteSave(g.state.BaseSave); err != nil {
+			// ⚠ 存不進去就**留在遊戲裡**並且說清楚 —— 玩家選了 Yes 是相信
+			// 你不會吃他的存檔,靜默結束比報錯糟得多。
 			fmt.Fprintf(os.Stderr, "⚠ 離開前存檔失敗:%v\n", err)
+			g.state.Log(msgSaveFailed + err.Error())
+			g.quit.Close()
+			g.scene.QuitAsk = false
+			g.dirty = true
+			return nil
 		} else {
 			fmt.Printf("已存檔於 %s\n", dir)
 		}
 		return ebiten.Termination
+	case appui.ActQuickSave:
+		g.quickSave()
+		g.dirty = true
+		return nil
+	case appui.ActQuickLoad:
+		g.quickLoad()
+		g.dirty = true
+		return nil
 	}
-	// F5:切換音樂來源(FM Towns ⇄ MT-32)。
+	// 確認框開著時它是 modal —— 遊戲的按鍵一律不處理。
+	if g.quit.IsOpen() {
+		return nil
+	}
+	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
+	// F9:切換音樂來源(FM Towns ⇄ MT-32)。
 	//
 	// ⚠ 用 F 鍵而不是字母 —— 原版把 A..Z **全部**當成遊戲指令,
 	// 借一個字母就會蓋掉一個指令。這是引擎加的功能,不改任何遊戲規則。
-	if inpututil.IsKeyJustPressed(ebiten.KeyF5) && g.music != nil {
+	// ⚠ 這顆鍵原本是 F5,2026-08-09 讓給即時存檔 —— F5 存檔 / F9 音訊
+	// 是姊妹專案 u1-cht 就定下的配置,四個 remake 之間不要各立一套。
+	if inpututil.IsKeyJustPressed(ebiten.KeyF9) && g.music != nil {
 		before := g.music.Source()
 		if now := g.music.NextSource(); now == before {
 			g.state.Log(msgOneMusicSourceOnly)
@@ -1006,9 +1096,11 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	}
 
 	g := &game{
-		state: st,
-		music: music,
-		sfx:   sfxPlayer,
+		state:    st,
+		music:    music,
+		sfx:      sfxPlayer,
+		gamedata: *gamedata,
+		saveFile: *saveFile,
 		scene: &render.Scene{
 			State:        st,
 			Tiles:        bundle.Tiles,
@@ -1025,6 +1117,10 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 	ebiten.SetWindowSize(render.CanvasWidth**scale, render.CanvasHeight**scale)
 	ebiten.SetWindowTitle("創世紀 V:命運勇士 — 繁體中文版")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	// ★ 視窗的叉叉**不直接結束** —— 走同一個確認框(離開前會存檔)。
+	// 少了這一行,ebiten 預設是關窗即結束,於是「F10 有問、叉叉沒問」——
+	// 兩條離開路徑一條有存檔一條沒有,而玩家不會知道差別。
+	ebiten.SetWindowClosingHandled(true)
 
 	if err := ebiten.RunGame(g); err != nil {
 		fmt.Fprintf(os.Stderr, "執行失敗:%v\n", err)

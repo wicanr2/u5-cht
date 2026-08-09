@@ -713,6 +713,9 @@ func (s *State) CombatMove(d Direction) {
 		return
 	}
 	u := &c.Units[c.Turn]
+	// 原版 `sub_15F18`(由戰鬥迴圈 `sub_A360` 呼叫)也是先印方向名再判定,
+	// 與場景 / 大地圖同一個形狀(見 `moveecho.go`)。
+	s.echoMoveDirection(d)
 	dx, dy := d.Delta()
 	nx, ny := u.X+dx, u.Y+dy
 	if nx < 0 || nx >= u5data.CombatSide || ny < 0 || ny >= u5data.CombatSide {

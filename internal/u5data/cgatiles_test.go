@@ -170,11 +170,17 @@ func TestLoadTileSetForMapsCGAOntoTheSixteenColourIndex(t *testing.T) {
 	}
 }
 
-// ★ `EGAPalette` 必須與**原版自己載入的那張表**逐格相符。
+// ★ 這條測試同時釘住**兩個不同來源**,而它們在色號 6 上不一致 —— 刻意的。
 //
-// 這條是整份調色盤從「抄慣例」升級成「從原版推導」的那一步。
-// 它同時釘住三件事:表的位移 0x52EE、6-bit 值 → RGB 的換算、以及色號 6
-// **是暗黃不是棕**(慣例的棕是 0x14,原版寫的是 0x06)。
+//	資料事實:`DATA.OVL` 0x52EE 那張表的第 7 個值是 0x06(暗黃)
+//	行為事實:對 DOSBox 跑的原版取色,畫面上是 #AA5500(棕)
+//
+// 十五格相符、第七格不同,而那一格顯示的正好是 EGA 預設值 ⇒ 表沒有活到遊戲畫面
+// (推測是之後又設了一次顯示模式;`int 10h` 設模式會重設調色盤暫存器)。
+// 完整量測與推理在 `docs/re/62`。
+//
+// 釘住的三件事:表的位移 0x52EE、6-bit 值 → RGB 的換算、以及
+// **`EGAPalette[6]` 用的是量到的棕,不是表裡的暗黃**。
 func TestEGAPaletteMatchesTheTableInDataOVL(t *testing.T) {
 	dir := os.Getenv("U5_GAMEDATA")
 	if dir == "" {
@@ -184,7 +190,11 @@ func TestEGAPaletteMatchesTheTableInDataOVL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// ★ 十五格相符;**第 7 格(色號 6)刻意不同**,理由見下面。
 	for i := range pal {
+		if i == 6 {
+			continue
+		}
 		if pal[i] != EGAPalette[i] {
 			t.Errorf("色號 %d:表裡是 %v,常數是 %v", i, pal[i], EGAPalette[i])
 		}
@@ -193,9 +203,16 @@ func TestEGAPaletteMatchesTheTableInDataOVL(t *testing.T) {
 	if overscan != (EGAPalette[0]) {
 		t.Errorf("overscan 是 %v,預期與色號 0 相同(黑)", overscan)
 	}
-	// 色號 6 特別點出來 —— 這是最容易被「修回」慣例的一格。
+	// 表裡確實是 0x06 = 暗黃 —— 這是**資料事實**,要釘住。
 	if got := pal[6]; got.R != 0xAA || got.G != 0xAA || got.B != 0x00 {
-		t.Errorf("色號 6 是 %v,原版載的是 0x06 = 暗黃 (AA,AA,00);棕色 0x14 是別的遊戲的慣例", got)
+		t.Errorf("表的第 7 個值換算出 %v,預期 0x06 = 暗黃 (AA,AA,00) —— 位移可能不對", got)
+	}
+	// ★★ 但**畫面上是棕的** —— 這是**行為事實**,量自 DOSBox 跑的原版
+	// (小屋內部 4,184 px、大地圖森林 420 px,`machine=ega` 與 `vgaonly` 都是 #AA5500)。
+	// 兩件事同時成立:表被載入,但沒活到遊戲畫面(見 `tiles.go` 的說明)。
+	// ⚠ **不要把這一格「修回」表裡的值** —— 那會讓每一張畫面的木頭都偏色。
+	if got := EGAPalette[6]; got.R != 0xAA || got.G != 0x55 || got.B != 0x00 {
+		t.Errorf("色號 6 是 %v,原版畫面上量到的是棕 (AA,55,00)", got)
 	}
 }
 

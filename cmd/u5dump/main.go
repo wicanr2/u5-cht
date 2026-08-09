@@ -507,6 +507,7 @@ func cmdScene(args []string) error {
 	sceneName, sceneFloor := "", 0
 	hour := -1
 	giveBox := false
+	quitAsk := false
 	beamFrame := 0
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
@@ -520,6 +521,10 @@ func cmdScene(args []string) error {
 		// 指的是拿它當驗收;這裡只用來產截圖,不參與任何測試。
 		case "--box":
 			giveBox = true
+		// 疊上離開確認框(截圖用;遊戲裡由 F10 / Ctrl+Q / 關窗觸發)。
+		// ⚠ 這不是遊戲狀態,是應用層的 `internal/appui`。
+		case "--quit":
+			quitAsk = true
 		// 燈塔光束轉到第幾個扇區(截圖用;遊戲裡由主迴圈每幀推進)。
 		case "--beam":
 			if i+1 < len(args) {
@@ -603,6 +608,7 @@ func cmdScene(args []string) error {
 		DungeonViews: bundle.DungeonViews,
 		DungeonItems: bundle.DungeonItems,
 		IntroArt:     bundle.IntroArt,
+		QuitAsk:      quitAsk,
 	}
 
 	if err := writePNG(args[2], sc.Render()); err != nil {
@@ -970,6 +976,21 @@ func playScript(st *game.State, script string) error {
 		//(大寫 G 已經是「叫衛兵」)
 		case 'g':
 			st.Get()
+			if i+1 < len(rs) && st.AwaitingDirection() {
+				i++
+				if d, ok := scriptDirection(rs[i]); ok {
+					st.AnswerDirection(d)
+				} else {
+					st.CancelDirection()
+				}
+			}
+		// `O<方向>` —— 開門 / 開箱(原版按鍵 O,問方向)。
+		//
+		// ★ 少了這個鍵,**從尤洛小屋走不出去** —— 屋子的南牆只有一扇門,
+		// 而門要先開。並排比對時兩邊都卡在同一格,看起來像「引擎的門壞了」,
+		// 其實是驅動腳本沒有這個鍵(引擎的 `openToward` 一直都在)。
+		case 'O':
+			st.OpenChest()
 			if i+1 < len(rs) && st.AwaitingDirection() {
 				i++
 				if d, ok := scriptDirection(rs[i]); ok {

@@ -838,6 +838,8 @@ func (s *State) Move(d Direction) {
 }
 
 func (s *State) moveInWorld(d Direction) {
+	// 原版 `sub_2D174` 在移動判定**之前**印方向名(揚帆的船除外)。
+	s.echoMoveDirection(d)
 	dx, dy := d.Delta()
 	nx, ny := WrapWorld(s.X+dx), WrapWorld(s.Y+dy)
 	// 撞上怪物就開打(原版 sub_2E58C 的入口)。
@@ -898,6 +900,8 @@ func (s *State) moveInWorld(d Direction) {
 }
 
 func (s *State) moveInScene(d Direction) {
+	// 原版 `sub_86C` 一進來就印方向名(**無條件**,見 `moveecho.go`)。
+	s.echoMoveDirection(d)
 	dx, dy := d.Delta()
 	nx, ny := s.X+dx, s.Y+dy
 

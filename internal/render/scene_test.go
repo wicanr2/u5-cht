@@ -62,25 +62,36 @@ func TestSceneSurvivesMissingAssets(t *testing.T) {
 	(&Scene{}).Render() // 連 Text 都沒有也不該爆
 }
 
-func TestScenePlayerMarkerAtCenter(t *testing.T) {
-	img := testScene().Render()
+// ★ 隊伍畫在正中央,而且畫的是**載具那一頁的 tile**,不是白色方框。
+//
+// 這一條是對 DOSBox 原版並排比對之後改的(`docs/playtest-findings.md`):
+// 原版中央是聖者的小人,站在城鎮 tile 上時小人蓋住那格地形;
+// 引擎原本畫一個 `ColorMarker` 空心框當替代品,而那在並排時最顯眼 ——
+// 看起來像選取狀態,不像角色。
+//
+// ⚠ 這裡驗的是「中央那一格畫的是 `NPCTileBase + 載具碼` 那個 tile」,
+// 不是「中央有東西」—— 後者連白框都能通過。
+func TestScenePartySpriteAtCenter(t *testing.T) {
+	s := testScene()
+	// testScene 的 tile 是人工造的漸層色塊,第 n 個 tile 整格都是色號 n%16。
+	// 隊伍那一格因此應該整格同色,而且色號對得上載具碼。
+	want := u5data.NPCTileBase + int(s.State.Transport)
+	img := s.Render()
 	half := ViewTiles / 2
 	mx := MapOriginX + half*TilePixels
 	my := MapOriginY + half*TilePixels
-	// 標記是空心白框:四個角應該是 marker 色
-	for _, p := range [][2]int{
-		{mx, my},
-		{mx + TilePixels - 1, my},
-		{mx, my + TilePixels - 1},
-		{mx + TilePixels - 1, my + TilePixels - 1},
-	} {
-		if got := img.NRGBAAt(p[0], p[1]); got != ColorMarker {
-			t.Errorf("(%d,%d) 應為玩家標記色 %v,實得 %v", p[0], p[1], ColorMarker, got)
+	if want >= len(s.Tiles) {
+		// 假 tileset 放不到那個索引 —— 那就至少要確認**不是**白框了。
+		for _, p := range [][2]int{{mx, my}, {mx + TilePixels - 1, my}} {
+			if got := img.NRGBAAt(p[0], p[1]); got == ColorMarker {
+				t.Errorf("(%d,%d) 還是白色方框 —— 原版沒有這個框", p[0], p[1])
+			}
 		}
+		return
 	}
-	// 框內部不該被填滿
-	if img.NRGBAAt(mx+TilePixels/2, my+TilePixels/2) == ColorMarker {
-		t.Error("玩家標記應該是空心框,不是實心方塊")
+	exp := u5data.EGAPalette[s.Tiles[want].At(0, 0)&0x0F]
+	if got := img.NRGBAAt(mx+TilePixels/2, my+TilePixels/2); got != exp {
+		t.Errorf("中央那一格是 %v,預期畫 tile %d(%v)", got, want, exp)
 	}
 }
 
