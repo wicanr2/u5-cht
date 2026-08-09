@@ -53,14 +53,19 @@ echo "完成 → $OUT"
 # 要渲染成 ogg 得先決定用哪一份第三方音色庫,那是 `CLAUDE.md §3.0` 的例外,
 # 必須由使用者放行。遊玩音樂本身已由上面的 .EUP + CDDA 完成。
 UPG="${UPG:-$ROOT/gamedata/upgrade}"
-if compgen -G "$UPG/*.XMI" > /dev/null; then
+shopt -s nullglob nocaseglob
+_XMIS=("$UPG"/*.xmi)
+shopt -u nocaseglob
+if [[ ${#_XMIS[@]} -gt 0 ]]; then
   echo "== XMI → MIDI(DOS upgrade 的 15 首)"
   docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
     -v "$ROOT":/work -w /work "$IMAGE" bash -c '
       mkdir -p build/mid
       n=0
-      for f in gamedata/upgrade/*.XMI; do
-        b=$(basename "$f" .XMI)
+      shopt -s nullglob nocaseglob
+      for f in gamedata/upgrade/*.xmi; do
+        b=$(basename "$f"); b="${b%.*}"
+        case "${b,,}" in setm) continue;; esac   # SETM 是測試檔(5 段序列)
         python3 tools/xmi2mid.py "$f" "build/mid/$b.mid" > /dev/null && n=$((n+1))
       done
       echo "✓ $n 首 → build/mid(⚠ 渲染成 ogg 待決,見 docs/formats/13 §4)"

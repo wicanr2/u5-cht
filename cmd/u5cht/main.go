@@ -26,6 +26,15 @@ import (
 
 const maxMessages = 8
 
+// F5 切換音樂來源時的回饋。
+//
+// ⚠ 放在 `cmd` 而不是 `internal/game/strings.go`:那一份是**原版有的**文字,
+// 混進引擎自己加的功能會讓「還有哪些沒翻譯」數不清。
+const (
+	msgMusicSource        = "音樂來源:"
+	msgOneMusicSourceOnly = "只有一套音樂可用。"
+)
+
 // version 由建置時的 -ldflags 注入。
 var version = "dev"
 
@@ -70,6 +79,25 @@ func (g *game) Update() error {
 			fmt.Printf("已存檔於 %s\n", dir)
 		}
 		return ebiten.Termination
+	}
+	// F5:切換音樂來源(FM Towns ⇄ MT-32)。
+	//
+	// ⚠ 用 F 鍵而不是字母 —— 原版把 A..Z **全部**當成遊戲指令,
+	// 借一個字母就會蓋掉一個指令。這是引擎加的功能,不改任何遊戲規則。
+	if inpututil.IsKeyJustPressed(ebiten.KeyF5) && g.music != nil {
+		before := g.music.Source()
+		if now := g.music.NextSource(); now == before {
+			g.state.Log(msgOneMusicSourceOnly)
+		} else {
+			// 順便報現在這一首的曲名 —— 那是 upgrade 作者自己標的
+			// (`Files.txt`),而 FM Towns 那套的檔名只有 `M1`、`M92`。
+			line := msgMusicSource + now.String()
+			if title := g.music.TrackTitle(g.music.Song()); title != "" {
+				line += " — " + title
+			}
+			g.state.Log(line)
+		}
+		g.dirty = true
 	}
 	st := g.state
 	// 燈塔的光束每一幀往前掃一格(原版 `sub_2E944` 每次重畫都做一次)。
@@ -219,14 +247,25 @@ func (g *game) Update() error {
 	//(其中兩個往上、兩個往下)、空白或 Enter 勾選、**M 才確定**。
 	if st.Prompt == gamestate.PromptPick {
 		multi := st.PickMulti()
+		// ★ 選人選單(`sub_2A7F4`)多兩個操作:四個方向鍵都能移動,
+		// 而且 '1'..'6' 直接跳到那一位(`docs/re/98`)。
+		if st.PickIsMember() {
+			for _, r := range ebiten.AppendInputChars(nil) {
+				if st.PickMemberDigit(r) {
+					g.dirty = true
+					return nil
+				}
+			}
+		}
+		member := st.PickIsMember()
 		switch {
 		case inpututil.IsKeyJustPressed(ebiten.KeyArrowUp):
 			st.PickMove(-1)
 		case inpututil.IsKeyJustPressed(ebiten.KeyArrowDown):
 			st.PickMove(1)
-		case multi && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft):
+		case (multi || member) && inpututil.IsKeyJustPressed(ebiten.KeyArrowLeft):
 			st.PickMove(-1)
-		case multi && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight):
+		case (multi || member) && inpututil.IsKeyJustPressed(ebiten.KeyArrowRight):
 			st.PickMove(1)
 		// 翻頁鍵一次移 7 項 —— 原版 `sub_1EFC8` 對 0xD5 / 0xD6 就是這個數字。
 		case inpututil.IsKeyJustPressed(ebiten.KeyPageUp):
@@ -787,6 +826,9 @@ func main() {
 	mute := flag.Bool("mute", false, "不要開音訊裝置(headless / 沒有音效卡時用)")
 	audioDir := flag.String("audio", "assets/audio",
 		"渲染好的配樂目錄(ogg;由 .EUP 離線轉出,不入 git)")
+	musicSrc := flag.String("music", "",
+		"音樂來源:fmtowns(.EUP / YM2612)或 mt32(upgrade 的 .XMI / Roland MT-32);"+
+			"留空 = 用有渲染好的那一套。遊戲中按 F5 切換")
 	fontPrefix := flag.String("font", "assets/fonts/eten-15",
 		"倚天中文點陣字 atlas 前綴(用 tools/dev.sh font 15 產生)")
 	saveFile := flag.String("save", "",
@@ -941,15 +983,25 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 			}
 		}
 	}
+	wantSrc, srcErr := audio.ParseSource(*musicSrc)
+	if srcErr != nil {
+		fmt.Fprintf(os.Stderr, "⚠ %v\n", srcErr)
+	}
 	var music *audio.Player
 	if mp, err := audio.New(*fmtowns, *audioDir, backend); err != nil {
 		fmt.Fprintf(os.Stderr, "⚠ 配樂:%v\n", err)
 	} else {
 		music = mp
+		// 指定了來源就照指定的走;那一套沒渲染時**說出來**,不要靜靜換成別套。
+		if wantSrc >= 0 && !mp.SetSource(wantSrc) {
+			fmt.Fprintf(os.Stderr,
+				"⚠ 配樂:%s 那一套還沒渲染,改用 %s(見 tools/mt32_render.sh)\n",
+				wantSrc, mp.Source())
+		}
 		if n := len(mp.Missing()); n > 0 {
 			fmt.Fprintf(os.Stderr,
-				"⚠ 配樂:%d/%d 首還沒渲染成 %s —— 跑 tools/render_music.sh 產生(遊戲照樣可玩)\n",
-				n, u5data.BGMSongCount, audio.Ext)
+				"⚠ 配樂(%s):%d/%d 首還沒渲染成 %s —— 跑 tools/render_music.sh 產生(遊戲照樣可玩)\n",
+				mp.Source(), n, u5data.BGMSongCount, audio.Ext)
 		}
 	}
 

@@ -88,12 +88,20 @@ func (s *State) Search() {
 	})
 }
 
-// searchAt 搜某一格。
+// searchAt 搜某一格。先決定由誰搜(必要時問玩家),再進 `searchAtBy`。
+//
+// ⚠ 拆成兩支而不是把整段塞進回呼:這一段有五個提早離開的分支,
+// 包成閉包會多一層縮排而且每個 `return` 的意思都變成「回呼結束」。
 func (s *State) searchAt(x, y int) {
-	member := s.pickCharacter("")
-	if member < 0 {
-		return
-	}
+	s.pickMember("", func(member int) {
+		if member >= 0 {
+			s.searchAtBy(x, y, member)
+		}
+	})
+}
+
+// searchAtBy 是由 member 去搜 (x, y)。
+func (s *State) searchAtBy(x, y, member int) {
 	tile := s.TileAt(x, y)
 	s.Log(searchPhrase[tile] + MsgThouDostFind)
 

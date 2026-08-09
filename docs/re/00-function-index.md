@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **1060** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **1063** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -425,6 +425,8 @@
 | `sub_2A610` | case 2: return (tile & 0xF0) == 0x60  /  /  sub_2A674(tile)  /  /  sub_2A610(mover, tile);  // 水陸兩棲 | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `47-move-modes-and-time-of-day.md`, `51-closing-four-known-gaps.md` |
 | `sub_2A674` | tile 0 為何被歸進「水」  /  `sub_2A674` 的 `tile < 4` 把 0 併進來。**視覺上 tile 0 根本不是水**(算繪出來是一團紅黃爆裂圖案,tile 1–3 才是藍色水面),所以這不是… | `02-movement-and-tile-flags.md`, `47-move-modes-and-time-of-day.md`, `51-closing-four-known-gaps.md` |
 | `sub_2A694` | 通行判定第一參數  /  `sub_2A694(0, tile)`  /  `movzx eax, byte_3E08C`  /  照抄的話船、馬、飛毯全都照步行規則走  / | `02-movement-and-tile-flags.md`, `03-scene-entry-and-tile-semantics.md`, `47-move-modes-and-time-of-day.md` |
+| `sub_2A7F4` | `sub_E19C` 的第三條路在「2 人以上能動」時會問,而選單是 `sub_2A7F4` | `97-set-active-player.md` |
+| `sub_2A974` | (經 `sub_2A974` 包一層)。兩支都讀完了,規格如下: | `97-set-active-player.md` |
 | `sub_2A984` | 主要函式  /  `sub_1A38C`(用碎片)、`sub_2D9D0`(風浪)、`sub_2A1E8` / `sub_2A0C4` / `sub_2A984`(狀態列)  / | `23-wind-and-sailing.md`, `80-implemented-but-unreachable.md`, `84-the-sailing-gate-and-the-wind-table.md` |
 | `sub_2AB08` | 主要函式  /  `sub_2AB38`(★ 陷阱分派)、`sub_2A464`(單人扣血)、`sub_2AB08`(★ 中毒)、`sub_2A4D0`(★ 全隊扣血)、`sub_2B724`(1..30 骰,已見 `d… | `91-chest-traps-four-kinds-and-their-weights.md` |
 | `sub_2AB38` | 主要函式  /  `sub_2AB38`(★ 陷阱分派)、`sub_2A464`(單人扣血)、`sub_2AB08`(★ 中毒)、`sub_2A4D0`(★ 全隊扣血)、`sub_2B724`(1..30 骰,已見 `d… | `75-open-did-nothing-outside-dungeons.md`, `91-chest-traps-four-kinds-and-their-weights.md`, `92-white-noise-shim-and-ambient-sound.md` |
@@ -446,8 +448,9 @@
 | `sub_2B770` | 主要函式  /  `sub_CD28`(井)、`sub_D258`(Look 分派)、`sub_27C98`(字串比對)、`sub_2B770`(文字輸入)、`sub_2B6C8`(寫物件槽)、`sub_2B57C`(找… | `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `65-the-wishing-well-easter-egg.md` |
 | `sub_2B8CC` | ✅ 早就從組語逆過,截斷沒造成損失  /  `sub_21108` 酒單(`tavern.go`)、`sub_1D394` 聖壇與 `ALAKAZAM`(`shrine.go`)、`sub_14CAC`/`sub_14B… | `38-terrain-movement-cost.md`, `41-jimmy-neworder-gem-ztats.md`, `48-dungeon-wandering-monster-and-arena.md`, `50-hole-up-camp-sleep-repair.md`, `66-hexrays-truncation-audit.md`, `73-escape-is-a-key-and-it-has-two-gates.md` |
 | `sub_2BBB8` | 主要函式  /  `sub_1C1E8`(四個 opcode 的分派)、`sub_1B854`(索取金幣)、`sub_1B964`(給東西)、`sub_1C1C8`(認得旗標)、`sub_2BBB8`/`sub_2BBD… | `06-conversation-script.md`, `19-levelup.md`, `79-four-dialogue-opcodes-were-corrupting-the-text.md`, `86-tile-0xDC-is-an-open-moongate.md` |
-| `sub_2BBDC` | 主要函式  /  `sub_1C1E8`(四個 opcode 的分派)、`sub_1B854`(索取金幣)、`sub_1B964`(給東西)、`sub_1C1C8`(認得旗標)、`sub_2BBB8`/`sub_2BBD… | `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `19-levelup.md`, `79-four-dialogue-opcodes-were-corrupting-the-text.md` |
+| `sub_2BBDC` | 主要函式  /  `sub_1C1E8`(四個 opcode 的分派)、`sub_1B854`(索取金幣)、`sub_1B964`(給東西)、`sub_1C1C8`(認得旗標)、`sub_2BBB8`/`sub_2BBD… | `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `19-levelup.md`, `79-four-dialogue-opcodes-were-corrupting-the-text.md`, `97-set-active-player.md` |
 | `sub_2BBFC` | 0x89 / 0x8A  /  **業報** +1 / −1(上限 99)  /  `sub_2BBB8(&byte_3E098, 1, 0x63)` / `sub_2BBFC`  / | `06-conversation-script.md`, `51-closing-four-known-gaps.md`, `86-tile-0xDC-is-an-open-moongate.md` |
+| `sub_2BC18` | ;   鍵碼 1 / 3(↑ ←)→ 游標 −1(下限 0,`sub_2BC18`) | `97-set-active-player.md` |
 | `sub_2BC34` | 2. 沿線一步一步走,每一步 `sub_2BC34` 查那一格擋不擋;**擋住就停在那裡**。 | `20-projectiles.md` |
 | `sub_2BC70` | ├ sub_2BC70   把像素座標換回格子,順便判出不出界 | `20-projectiles.md` |
 | `sub_2BD40` | 主要函式  /  ★ `sub_2BD40`(Set Active Plr)、`sub_E19C`(選隊員,見 `docs/re/95`)、`sub_4B14`(按鍵分派的 default)  / | `97-set-active-player.md` |

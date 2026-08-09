@@ -54,15 +54,17 @@ func (s *State) openDungeonChestUnderfoot() {
 	tile := s.DungeonTileHere()
 	switch {
 	case u5data.DungeonKind(tile) == u5data.DungeonChest:
-		if s.pickCharacter("") < 0 {
-			return
-		}
-		if tile&u5data.DungeonChestTrapMask != 0 {
-			s.Log(MsgTrapped)
-			s.chestTrapVictim()
-		}
-		s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonOpenedChest(tile))
-		s.Log(MsgChestOpened)
+		s.pickMember("", func(who int) {
+			if who < 0 {
+				return
+			}
+			if tile&u5data.DungeonChestTrapMask != 0 {
+				s.Log(MsgTrapped)
+				s.chestTrapVictim()
+			}
+			s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonOpenedChest(tile))
+			s.Log(MsgChestOpened)
+		})
 	case u5data.DungeonKind(tile) == u5data.DungeonOpenedChestKind:
 		s.Log(MsgAlreadyOpen)
 	default:
@@ -133,10 +135,17 @@ func (s *State) openObjectChest(x, y int) {
 		s.Log(MsgNothingToOpen)
 		return
 	}
-	who := s.pickCharacter("")
-	if who < 0 {
-		return
-	}
+	// ⚠ `slot` 由回呼捕捉。選單開著的時候不會過回合 ⇒ 物件表不會變動,
+	// 所以捕捉索引是安全的(換成捕捉物件本身反而會漏掉 `Remove` 的副作用)。
+	s.pickMember("", func(who int) {
+		if who >= 0 {
+			s.openChestSlot(objs, slot)
+		}
+	})
+}
+
+// openChestSlot 真的把第 slot 個箱子打開。
+func (s *State) openChestSlot(objs *u5data.ObjectSet, slot int) {
 	quality := int(objs.Objects[slot].Raw[u5data.ObjQuality])
 	objs.Remove(slot)
 	// ★ 業報 −2,只在場景裡。

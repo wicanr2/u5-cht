@@ -225,17 +225,18 @@ func (s *State) readSign(x, y int) {
 // 只有三句話。看起來像沒寫完,但那就是原版,不要「順手」補上療效。
 func (s *State) drinkFromFountain() {
 	s.Log(MsgFountain)
-	i := s.pickCharacter(MsgWhoWillDrink)
-	if i < 0 {
-		s.Log(MsgNobodyDrinks)
-		return
-	}
-	switch s.Roster[i].Status {
-	case u5data.StatusDead, u5data.StatusAsleep:
-		s.Log(MsgIncapacitated)
-	default:
-		s.Log(MsgRefreshing)
-	}
+	s.pickMember(MsgWhoWillDrink, func(i int) {
+		if i < 0 {
+			s.Log(MsgNobodyDrinks)
+			return
+		}
+		switch s.Roster[i].Status {
+		case u5data.StatusDead, u5data.StatusAsleep:
+			s.Log(MsgIncapacitated)
+		default:
+			s.Log(MsgRefreshing)
+		}
+	})
 }
 
 // gazeIntoSphere 是凝視水晶球(原版 `sub_D9C4` 的 tile 0x29 分支)。
@@ -243,17 +244,18 @@ func (s *State) drinkFromFountain() {
 // 擲 1..30 對上該員的**智力**:智力大於點數就看見全景(與 In Quas Wis 同一支),
 // 否則是「死亡幻象」並**扣 1 點 HP**(`sub_2A464(member, 1)`)。
 func (s *State) gazeIntoSphere() {
-	i := s.pickCharacter("")
-	if i < 0 {
-		return
-	}
-	if int(s.Roster[i].Intel) > s.Roll(1, gazeRollMax) {
-		s.Log(MsgStrangeVision)
-		s.peerAtTheLand()
-		return
-	}
-	s.Log(MsgDeathVision)
-	s.damageMember(i, gazeDamage)
+	s.pickMember("", func(i int) {
+		if i < 0 {
+			return
+		}
+		if int(s.Roster[i].Intel) > s.Roll(1, gazeRollMax) {
+			s.Log(MsgStrangeVision)
+			s.peerAtTheLand()
+			return
+		}
+		s.Log(MsgDeathVision)
+		s.damageMember(i, gazeDamage)
+	})
 }
 
 const (
@@ -283,11 +285,13 @@ const (
 func (s *State) lookAtTheSky() {
 	if s.Clock.Hour >= skyDayFrom && s.Clock.Hour < skyDayUntil {
 		s.Log(MsgTheSun)
-		// 原版扣的是「目前動作的那一位」(`byte_3E08B`)。引擎還沒有單人狀態,
-		// 用同一支挑人邏輯代替 —— 差別只在多人時挑誰,不在扣不扣。
-		if i := s.pickCharacter(""); i >= 0 {
-			s.damageMember(i, skySunDamage)
-		}
+		// 原版扣的是「目前動作的那一位」(`byte_3E08B`),而 `pickMember`
+		// 第一件事就是讀它 —— 玩家指定過就不會問。
+		s.pickMember("", func(i int) {
+			if i >= 0 {
+				s.damageMember(i, skySunDamage)
+			}
+		})
 		return
 	}
 	s.Log(MsgNightSky)

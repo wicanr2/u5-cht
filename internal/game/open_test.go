@@ -152,6 +152,7 @@ func TestOpeningAChestInTownCostsKarma(t *testing.T) {
 	if !ok {
 		t.Skip("物件槽滿了")
 	}
+	actAs(t, s, 0)
 	s.Karma = 50
 	s.Messages = nil
 	s.OpenChest()
@@ -178,6 +179,7 @@ func TestOpeningAChestInTownCostsKarma(t *testing.T) {
 	if _, ok := o2.Spawn(u5data.ObjLockedChest, s2.X, s2.Y-1, s2.Floor); !ok {
 		t.Skip("物件槽滿了")
 	}
+	actAs(t, s2, 0)
 	s2.Karma = 1
 	s2.OpenChest()
 	s2.AnswerDirection(North)
@@ -211,6 +213,7 @@ func TestTrapIsTheTopBitOfTheChestQuality(t *testing.T) {
 		s.Roster[i].HP = 200
 		s.Roster[i].Status = u5data.StatusGood
 	}
+	actAs(t, s, 0)
 	s.Messages = nil
 	s.OpenChest()
 	s.AnswerDirection(North)

@@ -367,7 +367,11 @@ func TestCombatPicksTheActingMember(t *testing.T) {
 	if want < 0 {
 		t.Skip("行動者不是隊員")
 	}
-	if got := s.pickCharacter(""); got != want {
+	got, opened := pickedMember(s)
+	if opened {
+		t.Fatal("戰鬥中卻開了選人選單 —— 輪到誰就是誰")
+	}
+	if got != want {
 		t.Errorf("戰鬥中挑到第 %d 位,應是行動者第 %d 位", got, want)
 	}
 }

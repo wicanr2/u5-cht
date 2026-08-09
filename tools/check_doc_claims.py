@@ -161,7 +161,11 @@ def main() -> int:
 
     index = ROOT / args.docs / "re" / "00-function-index.md"
     if index.exists():
-        listed = set(re.findall(r"\b(\d\d-[a-z0-9-]+\.md)\b", index.read_text(errors="replace")))
+        # ⚠ 檔名**可能有大寫**(`86-tile-0xDC-is-an-open-moongate.md`)。
+        # 原本只收小寫,於是那一份每次都被報成「索引沒收錄」——
+        # 而它其實一直都在索引裡。**閘門的假警報比沒有閘門糟**:
+        # 每次都亮的那一行會讓人連真的那幾行一起跳過。
+        listed = set(re.findall(r"\b(\d\d-[A-Za-z0-9-]+\.md)\b", index.read_text(errors="replace")))
         orphans = sorted(
             d.name
             for d in (ROOT / args.docs / "re").glob("*.md")

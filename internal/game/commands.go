@@ -65,12 +65,17 @@ func (s *State) Jimmy() {
 //  3. 門檻與地牢搜尋**同一條式子**(`(樓層×2 + 30 − 敏捷) / 2`),
 //     擲的是 `random(1, 30)` 且要**大於**門檻才成功。
 func (s *State) jimmyDungeonChest() {
-	d := s.Dungeon
 	// ★ 先問人 —— 原版在這裡,而不是在查鑰匙之後。
-	who := s.pickCharacter("")
-	if who < 0 {
-		return
-	}
+	s.pickMember("", func(who int) {
+		if who >= 0 {
+			s.jimmyDungeonChestBy(who)
+		}
+	})
+}
+
+// jimmyDungeonChestBy 是由 who 去撬腳下的箱子。
+func (s *State) jimmyDungeonChestBy(who int) {
+	d := s.Dungeon
 	tile := s.DungeonTileHere()
 	switch {
 	case tile&^u5data.DungeonHoleAbove == u5data.DungeonChest:
@@ -108,17 +113,18 @@ func (s *State) jimmyAt(x, y int) {
 	switch tile {
 	case u5data.TileLockedDoor, u5data.TileLockedMagicDoor:
 		// 普通鎖:看撬鎖的人手多穩。
-		i := s.pickCharacter("")
-		if i < 0 {
-			return
-		}
-		s.Inventory.Keys--
-		if s.Roll(0, jimmyRollMax) < int(s.Roster[i].Dex) {
-			s.SetTileAt(x, y, u5data.TileDoorA)
-			s.Log(MsgUnlocked)
-			return
-		}
-		s.Log(MsgKeyBroke)
+		s.pickMember("", func(i int) {
+			if i < 0 {
+				return
+			}
+			s.Inventory.Keys--
+			if s.Roll(0, jimmyRollMax) < int(s.Roster[i].Dex) {
+				s.SetTileAt(x, y, u5data.TileDoorA)
+				s.Log(MsgUnlocked)
+				return
+			}
+			s.Log(MsgKeyBroke)
+		})
 	case u5data.TileMagicLockedA, u5data.TileMagicLockedB:
 		// 魔法鎖:必定失敗,鑰匙照斷。
 		s.Inventory.Keys--

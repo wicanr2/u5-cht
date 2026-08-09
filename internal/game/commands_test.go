@@ -40,13 +40,14 @@ func TestJimmyOrdinaryLockRollsAgainstDex(t *testing.T) {
 	}{{30, true}, {0, false}} {
 		s := lockScene(t)
 		s.Inventory.Keys = 1
-		// ⚠ 全隊都設 —— `pickCharacter` 目前取的是最後一位能動的隊員
-		// (多人選單還沒接,見 pickchar.go 的說明)。只設第 0 名的話
-		// 這條測的是別人的敏捷,而它會「通過」得莫名其妙。
+		// ⚠ 全隊都設同一個敏捷 —— 這條測的是「敏捷影響成敗」,而
+		// `actAs` 已經釘死由誰動手,所以實際只有第 0 位用得到;
+		// 全隊都設是為了讓這條測試不依賴「挑到誰」。
 		for i := range s.Roster {
 			s.Roster[i].Dex = c.dex
 			s.Roster[i].Status = u5data.StatusGood
 		}
+		actAs(t, s, 0)
 		s.SetTileAt(s.X+1, s.Y, u5data.TileLockedDoor)
 		s.jimmyAt(s.X+1, s.Y)
 		opened := s.TileAt(s.X+1, s.Y) == u5data.TileDoorA

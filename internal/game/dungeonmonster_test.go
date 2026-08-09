@@ -316,6 +316,7 @@ func TestDungeonChestSearchDependsOnDexterity(t *testing.T) {
 			s.Roster[i].Dex = dex
 			s.Roster[i].Status = u5data.StatusGood
 		}
+		actAs(t, s, 0)
 		got := map[string]int{}
 		for i := 0; i < 200; i++ {
 			s.Messages = nil
@@ -365,6 +366,7 @@ func TestDungeonBombPitGetsDisarmed(t *testing.T) {
 		s.Roster[i].Dex = 30 // 看得清楚
 		s.Roster[i].Status = u5data.StatusGood
 	}
+	actAs(t, s, 0)
 	found := false
 	for i := 0; i < 200 && !found; i++ {
 		s.Dungeons.Set(d.Index, d.Level, 4, 3, u5data.DungeonBombTrapA)

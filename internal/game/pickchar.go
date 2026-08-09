@@ -16,45 +16,14 @@ import "github.com/wicanr2/u5-cht/internal/u5data"
 //
 // ✅ 第 1 條已接上(`docs/re/97`):數字鍵指令 `SetActivePlayer` 就是原版的
 // 「Set Active Plr」(`sub_2BD40`),而 `byte_3E08B` 對應 `State.activeMember`。
-
-// pickCharacter 決定由誰動手。回傳名冊索引,沒人可選時回 -1。
 //
-// prompt 是要問的話;傳空字串代表這個呼叫端不印提示(原版有些路徑就是不印)。
+// ✅ 第 2 點的「2 人以上 → 問」也接上了 —— 選單本體 `sub_2A7F4` 在
+// `pickmember.go`(`docs/re/98`)。
 //
-// ⚠ 目前多人時取**最後一位**能動的隊員,與原版「印 Player: 讓玩家選」不同。
-// 原版 `sub_E19C` 在只有一人能動時回的正是掃描過程留下的那一位,這裡沿用
-// 同一個掃描;人數 >1 的分支要等 PromptCharacter 選單接上才會一致。
-// 這是**已知的落差**,不要當成完成。
-func (s *State) pickCharacter(prompt string) int {
-	if prompt != "" {
-		s.Log(prompt)
-	}
-	// 戰鬥中沒有「挑人」這回事 —— **輪到誰就是誰**。
-	//
-	// 原版把「目前是哪個角色」記在 `byte_3E08B`,而 `sub_A360` 進來就
-	// 把它設成行動中的那個單位;所有指令讀的都是它。這裡回行動者的名冊索引。
-	if m := s.actingMember(); m >= 0 {
-		return m
-	}
-	// ★ 玩家用數字鍵指定過人 → 就是他,不問(原版 `byte_3E08B != 0xFF`)。
-	//
-	// ⚠ 原版**不重驗狀態** —— 指定之後那個人死了,指令照樣落在他頭上。
-	// `activeIfUsable` 只擋界外,不擋死活(`docs/re/97`)。
-	if m := s.activeIfUsable(); m >= 0 {
-		return m
-	}
-	last, n := -1, 0
-	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
-		switch s.Roster[i].Status {
-		case u5data.StatusGood, u5data.StatusPoisoned:
-			last, n = i, n+1
-		}
-	}
-	if n == 0 {
-		return -1
-	}
-	return last
-}
+// ⚠⚠ **這裡曾經有一支同步的 `pickCharacter(prompt) int`**,它在多人時
+// 直接取最後一位能動的隊員、不問玩家。已刪掉,原因不只是「行為不對」:
+// 只要那一支還在,新的呼叫端就會挑它寫(同步的比較好寫),而**每一個這樣的
+// 呼叫端都是一個靜靜跳過選單的地方**。⇒ 不留同步版本,讓「要問」成為唯一的路。
 
 // damageMember 在戰鬥之外扣一名隊員的血(原版 `sub_2A464`)。
 //

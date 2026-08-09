@@ -15,6 +15,7 @@ func TestSearchFindsTheSecretDoor(t *testing.T) {
 	s := searchScene(t)
 	x, y := s.X+1, s.Y
 	s.SetTileAt(x, y, SearchSecretDoor)
+	actAs(t, s, 0) // 搜尋要先決定由誰搜
 	s.searchAt(x, y)
 	if got := s.TileAt(x, y); got != u5data.TileDoorA {
 		t.Errorf("密門沒開,那格是 0x%02X", got)
@@ -25,6 +26,7 @@ func TestSearchFindsTheSecretDoor(t *testing.T) {
 
 	s2 := searchScene(t)
 	s2.SetTileAt(x, y, 0x4F) // 普通的牆
+	actAs(t, s2, 0)
 	s2.searchAt(x, y)
 	if got := s2.TileAt(x, y); got != 0x4F {
 		t.Errorf("普通的牆也開了門:0x%02X", got)
@@ -39,6 +41,8 @@ func TestSearchPhraseComesFromTheFurniture(t *testing.T) {
 	s := searchScene(t)
 	x, y := s.X+1, s.Y
 	s.SetTileAt(x, y, 0x2B) // a hollow stump
+	actAs(t, s, 0)
+	s.Messages = nil // `actAs` 自己會印一句(原版的「指定行動者:」)
 	s.searchAt(x, y)
 	first := s.Messages[0]
 	if !strings.HasPrefix(first, "在樹洞裡") {

@@ -60,6 +60,17 @@ type Picker struct {
 	then func(value int) bool
 	// back 是放棄時要回到哪個 Prompt。
 	back Prompt
+	// onCancel 是按 ESC 放棄時要做的事(可為 nil)。
+	//
+	// ★ 為什麼需要它:`pickMember` 承諾「`then` 一定會被呼叫一次」,
+	// 而玩家取消時那一次必須是 `then(-1)`。沒有這個鉤子的話,取消會讓
+	// 呼叫端的流程**靜靜停住**——比報錯難查(`docs/re/98`)。
+	onCancel func()
+	// cancelMsg 是放棄時印的話;空字串代表用通用的那句。
+	//
+	// ⚠ 選人選單印的是原版的「無!」(`aNone`),不是通用的「作罷。」——
+	// 兩句都印會讓一個動作出現兩行,看起來像 bug。
+	cancelMsg string
 }
 
 // beginPick 打開一個選單。候選是空的就直接回報 empty 那句話。
@@ -249,9 +260,17 @@ func (s *State) PickCancel() {
 	if s.Pick == nil {
 		return
 	}
+	onCancel, msg := s.Pick.onCancel, s.Pick.cancelMsg
+	if msg == "" {
+		msg = MsgNevermind
+	}
 	s.Prompt = s.Pick.back
 	s.Pick = nil
-	s.Log(MsgNevermind)
+	s.Log(msg)
+	// ⚠ 先清狀態再呼叫 —— 回呼可能自己開下一個選單。
+	if onCancel != nil {
+		onCancel()
+	}
 }
 
 // PickLines 是選單現在該顯示的每一行。游標那一項前面加箭頭。

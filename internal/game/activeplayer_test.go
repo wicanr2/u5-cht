@@ -120,7 +120,18 @@ func TestOutOfPartyIsInvalid(t *testing.T) {
 func TestPickCharacterHonoursTheActiveMember(t *testing.T) {
 	s := activeState(t)
 	s.ClearActiveMember()
-	auto := s.pickCharacter("")
+	auto, opened := pickedMember(s)
+	if opened {
+		// 沒指定 + 多人能動 → 原版會開選單。取最後一位當對照組。
+		s.PickCancel()
+		auto = -1
+		for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+			switch s.Roster[i].Status {
+			case u5data.StatusGood, u5data.StatusPoisoned:
+				auto = i
+			}
+		}
+	}
 	if auto < 0 {
 		t.Skip("沒人可選")
 	}
@@ -130,8 +141,12 @@ func TestPickCharacterHonoursTheActiveMember(t *testing.T) {
 		want = 1
 	}
 	s.SetActivePlayer(rune('1' + want))
-	if got := s.pickCharacter(""); got != want {
-		t.Errorf("指定第 %d 位之後 pickCharacter 回 %d(自動會回 %d)", want, got, auto)
+	got, opened2 := pickedMember(s)
+	if opened2 {
+		t.Fatal("指定過了卻還開選單 —— `sub_E19C` 第一條分支沒生效")
+	}
+	if got != want {
+		t.Errorf("指定第 %d 位之後挑到 %d(自動會挑 %d)", want, got, auto)
 	}
 }
 
@@ -147,7 +162,11 @@ func TestActiveMemberIsNotRevalidated(t *testing.T) {
 		t.Skip("指定不成功")
 	}
 	s.Roster[1].Status = u5data.StatusDead
-	if got := s.pickCharacter(""); got != 1 {
-		t.Errorf("被指定的人死了之後 pickCharacter 回 %d,原版仍回 1(不重驗)", got)
+	got, opened := pickedMember(s)
+	if opened {
+		t.Fatal("被指定的人死了就改成問玩家 —— 原版不重驗狀態")
+	}
+	if got != 1 {
+		t.Errorf("被指定的人死了之後挑到 %d,原版仍回 1(不重驗)", got)
 	}
 }

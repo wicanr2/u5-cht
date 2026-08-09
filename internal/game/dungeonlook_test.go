@@ -148,6 +148,7 @@ func TestFountainDrinkEffectsUseTheFullTile(t *testing.T) {
 			s.Roster[i].Status = u5data.StatusGood
 			s.Roster[i].HP, s.Roster[i].MaxHP = 10, 40
 		}
+		actAs(t, s, 0)
 		s.Messages = nil
 		s.drinkFromDungeonFountain(c.tile, true)
 		got := strings.Join(s.Messages, "|")

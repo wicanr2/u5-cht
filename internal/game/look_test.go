@@ -126,6 +126,7 @@ func TestSunBurnsTheLooker(t *testing.T) {
 		s.Roster[i].Status = u5data.StatusGood
 		s.Roster[i].HP = 20
 	}
+	actAs(t, s, 0)
 	s.Clock.Hour = 12
 	total := func() int {
 		n := 0

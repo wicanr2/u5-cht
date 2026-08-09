@@ -10,9 +10,14 @@
      ⚠ 這**不是** VLQ —— VLQ 用最高位元當續接旗標,XMI 用「還是不是 < 0x80」。
   2. **沒有 note-off**:note-on 之後接 note、velocity,再接一個
      **SMF 風格的 VLQ 時長**。要自己排一個 note-off 到 (現在 + 時長)。
-  3. **時基固定**:XMI 的一個 tick 是 1/120 秒(AIL 的硬體節拍)。
-     輸出用 ppqn=60 + tempo 500,000 µs/四分音符 ⇒ 60 ticks / 0.5 s = 120 ticks/s。
-     ⚠ 曲子裡的 `FF 51`(set tempo)meta 事件**照抄**——AIL 的驅動也是照著跑的。
+  3. **ppqn 是 60,而速度由曲子自帶的 `FF 51` 決定**。
+     ⚠⚠ 這裡曾經寫「時基固定 1/120 秒」——**那是錯的**。15 首**每一首**在 tick 0
+     都有一個 `FF 51`,而 U5THEME 那顆是 600,000 µs/四分音符
+     ⇒ 一個 tick = 10 ms(不是 8.33 ms)。用 MT-32 渲染出來的有聲長度 149.5 秒
+     與「ppqn=60 + 檔案 tempo」算出的 148.2 秒相符(差的 1.3 秒是殘響尾),
+     而「固定 1/120」會算成 123.5 秒 —— **差 21%**。
+     ⇒ 輸出保留 ppqn=60,並把檔案自帶的 tempo **照抄**;
+     開頭那個 500,000 只在「某首完全沒有 tempo 事件」時才生效(目前 0 首)。
 
 用法:
   xmi2mid.py <in.XMI> <out.mid>
@@ -21,8 +26,9 @@
 import struct
 import sys
 
-# XMI 的一個 tick 是 1/120 秒 ⇒ 這一組讓輸出的 SMF 有同樣的實際速度。
+# ppqn 固定 60(AIL 的慣例)。真正的速度由曲子自帶的 `FF 51` 決定 —— 見檔頭 §3。
 PPQN = 60
+# 只有「完全沒有 tempo 事件」的曲子才會用到這個預設(15 首都有,所以目前用不到)。
 DEFAULT_TEMPO = 500000  # µs / 四分音符 = 120 BPM
 
 
@@ -150,7 +156,8 @@ def parse(evnt: bytes):
 def build_mid(events) -> bytes:
     """把事件清單寫成單軌 SMF(format 0)。"""
     track = bytearray()
-    # 開頭放一個 tempo,讓 ppqn=60 對上 1 tick = 1/120 秒。
+    # 開頭放一個預設 tempo。⚠ 曲子在 tick 0 自帶的 `FF 51` 會緊接著蓋掉它 ——
+    # 這一行只是「萬一某首沒有 tempo 事件」的保險。
     track += write_vlq(0) + bytes([0xFF, 0x51, 0x03]) + DEFAULT_TEMPO.to_bytes(3, "big")
     prev = 0
     saw_end = False
@@ -166,6 +173,23 @@ def build_mid(events) -> bytes:
     return head + b"MTrk" + struct.pack(">I", len(track)) + bytes(track)
 
 
+def duration_seconds(events, last_tick: int) -> float:
+    """依 tempo 變化積分算真實長度。
+
+    ⚠ **不能**用「tick 數 ÷ 120」—— 那假設 tempo 恆為 500,000,而 15 首都不是
+    (見檔頭 §3)。拿錯的估算去對渲染結果會以為轉檔壞了。
+    """
+    cur = DEFAULT_TEMPO
+    prev = 0
+    secs = 0.0
+    for t, _order, d in events:
+        if d[:2] != b"\xff\x51" or len(d) < 6:
+            continue
+        secs += (t - prev) * cur / PPQN / 1e6
+        prev, cur = t, int.from_bytes(d[3:6], "big")
+    return secs + (last_tick - prev) * cur / PPQN / 1e6
+
+
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     check = "--check" in sys.argv
@@ -177,7 +201,7 @@ def main() -> int:
     events = parse(evnt)
     notes = sum(1 for _, _, d in events if d[0] & 0xF0 == 0x90 and d[2] != 0)
     last = events[-1][0] if events else 0
-    secs = last / 120.0
+    secs = duration_seconds(events, last)
     chans = sorted({d[0] & 0x0F for _, _, d in events if d[0] < 0xF0})
     progs = sorted({d[1] for _, _, d in events if d[0] & 0xF0 == 0xC0})
     print(

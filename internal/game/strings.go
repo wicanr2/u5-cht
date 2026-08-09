@@ -365,6 +365,17 @@ const (
 	MsgSetActivePlayer = "指定行動者:"
 	MsgActiveNone      = "無!"
 	MsgActiveInvalid   = "無效!"
+
+	// 「Player: 」+ 選人選單的四句(原版 `sub_E19C` → `sub_2A7F4`,`docs/re/98`)。
+	//
+	// ⚠ `MsgDisabled` 是**選單裡按到不能動的人**才印,印完**回到選單**;
+	// 而 `MsgActiveInvalid`(上面那個)是**數字鍵指令**按到不能動的人。
+	// 原版是兩句不同的話(`aDisabled` vs `aInvalid`)—— 別合成一句,
+	// 兩者的後續行為不同(一個重問、一個結束)。
+	MsgPlayerPrompt = "何人行事:"
+	MsgSelect       = "擇一:"
+	MsgNobodyCanAct = "無人能行事。"
+	MsgDisabled     = "此人無法行事!"
 	// "You respond-\n:" —— 回答 NPC 的提問時的提示。
 	MsgYouRespond = "汝答:"
 	// 記錄裡找不到對應的提問區塊 —— 資料或解析的問題,讓它看得見。

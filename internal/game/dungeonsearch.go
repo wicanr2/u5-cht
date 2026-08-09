@@ -180,7 +180,14 @@ func (s *State) searchDungeonRelative(rel SearchRelative) {
 // 沒看清楚時用 `random(1,8)` 亂猜,所以**會報錯三種答案中的任一種** ——
 // 與地表的搜尋同一個形狀(`docs/re/43`)。
 func (s *State) searchDungeonChest(tile byte) {
-	member := s.pickCharacter("")
+	// ⚠ **不檢查 member < 0** —— 原版拿 `sub_E19C` 的回傳值直接去查敏捷,
+	// 沒人可選時算出來的門檻就是「敏捷 0」。照抄(`dungeonSearchThreshold`
+	// 對 −1 已經回 dex 0)。
+	s.pickMember("", func(member int) { s.searchDungeonChestBy(tile, member) })
+}
+
+// searchDungeonChestBy 是由 member 去查箱子的陷阱。
+func (s *State) searchDungeonChestBy(tile byte, member int) {
 	level := 0
 	if s.Dungeon != nil {
 		level = s.Dungeon.Level
@@ -219,13 +226,15 @@ func (s *State) searchDungeonPit(tile byte, x, y int) {
 		s.Log("一個陷坑!")
 		disarm()
 	case dungeonPitBomb:
-		member := s.pickCharacter("")
-		if s.Roll(1, dungeonSearchRollMax) <= s.dungeonSearchThreshold(member) {
-			s.Log("坑裡沒有藏東西。")
-			return
-		}
-		s.Log("一個炸彈陷阱!")
-		disarm()
+		// ⚠ 同 `searchDungeonChest`:原版不檢查有沒有人可選。
+		s.pickMember("", func(member int) {
+			if s.Roll(1, dungeonSearchRollMax) <= s.dungeonSearchThreshold(member) {
+				s.Log("坑裡沒有藏東西。")
+				return
+			}
+			s.Log("一個炸彈陷阱!")
+			disarm()
+		})
 	}
 }
 

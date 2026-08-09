@@ -42,6 +42,7 @@ func TestOpenChestTurnsItIntoAnOpenedOne(t *testing.T) {
 	// 手動加上「頭上有洞」,驗它會被保留。
 	orig := s.DungeonTileHere() | u5data.DungeonHoleAbove
 	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, orig)
+	actAs(t, s, 0) // 開箱要先決定由誰開;指定過就不會跳選單
 	s.OpenChest()
 	got := s.DungeonTileHere()
 	if got&0xF0 != 0x70 {
@@ -70,6 +71,7 @@ func TestTrappedChestHurtsSomeone(t *testing.T) {
 		t.Skip("找不到寶箱")
 	}
 	d := s.Dungeon
+	actAs(t, s, 0)
 	hurt := map[string]bool{}
 	for seed := 1; seed <= 40 && len(hurt) < 2; seed++ {
 		s.SeedRandom(int64(seed))
@@ -261,6 +263,7 @@ func TestJimmyInADungeonDisarmsTheTrapNotALock(t *testing.T) {
 	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 		s.Roster[i].Dex = 99
 	}
+	actAs(t, s, 0)
 	before := s.Inventory.Keys
 	s.Jimmy()
 	got := s.DungeonTileHere()
@@ -290,6 +293,7 @@ func TestJimmyWastesAKeyOnAnUntrappedChest(t *testing.T) {
 		for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
 			s.Roster[i].Dex = 99 // 就算敏捷拉滿也一樣
 		}
+		actAs(t, s, 0)
 		before := s.Inventory.Keys
 		s.Jimmy()
 		joined := strings.Join(s.Messages, "|")
@@ -312,6 +316,7 @@ func TestJimmyWastesAKeyOnAnUntrappedChest(t *testing.T) {
 // 門那條是先查鑰匙(`sub_14CAC` 的 `cmp byte_3DFB8, 0` 在問方向之前)。
 func TestJimmyInADungeonAsksWhoBeforeCheckingKeys(t *testing.T) {
 	s := jimmyDungeonScene(t, 0x03)
+	actAs(t, s, 0)
 	s.Inventory.Keys = 0
 	s.Messages = nil
 	s.Jimmy()
@@ -329,6 +334,7 @@ func TestJimmyOnAnOpenedChestSaysAlreadyOpen(t *testing.T) {
 	s := jimmyDungeonScene(t, 0x03)
 	d := s.Dungeon
 	s.Dungeons.Set(d.Index, d.Level, d.X, d.Y, u5data.DungeonOpenedChestKind)
+	actAs(t, s, 0)
 	s.Messages = nil
 	s.Jimmy()
 	if !strings.Contains(strings.Join(s.Messages, "|"), MsgAlreadyOpen) {

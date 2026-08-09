@@ -207,27 +207,28 @@ func (s *State) drinkFromDungeonFountain(tile byte, yes bool) {
 		return
 	}
 	s.Log("咕嚕!")
-	// ★ 用既有的 `pickCharacter` —— 它就是 `sub_E19C`,而且回傳的是
-	// **最後一個**符合的(原版的迴圈把 `esi` 一路覆寫到最後一個)。
-	who := s.pickCharacter("")
-	if who < 0 {
-		return
-	}
-	switch tile {
-	case FountainCure:
-		s.Log("解毒了!")
-		s.setMemberStatus(who, u5data.StatusGood)
-	case FountainHeal:
-		s.Log("痊癒了!")
-		s.healMemberFull(who)
-	case FountainPoison:
-		s.Log("中毒了!")
-		s.setMemberStatus(who, u5data.StatusPoisoned)
-	default:
-		// ★ 0x53..0x5F:難喝,而且扣 0..7 血。
-		s.Log("味道很糟。")
-		s.damageMember(who, s.Roll(0, FountainBadTasteMax))
-	}
+	// ★ `pickMember` 就是 `sub_E19C`:必要時開「擇一:」選單問玩家,
+	// 所以效果要寫在回呼裡 —— 寫在後面會在「要問」那條路上提前發生。
+	s.pickMember("", func(who int) {
+		if who < 0 {
+			return
+		}
+		switch tile {
+		case FountainCure:
+			s.Log("解毒了!")
+			s.setMemberStatus(who, u5data.StatusGood)
+		case FountainHeal:
+			s.Log("痊癒了!")
+			s.healMemberFull(who)
+		case FountainPoison:
+			s.Log("中毒了!")
+			s.setMemberStatus(who, u5data.StatusPoisoned)
+		default:
+			// ★ 0x53..0x5F:難喝,而且扣 0..7 血。
+			s.Log("味道很糟。")
+			s.damageMember(who, s.Roll(0, FountainBadTasteMax))
+		}
+	})
 }
 
 // setMemberStatus 寫一個隊員的狀態(界內才寫)。
