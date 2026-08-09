@@ -39,7 +39,7 @@ type Source int
 
 // 音樂來源。⚠ 順序就是 `NextSource()` 的循環順序。
 const (
-	// SourceFMTowns 是預設 —— 它是**遊戲內實際會響的那一套**
+	// SourceFMTowns 是**遊戲內實際會響的那一套**(但我們的 ogg 是自己合成的)
 	// (FM Towns 版的遊玩音樂是 `.EUP`,不是 CDDA)。
 	SourceFMTowns Source = iota
 	// SourceMT32 是 DOS 玩家 1988 年裝了 MT-32 會聽到的版本。
@@ -147,9 +147,24 @@ func New(tblDir, audioDir string, b Backend) (*Player, error) {
 	p.sets[SourceFMTowns] = fmTownsSet(tblDir, audioDir)
 	p.sets[SourceMT32] = mt32Set(filepath.Join(audioDir, MT32Subdir))
 
-	// 預設挑**第一個有檔案的**來源,而不是硬用 FM Towns ——
-	// 否則只渲染了 MT-32 的玩家開起來是靜音的,而且看不出為什麼。
-	for s := Source(0); s < SourceCount; s++ {
+	// 預設順序:**MT-32 優先,FM Towns 次之**,挑第一個有檔案的。
+	//
+	// ⚠ 這與「哪一套最原生」是**兩個不同的問題**。FM Towns 那套才是
+	// 遊戲內實際會響的,但我們手上的 `M*.ogg` 是**自己合成**的 ——
+	// `.EUP` 序列 + `.FMB` 4-op 音色餵進 `tools/eup2ogg.py` 的 FM 合成器。
+	// MT-32 那套是把 upgrade 的 `.XMI` 餵給 **munt + 真的 MT-32 ROM** 渲染,
+	// 也就是 1988 年裝了 MT-32 的玩家實際聽到的聲音。
+	//
+	// ⇒ 使用者 2026-08-09 實機回報「背景音樂怪怪的」,而當時播的是 FM Towns 那套。
+	// 在自製合成器驗過之前,預設用**已知渲染正確**的那一套;
+	// 想聽 FM Towns 仍可按 F9 或 `-music fmtowns`。
+	//
+	// ⬜ 要把 FM Towns 那套修對,做法與調色盤那條一樣:**拿 reference 對答案** ——
+	// DOSBox-X 支援 `machine=fmtowns`,用玩家自備的那張光碟開起來錄音,
+	// 才知道我們的合成器差在哪(音色、包絡、速度)。不從網路抓別人的 rip:
+	// 那既是散布他人重製的音檔,也繞過了「素材一律來自原版媒體」這條
+	// (`CLAUDE.md §3.0`),而且抓回來也**不會告訴我們合成器哪裡錯**。
+	for _, s := range []Source{SourceMT32, SourceFMTowns} {
 		if p.sets[s].have() {
 			p.source = s
 			return p, nil

@@ -295,3 +295,59 @@ func TestMoongateGrowsFromTheBottom(t *testing.T) {
 		}
 	}
 }
+
+// ★★ 隊伍那一欄要畫**狀態**。
+//
+// 原版那一欄是 `Elwood     60G` —— 名字、HP、然後一個狀態字母;
+// 本專案把字母展開成中文說明(使用者指示 2026-08-09)。
+//
+// ⚠ **這裡不能用「康健 vs 中毒 兩張圖不同」當判準**:測試用的 `TextRenderer`
+// 沒有字庫(render 的測試不依賴原版資料),兩個中文詞都會畫成同樣的缺字方框
+// ⇒ 兩張圖一模一樣,而那不代表狀態沒畫。改成兩件事各驗一次:
+//
+//  1. 狀態欄那一段 x 範圍**真的被畫過**(有隊員 vs 沒隊員的差異要涵蓋它)
+//  2. 五個狀態碼的中文說明**互不相同**、也不是 `?`(純邏輯,不必字庫)
+func TestPartyLineShowsStatus(t *testing.T) {
+	withParty := func(n int) *image.NRGBA {
+		s := testScene()
+		s.State.Roster = []u5data.Character{{Name: "Elwood", HP: 60, MaxHP: 60, Status: u5data.StatusGood}}
+		s.State.PartySize = n
+		return s.Render()
+	}
+	empty, one := withParty(0), withParty(1)
+	x0, x1 := PanelX+partyStatusColumn, PanelX+partyStatusColumn+CJKAdvance*2
+	painted := false
+	for y := 0; y < CanvasHeight && !painted; y++ {
+		for x := x0; x < x1; x++ {
+			if empty.NRGBAAt(x, y) != one.NRGBAAt(x, y) {
+				painted = true
+				break
+			}
+		}
+	}
+	if !painted {
+		t.Errorf("狀態欄(x %d..%d)完全沒有被畫過", x0, x1)
+	}
+}
+
+// 五個狀態碼各有各的說明,而且沒有一個掉到 `?`。
+//
+// ⚠ 狀態碼是**可讀字母**('G'/'P'/'D'/'C'/'S'),原版直接
+// `cmp byte_3DDBF[32*i], 'P'` 這樣比 —— 譯名換了不該影響那些判定,
+// 所以這條只驗顯示用的說明,不碰常數本身。
+func TestEveryStatusCodeHasItsOwnDescription(t *testing.T) {
+	codes := []byte{u5data.StatusGood, u5data.StatusPoisoned, u5data.StatusDead,
+		u5data.StatusCharmed, u5data.StatusAsleep}
+	seen := map[string]byte{}
+	for _, c := range codes {
+		name := u5data.StatusName(c)
+		if name == "" || name == "?" {
+			t.Errorf("狀態 %q 沒有說明(得到 %q)", string(rune(c)), name)
+			continue
+		}
+		if prev, dup := seen[name]; dup {
+			t.Errorf("狀態 %q 與 %q 共用說明 %q", string(rune(c)), string(rune(prev)), name)
+		}
+		seen[name] = c
+	}
+}

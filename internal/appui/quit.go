@@ -30,6 +30,11 @@ type Keys struct {
 	// Save / Load 是即時存檔與讀回(F5 / F6)。
 	Save bool
 	Load bool
+	// Help 是說明畫面的開關鍵(F1),見 `help.go`。
+	Help bool
+	// PageUp / PageDown 給說明畫面翻頁用。
+	PageUp   bool
+	PageDown bool
 }
 
 // Action 是狀態機這一帧要求呼叫端做什麼。

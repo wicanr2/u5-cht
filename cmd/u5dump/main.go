@@ -508,6 +508,7 @@ func cmdScene(args []string) error {
 	hour := -1
 	giveBox := false
 	quitAsk := false
+	helpOpen, helpPage := false, 0
 	beamFrame := 0
 	for i := 3; i < len(args); i++ {
 		switch args[i] {
@@ -525,6 +526,12 @@ func cmdScene(args []string) error {
 		// ⚠ 這不是遊戲狀態,是應用層的 `internal/appui`。
 		case "--quit":
 			quitAsk = true
+		// 畫 F1 指令說明的第 N 頁(截圖用)。
+		case "--help-page":
+			helpOpen = true
+			if i+1 < len(args) {
+				helpPage, _ = strconv.Atoi(args[i+1])
+			}
 		// 燈塔光束轉到第幾個扇區(截圖用;遊戲裡由主迴圈每幀推進)。
 		case "--beam":
 			if i+1 < len(args) {
@@ -609,6 +616,8 @@ func cmdScene(args []string) error {
 		DungeonItems: bundle.DungeonItems,
 		IntroArt:     bundle.IntroArt,
 		QuitAsk:      quitAsk,
+		HelpOpen:     helpOpen,
+		HelpPage:     helpPage,
 	}
 
 	if err := writePNG(args[2], sc.Render()); err != nil {

@@ -296,6 +296,12 @@ func TestSwitchingSourceRestartsTheCurrentSong(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// ⚠ 兩套都有檔案時**預設是 MT-32**(見 `New` 的說明:我們的 FM Towns ogg
+	// 是自己合成的,MT-32 那套是真 ROM 渲染)。這條測試要驗的是「換來源會重播
+	// 同一首」,所以先明確切到 FM Towns 當起點,不要靠預設值。
+	if !p.SetSource(SourceFMTowns) {
+		t.Fatal("換不到 FM Towns")
+	}
 	p.Update(7)
 	if len(b.played) != 1 || filepath.Base(b.played[0]) != "M8"+Ext {
 		t.Fatalf("先播的是 %v,預期 M8%s", b.played, Ext)

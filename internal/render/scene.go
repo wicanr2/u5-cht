@@ -41,6 +41,14 @@ const (
 
 	// 地圖下方剩下的一條給操作提示。
 	HintY = MapOriginY + ViewPixels + 6
+
+	// 隊伍那三欄的欄位起點(相對 `PanelX`)。
+	//
+	// 名字最長的譯名是四個中文字 = 64 px,所以 HP 欄從 72 起;
+	// HP 是 `%3d/%-3d` 七個 ASCII = 56 px,所以狀態欄從 136 起,
+	// 兩個中文字結束在 168 px —— 都在 `PanelWidth`(264)之內。
+	partyHPColumn     = 72
+	partyStatusColumn = 136
 )
 
 // EGABlack 是地牢視野外圍的底色。
@@ -66,6 +74,13 @@ type Scene struct {
 	DungeonItems u5data.PictureSet
 	// IntroArt 是 STORY1-6.16 —— 開場的插圖。
 	IntroArt []u5data.PictureSet
+	// HelpOpen 開著時整頁畫指令說明(F1),`HelpPage` 是第幾頁。
+	//
+	// ⚠ 用一個 bool 而不是「HelpPage = -1 代表關閉」——
+	// 後者的**零值是 0 = 顯示第一頁**,於是每一處 `render.Scene{...}`
+	// 都得記得填 -1,漏一個就變成一開機就卡在說明畫面。
+	HelpOpen bool
+	HelpPage int
 	// QuitAsk 開著時,最後會在整個畫面上疊一個「確定離開遊戲?」的框。
 	//
 	// ⚠ 這是**應用層**的狀態(`internal/appui`),不是 `State.Prompt` 的一員 ——
@@ -90,6 +105,14 @@ func (s *Scene) Render() *image.NRGBA {
 func (s *Scene) render() *image.NRGBA {
 	dst := image.NewNRGBA(image.Rect(0, 0, CanvasWidth, CanvasHeight))
 	fill(dst, ColorBackground)
+
+	// F1 說明是整頁,蓋掉底下所有畫面 —— 但離開確認框仍會疊在它之上
+	// (`Render` 最後才畫框),所以在說明畫面按 F10 也問得到。
+	if s.HelpOpen {
+		s.drawHelp(dst, s.HelpPage)
+		s.drawHints(dst)
+		return dst
+	}
 
 	// 開場動畫佔滿整個畫面 —— 沒有狀態欄也沒有地圖窗。
 	if s.State != nil && s.State.Intro != nil {
@@ -377,11 +400,29 @@ func (s *Scene) drawPanel(dst *image.NRGBA) {
 	}
 	s.Text.Draw(dst, PanelX, y, line)
 
-	// 隊伍:名字 + HP。原版右欄就是這個位置。
+	// 隊伍:名字 + HP + **狀態**。原版右欄就是這個位置。
+	//
+	// ★ 原版一行是 `Elwood     60G` —— 名字、HP、然後**一個狀態字母**
+	// (`G` 良好 / `P` 中毒 / `S` 沉睡 / `D` 身亡 / `C` 被惑,
+	// 治療所 `sub_12838` 直接 `cmp byte_3DDBF[32*i], 'P'` 這樣比)。
+	// **原版這一欄沒有職業** —— 職業在 `Ztats` 裡。
+	//
+	// 這裡把那個字母展開成完整的中文說明(使用者指示 2026-08-09):
+	// 一個字母對中文玩家沒有意義,而「中毒」「沉睡」是他**要據此行動**的資訊
+	// (該不該用解毒藥、該不該叫醒)。展開之後職業就讓位給狀態 ——
+	// 這同時比原來更貼近原版的欄位組成。
+	//
+	// ⚠ 狀態**一律顯示**,康健也印。原版的字母也是一直在 ——
+	// 「只在異常時顯示」會讓玩家不確定是沒事還是沒更新。
+	// ⚠ **三欄用固定像素位置畫,不用 `%-9s` 補空白。** 中文名字一個字 16 px、
+	// ASCII 一個字 8 px,而 `%-9s` 補的是**位元組**:`Elwood`(6 B)補三個空白
+	// 剛好 72 px,`夏米諾`(9 B)一個都不補只有 48 px ⇒ HP 欄會左右跳。
+	// 原本只有名字 + HP 時看不出來(兩欄都靠左),加了第三欄就整排歪掉。
 	y += LineHeight
 	for _, c := range st.Party() {
-		s.Text.Draw(dst, PanelX, y, fmt.Sprintf("%-9s %-4s %3d/%-3d",
-			i18n.Name(c.Name), c.ClassName(), c.HP, c.MaxHP))
+		s.Text.Draw(dst, PanelX, y, i18n.Name(c.Name))
+		s.Text.Draw(dst, PanelX+partyHPColumn, y, fmt.Sprintf("%3d/%-3d", c.HP, c.MaxHP))
+		s.Text.Draw(dst, PanelX+partyStatusColumn, y, u5data.StatusName(c.Status))
 		y += LineHeight
 	}
 
@@ -396,7 +437,12 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 	if s.Text == nil || s.State == nil {
 		return
 	}
-	hint := "方向鍵移動  E 進入  K 攀爬  T 交談  F5 存檔  F9 音源  F10 離開"
+	hint := "方向鍵移動  E 進入  K 攀爬  T 交談  F1 說明  F5 存檔  F10 離開"
+	if s.HelpOpen {
+		hint = "PgDn / PgUp 翻頁,F1 或 ESC 收起"
+		s.Text.Draw(dst, MapOriginX, CanvasHeight-LineHeight-4, hint)
+		return
+	}
 	switch s.State.Prompt {
 	case game.PromptLeave:
 		hint = "Y 是 / N 否"

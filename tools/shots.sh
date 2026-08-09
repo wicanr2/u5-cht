@@ -43,4 +43,6 @@ run "$OUT/21-sandalwood.png" --scene '#17' 2 17 17 --script '~6789878767653nnnnn
 # 離開確認框:F10 / Ctrl+Q / 關窗都走這一個框,ESC 是取消(`internal/appui`)。
 # ⚠ `--quit` 是截圖用的旗標 —— 遊戲裡由按鍵觸發,不是遊戲狀態。
 run "$OUT/22-quit.png" --quit
+# F1 指令說明的第一頁(原版沒有這個畫面 —— 1988 年靠紙本手冊)。
+run "$OUT/23-help.png" --help-page 0
 echo "→ $OUT"

@@ -11,6 +11,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -59,6 +60,8 @@ type game struct {
 	sfx *audio.SFXPlayer
 	// quit 是離開確認框的狀態機(`internal/appui`)。ESC 永遠取消、F10 才離開。
 	quit appui.QuitDialog
+	// help 是 F1 指令說明的開關(`internal/appui/help.go`)。
+	help appui.HelpPanel
 	// gamedata 是原版資料目錄 —— 讀回存檔時要再找一次存檔檔案。
 	gamedata string
 	// saveFile 是 `-save` 指定的存檔(讀回時優先用它,與開機時同一條路徑)。
@@ -81,6 +84,12 @@ func appKeys() appui.Keys {
 		Escape: inpututil.IsKeyJustPressed(ebiten.KeyEscape),
 		Save:   inpututil.IsKeyJustPressed(ebiten.KeyF5),
 		Load:   inpututil.IsKeyJustPressed(ebiten.KeyF6),
+		Help:   inpututil.IsKeyJustPressed(ebiten.KeyF1),
+		// 說明畫面翻頁:PgDn / PgUp,方向鍵上下也收(手不必離開方向鍵)。
+		PageDown: inpututil.IsKeyJustPressed(ebiten.KeyPageDown) ||
+			inpututil.IsKeyJustPressed(ebiten.KeyArrowDown),
+		PageUp: inpututil.IsKeyJustPressed(ebiten.KeyPageUp) ||
+			inpututil.IsKeyJustPressed(ebiten.KeyArrowUp),
 	}
 }
 
@@ -134,7 +143,8 @@ func (g *game) Update() error {
 	}
 	// 離開語意:F10 / Ctrl+Q 開確認框,**ESC 永遠是取消**;F5 即時存檔、F6 讀回。
 	// 規則在 `internal/appui`(有單元測試把 ESC 的所有組合掃過)。
-	switch g.quit.Step(appKeys()) {
+	keys := appKeys()
+	switch g.quit.Step(keys) {
 	case appui.ActOpenedQuit, appui.ActCancelled:
 		g.scene.QuitAsk = g.quit.IsOpen()
 		g.dirty = true
@@ -165,6 +175,16 @@ func (g *game) Update() error {
 	}
 	// 確認框開著時它是 modal —— 遊戲的按鍵一律不處理。
 	if g.quit.IsOpen() {
+		return nil
+	}
+	// F1 指令說明。★ 放在確認框之後、遊戲按鍵之前:
+	// 說明開著時遊戲不該在背後動起來(它是覆蓋層),但 F10 仍問得到。
+	if g.help.Step(keys, render.HelpPageCount()) {
+		g.scene.HelpOpen, g.scene.HelpPage = g.help.IsOpen(), g.help.Page()
+		g.dirty = true
+		return nil
+	}
+	if g.help.IsOpen() {
 		return nil
 	}
 	ctrl := ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)
@@ -890,15 +910,27 @@ func (g *game) Draw(screen *ebiten.Image) {
 		g.dirty = false
 	}
 	sw, sh := screen.Bounds().Dx(), screen.Bounds().Dy()
-	scale := min(sw/render.CanvasWidth, sh/render.CanvasHeight)
-	if scale < 1 {
-		scale = 1
+	// ★ **跟著視窗縮放**(使用者指示 2026-08-09),等比、置中、nearest。
+	//
+	// ⚠ 原本取的是「塞得進去的最大**整數**倍」,而那在實機上會變成
+	// 「畫面只佔視窗一小塊、四周一大片黑」:HiDPI 面板的 device scale 是 2,
+	// 於是 1413×883 的實體視窗換算成邏輯只有 ~706×441 ——
+	// 640×400 放大兩倍就超出去了,整數倍只能取 1。
+	// 看起來像「沒有放大繪製」,其實是整數倍在邏輯尺寸下剛好卡在 1。
+	//
+	// ⇒ 改成小數倍。`CLAUDE.md §3` 原本寫「整數倍 nearest」,
+	// 這裡按使用者要求放寬成「等比填滿 + nearest」:
+	// 濾鏡仍是 nearest 所以還是硬邊點陣感,代價是非整數倍時
+	// 有些像素會比鄰居寬一格 —— 那比一大片黑邊好。
+	scale := math.Min(float64(sw)/render.CanvasWidth, float64(sh)/render.CanvasHeight)
+	if scale <= 0 {
+		return
 	}
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest}
-	op.GeoM.Scale(float64(scale), float64(scale))
+	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(
-		float64((sw-render.CanvasWidth*scale)/2),
-		float64((sh-render.CanvasHeight*scale)/2),
+		(float64(sw)-render.CanvasWidth*scale)/2,
+		(float64(sh)-render.CanvasHeight*scale)/2,
 	)
 	screen.DrawImage(g.tex, op)
 }
