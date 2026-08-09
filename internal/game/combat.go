@@ -778,6 +778,9 @@ func (s *State) unitIndex(u *Combatant) int {
 // 時間停止的倒數在這裡走 —— 原版 `sub_16370` 是在**玩家單位的回合結束時**
 // 遞減 `byte_3E09E`,所以 An Tym 是「十個玩家回合」而不是「十分鐘」。
 func (s *State) afterPlayerAction() {
+	// ★ 原版 `sub_16370` 的三件事,順序照抄:戒指效果 → 力場消散 → 模式倒數。
+	s.ringUpkeep()
+	s.expireFields()
 	s.tickCombatMode()
 	if s.TimeStop > 0 {
 		s.TimeStop--

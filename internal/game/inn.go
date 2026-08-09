@@ -244,6 +244,11 @@ func (s *State) SleepUntilMorning() {
 		s.AdvanceTime(5)
 	}
 	for guard := 0; s.Clock.Hour != WakeHour && guard < 24*60; guard++ {
+		// ★ 再生戒指在**每一次 9 分鐘的推進**都擲一次(原版 `loc_21F0C`
+		// 的 `call sub_2BCC8` 就在 `sub_29304(9)` 前面)—— 不是每小時一次。
+		// 一夜下來擲很多次,但旅店本來就會把 HP 補滿,所以看不出差別;
+		// 位置照抄是為了「中毒的人不會被補滿」那條路上仍然有回血。
+		s.regenerateParty()
 		s.AdvanceTime(9)
 	}
 	for _, c := range s.Party() {

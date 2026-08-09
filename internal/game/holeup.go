@@ -221,7 +221,24 @@ func (s *State) camp(hours int, watch int) {
 		if c.Status == u5data.StatusPoisoned {
 			poisoned[i] = true
 		}
-		if c.Status == u5data.StatusGood && i != watch {
+		if i == watch {
+			continue
+		}
+		// ★★ 睡著的判準是「狀態 **不是** 'P'」,不是「狀態是 'G'」——
+		// 原版 `sub_2EDC0` 的守衛是 `if (狀態 != 'P') 讓他睡著`,
+		// 而 `sub_2EDF8` 自己再擋掉 'D'。
+		//
+		// ⇒ 兩個推得出來的後果:
+		//
+		//  1. **中毒的人不會睡著。** 而理由是機制性的:狀態是**單一位元組**,
+		//     設成 'S' 會把 'P' 擦掉 —— 睡一覺就解毒了。原版繞過它。
+		//  2. **被惑('C')的人會睡著,而那會把魅惑解掉。** 同一個單一位元組
+		//     的副作用,只是這一次原版**沒有**繞過。所以紮營是解魅惑的方法之一。
+		//
+		// 寫成「只有 'G' 會睡」的話第 2 條整個消失,而那是一條玩家用得到的規則。
+		switch c.Status {
+		case u5data.StatusPoisoned, u5data.StatusDead:
+		default:
 			c.Status = u5data.StatusAsleep
 			c.Raw[u5data.CharStatus] = u5data.StatusAsleep
 		}
@@ -239,6 +256,9 @@ func (s *State) camp(hours int, watch int) {
 			continue
 		}
 		last = s.Clock.Hour
+		// ★ 再生戒指也是**一小時擲一次**(原版 `loc_167E9` 的 `call sub_2BCC8`,
+		// 就在突襲骰前面一行)⇒ 戴著它睡一夜會慢慢回血。
+		s.regenerateParty()
 		// ★ 突襲的骰子**一小時擲一次**,不是一步一次。
 		if s.Roll(0, campAmbushOneIn) != 0 {
 			continue

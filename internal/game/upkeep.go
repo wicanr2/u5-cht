@@ -32,11 +32,12 @@ import "github.com/wicanr2/u5-cht/internal/u5data"
 //  1. **一天扣三次,不是每回合扣。** `byte_3E090` 記著上一次結算的小時,
 //     同一個小時內走幾百步也只扣一次。
 //  2. **睡著的人不吃**(`'S'` 那條 `continue` 在計數之前),死人也不吃。
-//  3. **餓的判定在扣糧之前**,而且**每回合都判** —— 存糧 0 的隊伍走一步掉一次血,
-//     不是一天掉三次。所以斷糧是會死人的。
+//  3. **餓的判定在扣糧之前,而且是每小時一次** —— `loc_2A5C0`(「記下這個
+//     小時處理過了」)是三條路的匯流點,挨餓那條也 `jmp` 到它。
+//     所以存糧 0 的隊伍每小時掉一次血,不是每走一步掉一次。
 //
-// ⚠ `byte_3E09B` 是另一個計數器(每次進餐 +1,上限 255),用途還沒追 ——
-// 先不接,標在這裡。
+// ✅ `byte_3E09B` 的語意已定(`docs/re/99` §5b):**每回合 +1**(上限 255),
+// 與吃飯無關 —— 它是施捨業報的節流計數器(見 `ringtick.go`)。
 
 // 維生開銷的常數。
 const (
@@ -68,32 +69,75 @@ func (s *State) upkeep() {
 		}
 		alive++
 	}
-	// ★ 同一個小時只結算一次(原版 `byte_3E090` 記著上次結算的小時)。
-	//
-	// ⚠ mealHour 的零值 0 會與「午夜 0 點」相等 —— 而午夜不是用餐時刻,
-	// 唯一的差別是「存糧 0 又剛好在 0 點」那一小時不會挨餓。
-	// 為了不留這個縫,初值用 −1(見 `newUpkeepHour`)。
+	s.settleHour(alive)
+	// ★★ 尾段:**三條路都會走到這裡**(原版 `loc_2A5CA`,含「這小時已結算過」
+	// 那條)。此前整段都沒做,而漏掉的理由是 `call sub_2BCC8` 在 `retn`
+	// 前面一行 —— 讀函式讀到「看起來收尾了」就停(見 `ringtick.go` 檔頭)。
+	s.countTurn()
+	s.tickModeOutOfCombat()
+	s.regenerateParty()
+}
+
+// settleHour 是維生開銷的「每小時結算一次」那一段(原版 `loc_2A563`..`loc_2A5C0`)。
+//
+//	if (這個小時已經結算過) return
+//	if (存糧 == 0)  { 印 "Starving!"; 全隊 rand(1,8) }
+//	else if (是用餐時刻) 存糧 −= 活人數
+//	記下「這個小時結算過了」          ; ★ 三條路都設,不只用餐那條
+//
+// ⚠⚠ **最後那一行此前只寫在用餐那條路上**,而原版的 `loc_2A5C0` 是
+// 三條路的匯流點(`jmp short loc_2A5C0` 從挨餓與「不是用餐時刻」兩處跳來)。
+// 差別很具體:**挨餓的傷害是每小時一次,不是每回合一次**。
+// 引擎此前每走一步就掉一次血,斷糧會在幾十步內滅團 —— 那不是原版的難度。
+func (s *State) settleHour(alive int) {
+	// ⚠ mealHour 的零值 0 會與「午夜 0 點」相等,所以初值用 −1(見 `newUpkeepHour`)。
 	if s.mealHour == s.Clock.Hour {
 		return
 	}
-	if s.Inventory.Food == 0 {
-		// ⚠ 餓的判定**每回合都跑**,不是一天三次 —— 斷糧的隊伍走一步掉一次血。
+	switch {
+	case s.Inventory.Food == 0:
 		s.Log(MsgStarving)
 		s.damageWholeParty()
-		return
-	}
-	for _, h := range MealHours {
-		if s.Clock.Hour != h {
-			continue
-		}
+	case isMealHour(s.Clock.Hour):
 		s.Inventory.Food -= alive
 		if s.Inventory.Food < 0 {
 			s.Inventory.Food = 0
 		}
-		s.mealHour = s.Clock.Hour
+	}
+	s.mealHour = s.Clock.Hour
+}
+
+// isMealHour 回報現在是不是三個用餐時刻之一。
+func isMealHour(hour int) bool {
+	for _, h := range MealHours {
+		if hour == h {
+			return true
+		}
+	}
+	return false
+}
+
+// tickModeOutOfCombat 是維生開銷尾段的模式倒數(原版 `sub_2A50C` 的 `byte_3E09E`)。
+//
+//	if (byte_3E09E != 0 && != 0FFh) {
+//	    if (--byte_3E09E == 0) { byte_3E08A = 0; 重畫面板 }
+//	}
+//
+// ★ 與戰鬥裡那一份(`tickCombatMode`,原版 `sub_16370`)是**同一個計數器
+// 在兩個迴圈裡各減一次** —— 而戰鬥與非戰鬥是互斥的(`docs/re/81`),
+// 所以實際上每回合只減一次。⚠ `0xFF` 是「不倒數」的哨兵。
+func (s *State) tickModeOutOfCombat() {
+	if s.CombatModeTurns <= 0 || s.CombatModeTurns == ModeTurnsForever {
 		return
 	}
+	s.CombatModeTurns--
+	if s.CombatModeTurns == 0 {
+		s.CombatMode = CombatModeNone
+	}
 }
+
+// ModeTurnsForever 是「這個模式不倒數」的哨兵(原版 `cmp al, 0FFh; jz`)。
+const ModeTurnsForever = 0xFF
 
 // 開戰時戒指會消失(原版 `sub_2EE84` 佈陣那一段)
 //

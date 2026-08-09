@@ -351,15 +351,63 @@ func (s *State) knownToThisNPC() bool { return s.KnowsThyName(s.talkingTo) }
 //	    if (金幣 == 0) 業報 +2      ; ★ 把身上的錢全部給光,再加 2
 //	}
 //
-// ⚠ `byte_3E09B >= 100` 那個閘門的語意還沒定(WORKLIST 上仍是 ⬜),
-// 所以**業報那一段先不做** —— 做了會變成「每次給錢都加業報」,
-// 而原版明顯有一個節流條件。缺一段比多一段錯的好。
+// ✅ `byte_3E09B` 的語意已定(`docs/re/99`):它是**每回合 +1 的計數器**
+// (維生開銷尾段,上限 255),不是此前記的「進餐計數器」。
+// ⇒ 那個閘門是「距離上次施捨至少 100 回合」,業報那一段可以接了。
 func (s *State) demandGold(amount int) {
 	if s.Inventory.Gold < amount {
 		s.Log("「" + MsgNotEnoughGold + "」")
 		return
 	}
 	s.Inventory.Gold -= amount
+	s.almsKarma()
+}
+
+// 施捨給乞丐的業報獎勵(原版 `sub_1B854` 扣完錢之後那一段)
+//
+//	kind = 物件[這個 NPC].kind & 0FCh
+//	if (kind != 6Ch)          return        ; ★ 只有乞丐
+//	if (byte_3E09B < 100)     return        ; ★ 距上次施捨不到 100 回合
+//	byte_3E09B = 0
+//	業報 +1(上限 99)
+//	if (金幣 == 0) 業報 +2(上限 99)        ; ★ 把錢全部給光,再加 2
+//
+// ★ 種類碼 0x6C 是乞丐 —— look 表物件段的第 0x6C 筆(`look#364`)寫著
+// 「a beggar」,四個朝向共用同一句,所以原版比的是 `& 0xFC`。
+//
+// ⚠ 最多 +3,而**兩次都各自夾在 99**;給光錢那一次不是「+3 一次算完」。
+const (
+	// BeggarKind 是乞丐的種類碼(遮罩後)。
+	BeggarKind = 0x6C
+	// BeggarKindMask 是原版比對用的遮罩(四個朝向)。
+	BeggarKindMask = 0xFC
+	// AlmsThrottleTurns 是兩次施捨業報之間至少要隔幾回合。
+	AlmsThrottleTurns = 100
+	// AlmsKarma 是施捨的業報,AlmsKarmaBroke 是「給光了」再加的。
+	AlmsKarma      = 1
+	AlmsKarmaBroke = 2
+)
+
+// almsKarma 給施捨的業報。
+//
+// ⚠ 判「是不是乞丐」用的是 NPC 的生物編號,而原版讀的是**鏡射物件的種類碼** ——
+// 兩者由 `syncNPCObjects` 寫成同一個值,所以等價。走生物編號是因為
+// 「談話中的那個 NPC」本來就記在 `talkingTo`,不必再回頭查物件槽。
+func (s *State) almsKarma() {
+	if s.talkingTo <= 0 || s.talkingTo >= len(s.npcs) {
+		return
+	}
+	if s.npcs[s.talkingTo].Creature&BeggarKindMask != BeggarKind {
+		return
+	}
+	if s.turnsSinceAlms < AlmsThrottleTurns {
+		return
+	}
+	s.turnsSinceAlms = 0
+	s.Karma = addCap(s.Karma, AlmsKarma, u5data.KarmaMax)
+	if s.Inventory.Gold == 0 {
+		s.Karma = addCap(s.Karma, AlmsKarmaBroke, u5data.KarmaMax)
+	}
 }
 
 // giveThing 是對話裡「NPC 給汝一樣東西」(原版 opcode 0x86 → `sub_1B964`)。

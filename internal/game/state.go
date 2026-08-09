@@ -480,6 +480,12 @@ type State struct {
 	// mealHour 是上一次扣糧的那個小時(原版 `byte_3E090`)——
 	// 同一個小時內走幾百步也只扣一次糧。初值 −1 代表還沒結算過。
 	mealHour int
+	// turnsSinceAlms 是維生開銷每回合 +1 的計數器(原版 `byte_3E09B`,上限 255)。
+	//
+	// ★ 施捨給乞丐拿業報時歸零 —— 那個「>= 100」的閘門就是靠它節流的
+	// (見 `ringtick.go` 與 `docs/re/99`)。⚠ 此前被記成「進餐計數器」,
+	// 而它其實與吃飯無關。
+	turnsSinceAlms int
 	// Drunk 是還剩幾次「按鍵變成隨機走一步」(原版 `byte_3E169`)。
 	// 酒館點一杯酒設成 25,見 `upkeep.go` 的 `DrunkStagger`。
 	Drunk int
@@ -693,6 +699,8 @@ func (s *State) tick() {
 	}
 	// 打開的門每回合倒數,歸零就自己關上(原版 `sub_1A54` 的那一段)。
 	s.tickDoor()
+	// ★ 同一支主迴圈的鄰居:沒被繫住的馬會自己走一步(原版 `sub_FEC`)。
+	s.wanderHorses()
 	// ★ 月門是**寫進地圖緩衝的一格**,由這一支維護(原版 `sub_DEE4`,
 	// 在重畫時跑)。⚠ 引擎改成每回合一次 —— 節奏差異見 `moongatetile.go`。
 	s.RefreshMoongateTiles()

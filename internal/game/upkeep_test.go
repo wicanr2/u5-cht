@@ -89,8 +89,8 @@ func TestSleepingAndDeadMembersDoNotEat(t *testing.T) {
 	}
 }
 
-// TestStarvingHurtsEveryTurn:斷糧是**每回合**掉血,不是一天三次。
-func TestStarvingHurtsEveryTurn(t *testing.T) {
+// TestStarvingHurtsOncePerHour:斷糧**每小時**掉一次血,不是一天三次也不是每回合。
+func TestStarvingHurtsOncePerHour(t *testing.T) {
 	s := upkeepScene(t)
 	s.Inventory.Food = 0
 	s.Clock.Hour = 3 // 不是用餐時刻,照樣要餓
@@ -107,11 +107,22 @@ func TestStarvingHurtsEveryTurn(t *testing.T) {
 	if hurt != s.PartySize {
 		t.Errorf("只有 %d 位掉血,預期全隊 %d 位", hurt, s.PartySize)
 	}
-	// 再走一步還要再餓一次(同一個小時內也算)。
+	// ★★ **同一個小時內再走一步不會再餓一次。**
+	//
+	// 原版挨餓那條路的結尾是 `jmp short loc_2A5C0`,而 `loc_2A5C0` 就是
+	// `byte_3E090 = byte_3E08F`(記下「這個小時處理過了」)—— 三條路的匯流點。
+	// 此前這裡斷言「每回合都判」,而那讓斷糧的隊伍走幾十步就滅團。
+	s.Messages = nil
+	s.upkeep()
+	if strings.Contains(strings.Join(s.Messages, "|"), MsgStarving) {
+		t.Errorf("同一個小時內餓了第二次 —— 原版在挨餓那條路也會設 byte_3E090:%q", s.Messages)
+	}
+	// 反對照:**過了一個小時就會再餓一次**,否則上面那條可能只是「整個關掉了」。
+	s.Clock.Hour = 4
 	s.Messages = nil
 	s.upkeep()
 	if !strings.Contains(strings.Join(s.Messages, "|"), MsgStarving) {
-		t.Errorf("第二回合沒再挨餓 —— 原版不更新 byte_3E090,所以每回合都判:%q", s.Messages)
+		t.Errorf("換一個小時卻不餓了 —— 那是關掉而不是節流:%q", s.Messages)
 	}
 }
 

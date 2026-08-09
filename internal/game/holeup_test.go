@@ -523,3 +523,92 @@ func TestPartyBattlefieldTileComesFromTheClassTable(t *testing.T) {
 		t.Errorf("倒下的隊員畫成 0x%02X", got)
 	}
 }
+
+// holeUpScene 造一個「站在野外、可以紮營」的隊伍(比照 TestTheWatchGetsNoRest)。
+func holeUpScene(t *testing.T) *State {
+	t.Helper()
+	s := dungeonState(t)
+	s.Location, s.Floor = 0, 0
+	s.Transport = u5data.VehicleWalk
+	s.X, s.Y = 82, 106
+	s.Clock.Hour = 10
+	for i := 0; i < s.PartySize && i < len(s.Roster); i++ {
+		s.Roster[i].Status = u5data.StatusGood
+		s.Roster[i].Raw[u5data.CharStatus] = u5data.StatusGood
+		s.Roster[i].HP, s.Roster[i].MaxHP = 200, 200
+	}
+	return s
+}
+
+// TestCampSleepUsesTheNotPoisonedRule —— ★★ 睡著的判準是「不是 'P'」。
+//
+// 原版 `sub_2EDC0` 的守衛是 `if (狀態 != 'P') 讓他睡著`,而 `sub_2EDF8`
+// 自己擋掉 'D'。⇒ 被惑的人**會**睡著,而那會把魅惑解掉(狀態是單一位元組)。
+//
+// ⚠ 判別力在哪:'G' 睡完會醒回 'G',所以「最後是不是 'G'」**分不出**
+// 有沒有睡過 —— 那一格只能靠「有沒有恢復」。真正能分辨新舊行為的是
+// **'C' 那一格**:舊寫法(只有 'G' 會睡)會讓它維持 'C'。
+func TestCampSleepUsesTheNotPoisonedRule(t *testing.T) {
+	for _, tc := range []struct {
+		status byte
+		want   byte // 紮營之後的狀態
+		heals  bool
+		name   string
+	}{
+		{u5data.StatusGood, u5data.StatusGood, true, "康健 —— 睡了又醒,靠恢復判斷"},
+		{u5data.StatusCharmed, u5data.StatusGood, true,
+			"★ 被惑 —— 會睡著,而醒來時 'S' 改回 'G' ⇒ 魅惑解除"},
+		{u5data.StatusPoisoned, u5data.StatusPoisoned, false,
+			"★ 中毒 —— 不睡(否則毒會被擦掉),也不恢復"},
+		{u5data.StatusDead, u5data.StatusDead, false, "身亡"},
+	} {
+		var s *State
+		// 突襲會讓紮營中斷 —— 換種子重試,不要當成失敗。
+		for try := 0; try < 20; try++ {
+			s = holeUpScene(t)
+			if s.PartySize < 2 {
+				t.Skip("隊伍太小")
+			}
+			s.SeedRandom(int64(try + 1))
+			s.Roster[1].Status = tc.status
+			s.Roster[1].Raw[u5data.CharStatus] = tc.status
+			s.Roster[1].HP = 50
+			s.camp(9, 0) // 第 0 位守夜,所以看第 1 位
+			if !s.InCombat() {
+				break
+			}
+		}
+		if s.InCombat() {
+			t.Skip("二十顆種子都被突襲")
+		}
+		if got := s.Roster[1].Status; got != tc.want {
+			t.Errorf("%s:紮營後狀態 0x%02X,預期 0x%02X", tc.name, got, tc.want)
+		}
+		if got := s.Roster[1].HP > 50; got != tc.heals {
+			t.Errorf("%s:恢復 = %v,預期 %v(HP %d)", tc.name, got, tc.heals, s.Roster[1].HP)
+		}
+	}
+}
+
+// TestRegenerationRingWorksWhileCamping —— 戴著再生戒指紮營會慢慢回血。
+//
+// ⚠ 中毒的人紮營**不會**被治好(那是旅店的規則),所以拿中毒的人來測:
+// 血有沒有回,只可能來自戒指。
+func TestRegenerationRingWorksWhileCamping(t *testing.T) {
+	healed := false
+	for try := 0; try < 30 && !healed; try++ {
+		s := holeUpScene(t)
+		s.SeedRandom(int64(try + 1))
+		s.Roster[0].Status = u5data.StatusPoisoned
+		s.Roster[0].Raw[u5data.CharStatus] = u5data.StatusPoisoned
+		s.Roster[0].MaxHP, s.Roster[0].HP = 200, 100
+		s.Roster[0].Raw[u5data.CharRing] = u5data.ItemRingRegeneration
+		s.camp(9, -1)
+		if s.Roster[0].HP > 100 {
+			healed = true
+		}
+	}
+	if !healed {
+		t.Error("戴著再生戒指睡九小時 × 三十顆種子都沒回血")
+	}
+}
