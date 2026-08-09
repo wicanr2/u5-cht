@@ -367,7 +367,7 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 	if s.Text == nil || s.State == nil {
 		return
 	}
-	hint := "方向鍵移動   E 進入   K 攀爬   T 交談   F10 離開"
+	hint := "方向鍵移動   E 進入   K 攀爬   T 交談   F5 音源   F10 離開"
 	switch s.State.Prompt {
 	case game.PromptLeave:
 		hint = "Y 是 / N 否"
@@ -398,6 +398,11 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		if s.State.PickMulti() {
 			// 調藥的藥草清單是複選 —— Enter 是勾選,**M 才確定**。
 			hint = "↑↓ 移動,空白 / Enter 勾選,M 開始調配,ESC 作罷"
+		}
+		if s.State.PickIsMember() {
+			// 選人選單多兩組操作(原版 `sub_2A7F4`):四顆方向鍵都能動游標、
+			// 數字鍵直跳,而 0 與空白鍵是「不選任何人」。
+			hint = "方向鍵移動,1-6 直接跳,Enter 選定,0 / 空白 / ESC 不選"
 		}
 		if s.State.Guard != nil && s.State.Guard.Password {
 			hint = "打密語後按 Enter,ESC 作罷"
