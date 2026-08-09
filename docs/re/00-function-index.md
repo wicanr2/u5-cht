@@ -3,7 +3,7 @@
 > `python3 tools/gen_func_index.py > docs/re/00-function-index.md` 重新產生。
 > **讀任何 `sub_XXXX` 之前先查這裡** —— 筆記超過二三十份後,憑記憶一定會重讀已解過的東西。
 >
-> 目前收錄 **1096** 個符號,來源是 `docs/` 下的逆向筆記。
+> 目前收錄 **1099** 個符號,來源是 `docs/` 下的逆向筆記。
 
 | 符號 | 已知語意(取自筆記) | 出處 |
 |---|---|---|
@@ -107,7 +107,7 @@
 | `sub_8F3C` | `sub_8F3C`(距離)、`sub_195C`(接觸)、`sub_C10`(叫衛兵)、`sub_B44` / `sub_B98` | `29-npc-behaviour-and-arrest.md` |
 | `sub_8F60` | 位址:`sub_95BC`(行為型別跳表)、`sub_94E0`(遊走)、`sub_8F60`(追擊 / 逃)、 | `29-npc-behaviour-and-arrest.md` |
 | `sub_91A4` | 只有模式 ≤ 1(不存在或閒置)才重新呼叫 `sub_91A4`**。正在移動中的 NPC | `12-npc-movement.md` |
-| `sub_92C0` | 其餘未讀:`sub_105E4`、`sub_BBA0`、`sub_92C0`、`sub_F9A0` / `sub_FA20` | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_92C0` | `sub_2D944`、`sub_92C0`(NPC 腳下的 tile 與 `byte_3E579` 排程欄,疑為門 / 床)、 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_9358` | 欄位位置由 `sub_9358` 證實(`rec[slot+3]` / `rec[slot+6]` / `rec[slot+9]`,slot ∈ 0..2)。 | `04-npc-schedule-and-clock.md`, `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_9428` | if (!sub_9428(nx, ny, npc, slot)) return; | `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
 | `sub_94E0` | 位址:`sub_95BC`(行為型別跳表)、`sub_94E0`(遊走)、`sub_8F60`(追擊 / 逃)、 | `12-npc-movement.md`, `29-npc-behaviour-and-arrest.md` |
@@ -117,10 +117,10 @@
 | `sub_9CE8` | ⚠ **同一支函式裡兩個參數用兩套編號**:`sub_9CE8` 吃 tile 碼、 | `17-magic.md` |
 | `sub_9E10` | `'N'`  /  In An  /  10  /  `sub_9E10` / `sub_AE20`  /  施法者放不出遠程、不能瞬移  / | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_9F08` | 0x8000  /  施法  /  `sub_9E10` / `sub_9F08`  /  法師、注視者、收割者、惡魔、海馬  / | `16-combat-turns-and-ai.md` |
-| `sub_A108` | `'T'`  /  An Tym  /  10  /  `sub_A108` 開頭 return  /  敵人整個不動;順帶讓火把不燒  / | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md` |
+| `sub_A108` | `'T'`  /  An Tym  /  10  /  `sub_A108` 開頭 return  /  敵人整個不動;順帶讓火把不燒  / | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_A310` | `, armed with ` 後面那三件武器怎麼串(`sub_A310` 逐件回傳長度,三件相加為 0 才印 `bare hands`) | `67-corpser-and-the-sleeping-party-member.md` |
-| `sub_A360` | 主要函式  /  `sub_18380`(ESC = 撤離)、`sub_A360`(戰鬥分派器)、`sub_42CC`(進地牢房間)、`sub_A9EC`(`byte_3E0B3` 的設定處)、`sub_2E364`(戰… | `16-combat-turns-and-ai.md`, `17-magic.md`, `34-ending-trigger.md`, `42-equipment-slots-ready-wear.md`, `49-command-table-and-two-empty-keys.md`, `51-closing-four-known-gaps.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `66-hexrays-truncation-audit.md`, `67-corpser-and-the-sleeping-party-member.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `92-white-noise-shim-and-ambient-sound.md` |
-| `sub_A9EC` | 主要函式  /  `sub_18380`(ESC = 撤離)、`sub_A360`(戰鬥分派器)、`sub_42CC`(進地牢房間)、`sub_A9EC`(`byte_3E0B3` 的設定處)、`sub_2E364`(戰… | `16-combat-turns-and-ai.md`, `72-ready-had-seven-missing-rules.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md` |
+| `sub_A360` | 主要函式  /  `sub_18380`(ESC = 撤離)、`sub_A360`(戰鬥分派器)、`sub_42CC`(進地牢房間)、`sub_A9EC`(`byte_3E0B3` 的設定處)、`sub_2E364`(戰… | `16-combat-turns-and-ai.md`, `17-magic.md`, `34-ending-trigger.md`, `42-equipment-slots-ready-wear.md`, `49-command-table-and-two-empty-keys.md`, `51-closing-four-known-gaps.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `66-hexrays-truncation-audit.md`, `67-corpser-and-the-sleeping-party-member.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `92-white-noise-shim-and-ambient-sound.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_A9EC` | 主要函式  /  `sub_18380`(ESC = 撤離)、`sub_A360`(戰鬥分派器)、`sub_42CC`(進地牢房間)、`sub_A9EC`(`byte_3E0B3` 的設定處)、`sub_2E364`(戰… | `16-combat-turns-and-ai.md`, `72-ready-had-seven-missing-rules.md`, `73-escape-is-a-key-and-it-has-two-gates.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_AC40` | `cmp byte_3E08A, 'T' / 'Q'`、`sub_AC40` 裡那段莫名其妙的「擲贏就把 mySide | `16-combat-turns-and-ai.md`, `17-magic.md` |
 | `sub_AE20` | `'N'`  /  In An  /  10  /  `sub_9E10` / `sub_AE20`  /  施法者放不出遠程、不能瞬移  / | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md` |
 | `sub_B1D8` | 戰鬥中 → 最多 7 次隨機落點(sub_B1D8),第一個站得住的就過去 | `17-magic.md` |
@@ -129,11 +129,11 @@
 | `sub_B35C` | │       ├ sub_B35C   戰場單位的 +1 欄位 | `15-combat-formulas.md` |
 | `sub_B398` | `sub_B398` 印證了這件事:它取 `byte_3F050[生物*8]` 當「力量那一項」、 | `15-combat-formulas.md`, `17-magic.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `sub_B484` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `15-combat-formulas.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
-| `sub_B51C` | 否則                                   → sub_B274 算傷害 → sub_B51C 扣血 | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `88-the-load-window-culling-and-ship-cannon.md` |
-| `sub_B8DC` | 0x0004 / 0x0200  /  **下毒**  /  `sub_B9A8` → `sub_B8DC`  /  巨蟒、大烏賊、巨蜘蛛 / 巨鼠、擬態怪  / | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md` |
+| `sub_B51C` | 否則                                   → sub_B274 算傷害 → sub_B51C 扣血 | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `88-the-load-window-culling-and-ship-cannon.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_B8DC` | 0x0004 / 0x0200  /  **下毒**  /  `sub_B9A8` → `sub_B8DC`  /  巨蟒、大烏賊、巨蜘蛛 / 巨鼠、擬態怪  / | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_B9A8` | 0x0004 / 0x0200  /  **下毒**  /  `sub_B9A8` → `sub_B8DC`  /  巨蟒、大烏賊、巨蜘蛛 / 巨鼠、擬態怪  / | `15-combat-formulas.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `sub_BAFC` | `woundLevel(idx)`  /  四級判定 + 掛 / 清逃跑旗標,逐行照 `sub_BAFC`  / | `67-corpser-and-the-sleeping-party-member.md` |
-| `sub_BBA0` | 其餘未讀:`sub_105E4`、`sub_BBA0`、`sub_92C0`、`sub_F9A0` / `sub_FA20` | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_BBA0` | `sub_BBA0`  /  `harmUnderUnit()` + `harmStandingUnit()`(接在 `afterPlayerAction` 與 `aiTurn` 之後) / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_BCC4` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `67-corpser-and-the-sleeping-party-member.md`, `92-white-noise-shim-and-ambient-sound.md` |
 | `sub_BD80` | ≥0x10 → sub_BD80(opcode) 取物件槽,讀 word_3E086/88 當位移,跑 n 次 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_BE5C` | `sub_BE5C`(188 行)是一支**過場動畫腳本解譯器**,九個 opcode: | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
@@ -154,7 +154,7 @@
 | `sub_D544` | `sub_D650` / `sub_D544`  /  `u5data.SignSet.At` / `Sign.Render` / `Sign.Lines`  / | `37-look-signs-and-the-sky.md` |
 | `sub_D650` | ⬜ 還沒讀  /  `sub_A360`(**558 行、34 個字串**,最大的一筆)、`sub_D650`(`Wanted:` 通緝告示?)、`sub_74BC`、`sub_23D50`(`EGA*.TIL` 載入)… | `37-look-signs-and-the-sky.md`, `66-hexrays-truncation-audit.md` |
 | `sub_D9C4` | IDA 位址:`sub_D9C4`(指令)、`sub_D258`(地形)、`sub_CC44` / `sub_D45C`(敘述表)、 | `37-look-signs-and-the-sky.md`, `40-push-and-the-main-menu.md`, `41-jimmy-neworder-gem-ztats.md` |
-| `sub_DB10` | `sub_DB10` 的 `> 0x7F` 分支  /  `TileAt` / `SetTileAt` 加 `if s.InCombat()`  / | `26-yell-words-of-power-shadowlords.md`, `35-harp-and-the-secret-door.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `68-troll-bridge-and-collision.md`, `69-the-overworld-cannon-did-nothing.md`, `71-the-use-list-had-29-empty-slots.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `75-open-did-nothing-outside-dungeons.md`, `76-jimmy-in-a-dungeon-disarms-not-unlocks.md`, `86-tile-0xDC-is-an-open-moongate.md`, `92-white-noise-shim-and-ambient-sound.md` |
+| `sub_DB10` | tile = byte_3F8F4[y*32 + x]                       ; 這個單位腳下(sub_DB10 的戰場分支) | `26-yell-words-of-power-shadowlords.md`, `35-harp-and-the-secret-door.md`, `52-one-coordinate-pair-one-tile-accessor.md`, `68-troll-bridge-and-collision.md`, `69-the-overworld-cannon-did-nothing.md`, `71-the-use-list-had-29-empty-slots.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `75-open-did-nothing-outside-dungeons.md`, `76-jimmy-in-a-dungeon-disarms-not-unlocks.md`, `86-tile-0xDC-is-an-open-moongate.md`, `92-white-noise-shim-and-ambient-sound.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_DBC8` | `sub_DBC8`  /  把 11×11 覆蓋層填成 0xFF  /  引擎的覆蓋層是另一套資料結構  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_DE74` | 主要函式  /  `sub_DEE4`(開關月門)、`sub_DE74`(這一顆算不算在場)、`sub_E084`(玩家踏上)、`sub_2870`(怪物踏上)、`sub_29BEC`(★ 重畫時挑動畫格)、`sub_2… | `86-tile-0xDC-is-an-open-moongate.md`, `88-the-load-window-culling-and-ship-cannon.md` |
 | `sub_DEE4` | 主要函式  /  `sub_DEE4`(開關月門)、`sub_DE74`(這一顆算不算在場)、`sub_E084`(玩家踏上)、`sub_2870`(怪物踏上)、`sub_29BEC`(★ 重畫時挑動畫格)、`sub_2… | `31-line-of-sight.md`, `86-tile-0xDC-is-an-open-moongate.md` |
@@ -242,7 +242,7 @@
 | `sub_163B0` | sub_163B0  (戰鬥收尾) … cmp byte_3E0B0, 4Dh ; jnz …  → call sub_135FC | `34-ending-trigger.md` |
 | `sub_16454` | 0x02  /  逃跑中  /  `sub_AC40` 反轉方向、`sub_16454` 放行出界  / | `16-combat-turns-and-ai.md`, `17-magic.md`, `67-corpser-and-the-sleeping-party-member.md` |
 | `sub_16538` | 我方全滅時原版**不會立刻判負**:先叫 `sub_16538` 找一個被魅惑的隊員, | `16-combat-turns-and-ai.md` |
-| `sub_165C8` | 4  /  `sub_165C8`(紮營突襲)、`sub_16BA0`、`sub_21D48`(Rest / 住宿)、`sub_1DA10`、跳表 17 / 25  / | `19-levelup.md`, `48-dungeon-wandering-monster-and-arena.md`, `50-hole-up-camp-sleep-repair.md`, `51-closing-four-known-gaps.md`, `87-bgm-selection-and-the-tbl-tables.md` |
+| `sub_165C8` | `sub_165C8` / `sub_21D48` 的 `sub_2BCC8`  /  `camp()` 每小時 / `SleepUntilMorning()` 每 9 分鐘  / | `19-levelup.md`, `48-dungeon-wandering-monster-and-arena.md`, `50-hole-up-camp-sleep-repair.md`, `51-closing-four-known-gaps.md`, `87-bgm-selection-and-the-tbl-tables.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_16BA0` | 4  /  `sub_165C8`(紮營突襲)、`sub_16BA0`、`sub_21D48`(Rest / 住宿)、`sub_1DA10`、跳表 17 / 25  / | `41-jimmy-neworder-gem-ztats.md`, `50-hole-up-camp-sleep-repair.md`, `51-closing-four-known-gaps.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `87-bgm-selection-and-the-tbl-tables.md` |
 | `sub_16DA4` | 上馬 / 上毯 / 上小艇都要求**先下來走路**(`sub_16DA4` 判 `byte_3E08C` ∈ {0x1C, 0x1D}) | `11-map-objects.md`, `53-party-tile-and-the-arena-floor.md` |
 | `sub_16DC8` | 上大船的限制不同(`sub_16DC8` 的跳表):放行魔毯、步行、小艇 —— | `11-map-objects.md` |
@@ -370,7 +370,7 @@
 | `sub_1F528` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `sub_1F570` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `sub_1F5A4` | `sub_1F5A4`:魅惑(0x0040)與另外兩個位元(0x0400 / 0x0800)的遠程特殊行為。 | `16-combat-turns-and-ai.md` |
-| `sub_1F840` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `67-corpser-and-the-sleeping-party-member.md` |
+| `sub_1F840` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `67-corpser-and-the-sleeping-party-member.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_1F9CC` | 距離是 `sub_1F9F8`:`sub_1F9CC` 算出 dx²+dy² 之後用「連續減奇數」 | `16-combat-turns-and-ai.md` |
 | `sub_1F9F8` | 距離是 `sub_1F9F8`:`sub_1F9CC` 算出 dx²+dy² 之後用「連續減奇數」 | `16-combat-turns-and-ai.md` |
 | `sub_1FA6C` | `sub_1AEB4` / `sub_1C8E8` / `sub_1FA6C`  /  0x320, 變數, 0x2BC  /  **MAHOU1(音高隨參數)**  / | `15-combat-formulas.md`, `92-white-noise-shim-and-ambient-sound.md` |
@@ -397,7 +397,7 @@
 | `sub_21C40` | 造船廠  /  0x84  /  `sub_21C40` → `sub_219B0`  /  4  /  ✅ 報價收錢(地圖物件待補)  / | `10-shop-prices-and-trade.md` |
 | `sub_21CC0` | `sub_2BCC8` 之外的 `sub_21CC0` / `sub_22234` / `sub_22254`  /  名冊游標:數 `CharInnFlag == 0` 的人數、往前 / 往後找下一個在隊伍裡的人  /… | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_21CE4` | 客滿判斷在 `sub_21CE4`:寄放的人數不能超過 `byte_57098[旅店]`(3/4/3/2/2/2 間房)。 | `10-shop-prices-and-trade.md` |
-| `sub_21D48` | 4  /  `sub_165C8`(紮營突襲)、`sub_16BA0`、`sub_21D48`(Rest / 住宿)、`sub_1DA10`、跳表 17 / 25  / | `10-shop-prices-and-trade.md`, `51-closing-four-known-gaps.md`, `87-bgm-selection-and-the-tbl-tables.md`, `93-the-tavern-meal-was-never-haggled.md` |
+| `sub_21D48` | `sub_165C8` / `sub_21D48` 的 `sub_2BCC8`  /  `camp()` 每小時 / `SleepUntilMorning()` 每 9 分鐘  / | `10-shop-prices-and-trade.md`, `51-closing-four-known-gaps.md`, `87-bgm-selection-and-the-tbl-tables.md`, `93-the-tavern-meal-was-never-haggled.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_22018` | `L` Leave  /  `sub_22018`  /  `Haggle(每天價)`,退房時結算  /  同伴離隊,記下寄放地點  / | `10-shop-prices-and-trade.md`, `93-the-tavern-meal-was-never-haggled.md` |
 | `sub_22234` | `sub_2BCC8` 之外的 `sub_21CC0` / `sub_22234` / `sub_22254`  /  名冊游標:數 `CharInnFlag == 0` 的人數、往前 / 往後找下一個在隊伍裡的人  /… | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_22254` | `sub_2BCC8` 之外的 `sub_21CC0` / `sub_22234` / `sub_22254`  /  名冊游標:數 `CharInnFlag == 0` 的人數、往前 / 往後找下一個在隊伍裡的人  /… | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
@@ -432,7 +432,7 @@
 | `sub_28F80` | `sub_1E0A4(1)` / `sub_28F80` / `sub_290B4` 是畫框與標題列,引擎用自己的文字面板代替。 | `60-command-echo-and-menu-keys.md`, `94-ztats-has-seventeen-pages.md` |
 | `sub_29008` | case 1: sub_29008(25);   break;   // ↓ | `60-command-echo-and-menu-keys.md` |
 | `sub_290B4` | `sub_1E0A4(1)` / `sub_28F80` / `sub_290B4` 是畫框與標題列,引擎用自己的文字面板代替。 | `94-ztats-has-seventeen-pages.md` |
-| `sub_29304` | 主要函式  /  `sub_29D64`(重畫)、`sub_2E0E8`(罩子入口)、`sub_2DDB0`(flood fill)、`sub_2E1D0`(擋不擋)、`sub_2E8D0`(距離)、`sub_29304… | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `31-line-of-sight.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `51-closing-four-known-gaps.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `92-white-noise-shim-and-ambient-sound.md` |
+| `sub_29304` | 主要函式  /  `sub_29D64`(重畫)、`sub_2E0E8`(罩子入口)、`sub_2DDB0`(flood fill)、`sub_2E1D0`(擋不擋)、`sub_2E8D0`(距離)、`sub_29304… | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `10-shop-prices-and-trade.md`, `16-combat-turns-and-ai.md`, `17-magic.md`, `27-codex-and-the-shrine-chamber.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `31-line-of-sight.md`, `38-terrain-movement-cost.md`, `50-hole-up-camp-sleep-repair.md`, `51-closing-four-known-gaps.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `92-white-noise-shim-and-ambient-sound.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_295AC` | sub_295AC  byte_3F844[y*16 + x] = 某個位元組                執行期寫入(§4 說明是什麼) | `34-ending-trigger.md` |
 | `sub_297F4` | 主要函式  /  `sub_135FC`(結局)、`sub_161E4`(觸發)、`sub_15E20`(撤離)、`sub_297F4`(疊圖)  / | `34-ending-trigger.md` |
 | `sub_29A64` | 0x01 在兩種單位上意義相反**,而 `sub_29A64` 就是靠這一點把兩邊算清楚: | `16-combat-turns-and-ai.md` |
@@ -500,7 +500,7 @@
 | `sub_2D478` | `sub_1EFC8`(清單瀏覽器)、`sub_CAC` / `sub_4074` / `sub_2D478`(Attack 三支)  / | `49-command-table-and-two-empty-keys.md`, `60-command-echo-and-menu-keys.md` |
 | `sub_2D564` | `sub_1DA10`(聖壇)、`sub_2D564`(cave/mine/dungeon)、`sub_10928`(印地名並確認)。 | `03-scene-entry-and-tile-semantics.md`, `18-dungeons.md`, `26-yell-words-of-power-shadowlords.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md` |
 | `sub_2D72C` | 7  /  `sub_2D72C`(依腳下 tile 進場景)、`sub_1678`、`sub_C778`、跳表 case 62(走不到)  / | `03-scene-entry-and-tile-semantics.md`, `27-codex-and-the-shrine-chamber.md`, `87-bgm-selection-and-the-tbl-tables.md`, `98-select-menu-and-song-melody-matching.md` |
-| `sub_2D944` | `sub_2D944`、`sub_2EDC0` / `sub_2EDF8`(單位退場:怪物移出地圖 / 隊員設成 'S')、 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_2D944` | `sub_2D944`、`sub_92C0`(NPC 腳下的 tile 與 `byte_3E579` 排程欄,疑為門 / 床)、 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_2D998` | ✅ **幽冥界地震**(`sub_2D998`):`byte_3E0A5 != 0` 且 `random(0,255) == 0x69` | `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md` |
 | `sub_2D9D0` | 主要函式  /  `sub_10BDC`(踏進沼澤的中毒)、`sub_1318`(每回合的地形效果)、`sub_2D9D0`(移動後的分派)、`sub_1F570`(落空的訊息)、`sub_1F528`(印單位名字)、`… | `38-terrain-movement-cost.md`, `66-hexrays-truncation-audit.md`, `68-troll-bridge-and-collision.md`, `74-two-swamp-dice-and-an-unnamed-failure.md`, `80-implemented-but-unreachable.md`, `81-three-mode-loops-are-mutually-exclusive.md`, `83-monster-attacks-and-two-different-wind-rules.md`, `84-the-sailing-gate-and-the-wind-table.md`, `88-the-load-window-culling-and-ship-cannon.md` |
 | `sub_2DD44` | 主要函式  /  `sub_2CBEC`(★ 視窗定位)、`sub_2D014`(★ 捲動)、`sub_2E24` 尾段(★ 清場)、`sub_2B24`(⚠ 第二參數是死的)、`sub_27F0`(影主的遮罩表)、`s… | `81-three-mode-loops-are-mutually-exclusive.md`, `88-the-load-window-culling-and-ship-cannon.md` |
@@ -518,8 +518,8 @@
 | `sub_2EAE4` | ⚠ `0x14` 那個數字有兩種讀法:當生物索引是 **20 = 巨鼠**(而 `sub_2EAE4` | `17-magic.md` |
 | `sub_2ECE8` | 主要函式  /  ★ `sub_2BCC8`(再生戒指)、`sub_2ECE8`(戒指的每回合效果)、`sub_1F4E4`(力場消散)、`sub_2A50C` 尾段、`sub_16370`、★ `sub_FEC` + … | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_2ED50` | 主要函式  /  `sub_A360`(隊員的戰鬥回合,**558 行**)、`sub_BCC4`(掙脫)、`sub_1F840`(命中結果)、`sub_2B724`/`sub_2B710`(門檻骰)、`sub_2ED5… | `53-party-tile-and-the-arena-floor.md`, `67-corpser-and-the-sleeping-party-member.md`, `72-ready-had-seven-missing-rules.md` |
-| `sub_2EDC0` | `sub_2D944`、`sub_2EDC0` / `sub_2EDF8`(單位退場:怪物移出地圖 / 隊員設成 'S')、 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
-| `sub_2EDF8` | `sub_2D944`、`sub_2EDC0` / `sub_2EDF8`(單位退場:怪物移出地圖 / 隊員設成 'S')、 | `17-magic.md`, `53-party-tile-and-the-arena-floor.md`, `67-corpser-and-the-sleeping-party-member.md`, `71-the-use-list-had-29-empty-slots.md`, `72-ready-had-seven-missing-rules.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_2EDC0` | `sub_2EDC0` / `sub_2EDF8`(紮營讓人睡著) /  `camp()` 的「不是 'P' 就睡」分支 + `putUnitToSleep()`  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `sub_2EDF8` | `sub_2EDC0` / `sub_2EDF8`(紮營讓人睡著) /  `camp()` 的「不是 'P' 就睡」分支 + `putUnitToSleep()`  / | `17-magic.md`, `53-party-tile-and-the-arena-floor.md`, `67-corpser-and-the-sleeping-party-member.md`, `71-the-use-list-had-29-empty-slots.md`, `72-ready-had-seven-missing-rules.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `sub_2EE84` | 從哪裡來  /  `docs/re/66` 的截斷清單:`sub_2A50C` 113 行 → 4 行 C(`'Starving!'` 掉了)、`sub_2EE84` 214 行 → 25 行(`'A ring has … | `70-hunger-poison-and-the-vanishing-rings.md`, `72-ready-had-seven-missing-rules.md`, `74-two-swamp-dice-and-an-unnamed-failure.md` |
 | `sub_2F0EC` | `sub_2F0EC`  /  `sub eax, eax` 之後寫入 → 清成 0  / | `16-combat-turns-and-ai.md`, `18-dungeons.md`, `34-ending-trigger.md` |
 | `sub_2F294` | ⬜ **走出戰場邊緣**那條路(`sub_2F294`,印 `escapes!`)引擎有做, | `73-escape-is-a-key-and-it-has-two-gates.md` |
@@ -696,6 +696,7 @@
 | `byte_3E16A` | sub_48C();                      // byte_3E16A = 盤據這裡的是第幾位;並讓牠現身 | `28-shadowlords-and-blackthorn.md` |
 | `byte_3E3AF` | 0x0E 檀香木盒  /  `byte_3DFCD`  /  —  /  另外寫死 `byte_3E3AF  / = 0x80`(見 `docs/re/36`)  / | `33-get-command.md` |
 | `byte_3E570` | sub_2C740(file, edi,       0x200, byte_3E570)   ; 512 B  32 × 16 B 排程 | `04-npc-schedule-and-clock.md`, `29-npc-behaviour-and-arrest.md` |
+| `byte_3E579` | `sub_2D944`、`sub_92C0`(NPC 腳下的 tile 與 `byte_3E579` 排程欄,疑為門 / 床)、 | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_3E57C` | if (byte_3E57C[npc*16 + esi]) ebx = 1;      // 有作息的居民 | `28-shadowlords-and-blackthorn.md` |
 | `byte_3E970` | `byte_3E970[npc*32]` —— 路徑本身,**(步數, 方向) 成對**,共 16 段 | `12-npc-movement.md` |
 | `byte_3EDB0` | sub_2C740(file, edi+0x200, 0x20,  byte_3EDB0)   ;  32 B  每個 NPC 的生物編號 | `04-npc-schedule-and-clock.md`, `07-save-format.md`, `12-npc-movement.md`, `26-yell-words-of-power-shadowlords.md`, `28-shadowlords-and-blackthorn.md`, `29-npc-behaviour-and-arrest.md`, `36-sandalwood-box-npc-objects.md` |
@@ -730,7 +731,7 @@
 | `byte_3F7A9` | `docs/re/03` §7 已經定過:視窗緩衝裡**玩家那一格**;`byte_3F7A9` 比它大 0x20, | `26-yell-words-of-power-shadowlords.md`, `35-harp-and-the-secret-door.md`, `45-fire-and-mix.md`, `68-troll-bridge-and-collision.md` |
 | `byte_3F844` | `sub_C414` / `sub_1DA10` / `sub_135FC`  /  `sub_2C740("MISCMAPS.DAT", byte_3F844, 0xB0, 位移)` —— 石室整份載入  / | `03-picture-files.md`, `34-ending-trigger.md` |
 | `byte_3F854` | 資料  /  `byte_3E0B0`、`byte_3F844`/`byte_3F854`、地形 0x3C..0x3F  / | `34-ending-trigger.md` |
-| `byte_3F8F4` | sub_C414   byte_3F8F4[i*32 + j] = byte_3F844[i*16 + j]      i,j ∈ 0..10 | `03-picture-files.md`, `14-combat-maps.md`, `31-line-of-sight.md`, `34-ending-trigger.md`, `35-harp-and-the-secret-door.md`, `48-dungeon-wandering-monster-and-arena.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
+| `byte_3F8F4` | tile = byte_3F8F4[y*32 + x]                       ; 這個單位腳下(sub_DB10 的戰場分支) | `03-picture-files.md`, `14-combat-maps.md`, `31-line-of-sight.md`, `34-ending-trigger.md`, `35-harp-and-the-secret-door.md`, `48-dungeon-wandering-monster-and-arena.md`, `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `byte_3F979` | ⬜ `sub_135FC` 沒讀:它 `byte_3F979 = 0DCh`、長出月門、把 `byte_3E06B` 個物件槽 | `86-tile-0xDC-is-an-open-moongate.md` |
 | `byte_3F99F` | `sub_FE48` 在**隨機遭遇**那條路徑上寫 `byte_3F99F[槽] = 生物*4 + 0x40`, | `18-dungeons.md` |
 | `byte_3FA19` | case 1: byte_3FA19 = 0xEB; break; // 刑具往前一格 | `28-shadowlords-and-blackthorn.md` |
@@ -1031,6 +1032,7 @@
 | `loc_158DE` | 位址  /  `sub_154BC`(Get 分派)`loc_15863` / `loc_158A2` / `loc_158D0` / `loc_158DE`  / | `44-use-item.md`, `57-crown-and-sceptre-placement.md` |
 | `loc_158EA` | loc_158D0:  … jmp short loc_158EA → loc_15903                            ; 權杖:只有共同尾段 | `57-crown-and-sceptre-placement.md` |
 | `loc_15903` | loc_158D0:  … jmp short loc_158EA → loc_15903                            ; 權杖:只有共同尾段 | `57-crown-and-sceptre-placement.md` |
+| `loc_167E9` | `sub_165C8` 紮營  /  `loc_167E9`,突襲骰前面一行  /  **每睡一小時**  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `loc_16C0C` | jle   short loc_16C0C | `50-hole-up-camp-sleep-repair.md` |
 | `loc_1747D` | jnz     loc_1747D                ; 都不是 → 繼續飛 | `69-the-overworld-cannon-did-nothing.md` |
 | `loc_1751C` | loc_1751C: | `69-the-overworld-cannon-did-nothing.md` |
@@ -1066,6 +1068,7 @@
 | `loc_21598` | jz      short loc_21598      ; 0 = 沒找到 → 下一個主題 | `61-tavern-lore-and-the-transfer-second-stage.md` |
 | `loc_2159C` | loc_2159C:      mov     edi, esi             ; ← 兩個分支與 fall-through 都到這裡 | `61-tavern-lore-and-the-transfer-second-stage.md` |
 | `loc_2159F` | jmp     short loc_2159F | `61-tavern-lore-and-the-transfer-second-stage.md` |
+| `loc_21F0C` | `sub_21D48` 旅店  /  `loc_21F0C`,`sub_29304(9)` 前面  /  **每推 9 分鐘**  / | `99-the-tail-of-upkeep-and-the-wandering-horses.md` |
 | `loc_23398` | loc_23398: | `39-character-creation.md` |
 | `loc_235AD` | (`loc_235AD` 把 `byte_3DDC0..C2` 寫進 `+0x2A..0x2C`)。所以引擎從 | `39-character-creation.md` |
 | `loc_235F3` | loc_235F3:  4 次 sub_23274      八德剩四 | `39-character-creation.md` |

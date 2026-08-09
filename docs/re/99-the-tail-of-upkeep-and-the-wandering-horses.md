@@ -8,7 +8,7 @@
 | 主要資料 | `byte_3DDD1` = `CharRing`(記錄 0x1D)、`byte_3E09B`(回合計數器)、`byte_3E09E`(模式倒數)、`byte_3E0AE`(當前行動單位) |
 | 工具 | ★ `tools/refunc.py`(新)—— 一支函式的組語(`proc`→`endp`,**不截斷**)/ 反編譯的 C / 呼叫者 |
 | 起因 | 「完成遊戲邏輯」—— 從 `WORKLIST §5.2c` 的 25 支未讀函式往下清 |
-| 狀態 | ✅ 五個機制落地;三條舊斷言更正 |
+| 狀態 | ✅ 六個機制落地;四條舊斷言更正 |
 
 ---
 
@@ -247,6 +247,52 @@ sub_2EDF8: if (狀態 == 'D') return;  狀態 = 'S';  tile = 1Eh;  flags |= 8
 
 引擎此前寫成「只有 'G' 會睡」,第 2 條整個消失。
 
+## 5c. ★★ `sub_BBA0` —— 戰場上站在有害的格子上
+
+由 `sub_A9EC` 在**每個單位動完之後**呼叫(`sub_A108` 怪物 AI 與 `sub_A360`
+玩家指令**兩條路都會**)。這是**戰鬥地圖版**的 `terrainEffects` ——
+引擎此前只有場景 / 大地圖那一份,戰場上熔岩、壁爐、沼澤與力場一件都不作用,
+**把敵人推到熔岩上完全沒事**。
+
+```
+esi = 0
+tile = byte_3F8F4[y*32 + x]                       ; 這個單位腳下(sub_DB10 的戰場分支)
+if (tile == 8Fh || tile == 0BCh) esi = 100        ; 熔岩 / 壁爐
+if (tile == 4)                   esi = 50         ; 沼澤
+if (esi == 0)                                     ; ★ 地形沒中才掃物件
+    for (i = 0; i < 32; i++)
+        if (i != 自己的物件槽 && 物件[i].x == 我的 x && 物件[i].y == 我的 y) {
+            if (kind == 0EAh) esi = 100            ; 火力場
+            if (kind == 0E8h) esi = 50             ; 毒力場
+            if (kind == 0E9h) esi = 150            ; 睡眠力場
+            if (esi) break
+        }
+switch (esi) {
+  case  50: if (物件[自己].kind < 80h) sub_B8DC(自己, −1)     ; ★ 高階怪物免疫
+  case 100: sub_B51C(自己, random(0,10));  sub_1F840(自己, 255)
+  case 150: sub_2EDF8(自己)                                   ; 睡著
+}
+```
+
+三個 tile 都是從 look 表查的:`look#143` **molten lava**、
+`look#188` **a fireplace**、`look#4` **swamp**。
+
+⚠ **第四種力場(0xEB)沒有 case** —— 站上去什麼都不會發生。別「補齊」。
+
+### ★★ `sub_B8DC` —— 毒上不了身就改成扣血
+
+```
+if (是隊員 && 狀態 == 'G') { 狀態 = 'P'; 印 "<名字> is poisoned!" }
+else                        sub_B51C(自己, random(0, 20))
+```
+
+⇒ **已經中毒的人**再踩毒力場會**受傷**(狀態不是 'G'),而**怪物**踩毒力場
+也是受傷(怪物沒有狀態欄)。只寫第一條的話毒力場對敵人完全無效 ——
+而那正是玩家最常用它的方式。
+
+⚠ 這一支**沒有敏捷擲骰**。地牢那條(`fieldAffectsParty`)有,戰場這條沒有 ——
+兩支不同的函式,不要對齊。
+
 ## 6. 引擎落地
 
 | 原版 | 引擎 |
@@ -260,7 +306,9 @@ sub_2EDF8: if (狀態 == 'D') return;  狀態 = 'S';  tile = 1Eh;  flags |= 8
 | `sub_2A50C` 尾段 | `upkeep()` 的最後三行 + `settleHour()` + `tickModeOutOfCombat()` |
 | `byte_3E09B` | `State.turnsSinceAlms` / `TurnsSinceAlms()` |
 | `sub_1B854` 尾段 | `(*State).almsKarma` |
-| `sub_2EDC0` / `sub_2EDF8`(紮營讓人睡著)| `camp()` 的「不是 'P' 就睡」分支 |
+| `sub_2EDC0` / `sub_2EDF8`(紮營讓人睡著)| `camp()` 的「不是 'P' 就睡」分支 + `putUnitToSleep()` |
+| `sub_BBA0` | `harmUnderUnit()` + `harmStandingUnit()`(接在 `afterPlayerAction` 與 `aiTurn` 之後)|
+| `sub_B8DC` | `poisonOrHurt()` |
 | `sub_165C8` / `sub_21D48` 的 `sub_2BCC8` | `camp()` 每小時 / `SleepUntilMorning()` 每 9 分鐘 |
 | `sub_16370` | `afterPlayerAction()`(`ringUpkeep` → `expireFields` → `tickCombatMode`)|
 
@@ -288,6 +336,14 @@ sub_2EDF8: if (狀態 == 'D') return;  狀態 = 'S';  tile = 1Eh;  flags |= 8
 | `TestHorseDoesNotWalkOntoAnotherObject` | 目標格有東西就不走 |
 | `TestCampSleepUsesTheNotPoisonedRule` | ★★ 四種狀態 —— **被惑那一格**是唯一能分辨新舊行為的(已跑反對照確認會紅)|
 | `TestRegenerationRingWorksWhileCamping` | 紮營時戒指真的有作用(拿中毒的人測,排除紮營自己的恢復)|
+| `TestLavaAndFireplaceBurnInCombat` | ★ 戰場上的熔岩與壁爐會燒人 |
+| `TestSwampPoisonsInCombat` | 戰場上的沼澤會上毒 |
+| `TestPoisonHurtsWhenItCannotStick` | ★★ 毒上不了身改扣血(已中毒的人再踩會受傷)|
+| `TestTerrainWinsOverObjects` | ★ 地形優先,中了就不掃物件 |
+| `TestThreeFieldObjectsAndTheFourthDoesNothing` | ★ 0xEB 沒有 case |
+| `TestSleepFieldClearsPoison` | ★★ 睡眠力場把中毒擦掉(單一狀態位元組)|
+| `TestSleepingDeadStaysDead` | 死人不會被叫去睡 |
+| `TestHarmlessFloorDoesNothing` | 反對照:普通地板一百回合什麼都沒發生 |
 
 ## 7. ⬜ 這一輪讀完但**判定為顯示層**的(不需要引擎邏輯)
 
@@ -316,7 +372,7 @@ sub_2EDF8: if (狀態 == 'D') return;  狀態 = 'S';  tile = 1Eh;  flags |= 8
 
 其餘未讀:`sub_105E4`、`sub_BBA0`、`sub_92C0`、`sub_F9A0` / `sub_FA20`
 (一組位元旗標,索引式子 `(a1−528)/8` 位元 `(a1−16)&7` 待化簡)、
-`sub_2D944`、
+`sub_2D944`、`sub_92C0`(NPC 腳下的 tile 與 `byte_3E579` 排程欄,疑為門 / 床)、
 `sub_31AC`(★ 地牢 tile 讀取,`< 0x90` 時**清掉 0x08 位元** —— 要與引擎的
 `DungeonTileAt` 對照,可能是一條落差)、`sub_13B30`(★ 找空物件槽,
 **從 31 往下**,與引擎 `freeObjectSlot` 由 1 往上相反;⚠ 那是 `sub_2B57C`,

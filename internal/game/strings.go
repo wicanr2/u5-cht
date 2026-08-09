@@ -326,6 +326,13 @@ const (
 	MsgTrapdoor       = "腳下是活門!"
 	MsgPoisonedBySwamp = "中毒了!"
 	MsgBurning        = "烈焰焚身!"
+	// 戰場上站在有害格子上的兩句(原版 `sub_B8DC` 的 `" is poisoned!"`
+	// 與 `sub_2EDF8`;後者原版沒有訊息 —— 見下)。
+	MsgIsPoisoned = "中毒了!"
+	// ⚠ `MsgFallsAsleep` 是**引擎加的**:原版 `sub_2EDF8` 只改狀態與 tile,
+	// 一句話都不印。加它的理由是「隊員突然不能行動而畫面沒說為什麼」比
+	// 多一句話糟;而它不改變任何規則。
+	MsgFallsAsleep = "睡著了。"
 	// 大地圖獨有的三句(原版 `sub_2D998` 與 `sub_2D9D0` 的 `loc_2DC5F`)
 	//
 	// ⚠ 後兩句原版是接在一個孤零零的 `"` 之後印的(`asc_4D95C` = `\n"`),

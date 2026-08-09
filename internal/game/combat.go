@@ -541,6 +541,10 @@ func (s *State) advanceCombat() {
 			return
 		}
 		s.aiTurn(i)
+		// ★ 怪物動完也要查腳下 —— 原版 `sub_BBA0` 在 `sub_A108`(怪物 AI)
+		// 與 `sub_A360`(玩家)**兩條路之後**都會跑。只接玩家那條的話
+		// 把敵人推進熔岩完全沒事,而那正是玩家會想做的事。
+		s.harmStandingUnit(i)
 		if s.checkCombatOver() {
 			return
 		}
@@ -782,6 +786,11 @@ func (s *State) afterPlayerAction() {
 	s.ringUpkeep()
 	s.expireFields()
 	s.tickCombatMode()
+	// ★ 接著是腳下那一格的效果(原版 `sub_A9EC` 在 `sub_A360` 回來之後
+	// 立刻 `call sub_BBA0(byte_3E0AE)`)—— 熔岩、壁爐、沼澤與三種力場。
+	if c := s.Combat; c != nil {
+		s.harmStandingUnit(c.Turn)
+	}
 	if s.TimeStop > 0 {
 		s.TimeStop--
 		if s.TimeStop == 0 {
