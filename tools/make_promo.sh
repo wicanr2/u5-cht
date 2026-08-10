@@ -158,6 +158,17 @@ ffmpeg -y -loglevel error -i "$TMP/silent.mp4" -stream_loop -1 -i "$MUSIC" \
   -map 0:v -map "[a]" \
   -c:v copy -c:a aac -b:a 192k -movflags +faststart "$OUT/u5cht-promo.mp4"
 
+# ★ 另存一份**沒有配樂**的版本 —— 那一份才能進公開 repo。
+#
+# ⚠ 有配樂的版本不能入庫:配樂是**原版光碟的音軌**(Origin / EA 的著作),
+# 而本專案的硬規則是「從原版媒體轉出的音訊一律不入庫」(`CLAUDE.md §3.0` / §7.3),
+# `rulebook/93` 的但書講的也是同一件事:用原版素材是為了音色要真,
+# **放到會公開的地方是另一回事**。
+#
+# 靜音版損失沒有想像中大:GitHub 的內嵌播放器**預設就是靜音起播**。
+ffmpeg -y -loglevel error -i "$OUT/u5cht-promo.mp4" -c:v copy -an "$OUT/u5cht-promo-silent.mp4"
+echo "→ 靜音版(可入庫):$OUT/u5cht-promo-silent.mp4"
+
 echo "→ 驗長度(視訊與音訊必須相等)"
 ffprobe -v error -select_streams v:0 -show_entries stream=duration -of csv=p=0 "$OUT/u5cht-promo.mp4"
 ffprobe -v error -select_streams a:0 -show_entries stream=duration -of csv=p=0 "$OUT/u5cht-promo.mp4"

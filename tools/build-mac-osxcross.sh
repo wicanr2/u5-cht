@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # 在 Linux 上交叉編 macOS 版(arm64 + x86_64 → universal),組成 `.app` 再壓成 zip。
 #
-#   tools/build-mac-osxcross.sh [版本]
+#   tools/build-mac-osxcross.sh [版本] [--full]
+#
+# `--full` 把原版資料 / 中文字庫 / 配樂放進 `Contents/Resources/`,解壓即玩,
+# 輸出到 `dist-local/`(**只留本機**,與 `tools/package.sh --full` 同一條規矩)。
 #
 # ⚠⚠ **這條路只能做靜態驗收。** Linux 執行不了 macOS binary ——
 # `tools/verify-mac-binary.sh` 全過只代表**不會因結構問題開不起來**
@@ -20,8 +23,21 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 VERSION="${1:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 IMAGE="${U5_OSXCROSS_IMAGE:-u5cht/osxcross}"
-OUT="dist/macos"
+FULL=0
+for a in "$@"; do [ "$a" = "--full" ] && FULL=1; done
+DIST="dist"
+[ "$FULL" = 1 ] && DIST="dist-local"
+OUT="$DIST/macos"
 APP="$OUT/Ultima V CHT.app"
+# ★ 完整版把真正的執行檔改名 `u5cht.bin`,`Contents/MacOS/u5cht` 換成一支
+# 先 `cd` 進 `Resources` 再 exec 的小腳本 —— 因為從 Finder 啟動時 cwd 是 `/`,
+# 而引擎的預設資料路徑是相對的。
+#
+# ⚠ 這樣做之後**驗收要對著 `u5cht.bin`**:`lipo`/`otool` 問一支 shell 腳本
+# 會回「can't figure out the architecture type」,看起來像交叉編壞了
+#(`osxcross-macos-cross-build` skill §4 的第四列就是這個坑)。
+BINNAME=u5cht
+[ "$FULL" = 1 ] && BINNAME=u5cht.bin
 
 dr() {
   docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
@@ -31,6 +47,8 @@ dr() {
     -e HOME=/tmp "$IMAGE" "$@"
 }
 
+# ⚠ 只清自己那個子目錄,不要碰 `$DIST` 的其他東西(同 `tools/package.sh` 的教訓:
+# 一次 `rm -rf dist-local` 就把推廣片吃掉了)。
 rm -rf "$OUT"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" .gocache
 
@@ -57,7 +75,7 @@ done
 
 echo "→ lipo 併成 universal"
 dr "x86_64-apple-${TARGET}-lipo" -create \
-  "$OUT/u5cht-arm64" "$OUT/u5cht-x86_64" -output "$APP/Contents/MacOS/u5cht"
+  "$OUT/u5cht-arm64" "$OUT/u5cht-x86_64" -output "$APP/Contents/MacOS/$BINNAME"
 rm -f "$OUT/u5cht-arm64" "$OUT/u5cht-x86_64"
 
 # 圖示:程式畫的 ankh,**不是原版美術**(圖示一定會進交付包)。
@@ -81,9 +99,31 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-tools/verify-mac-binary.sh "$APP/Contents/MacOS/u5cht" "$TARGET"
+if [ "$FULL" = 1 ]; then
+  echo "→ 完整版:資料放進 Contents/Resources"
+  for d in gamedata assets; do
+    [ -e "$d" ] && cp -r "$d" "$APP/Contents/Resources/"
+  done
+  cat > "$APP/Contents/MacOS/u5cht" <<'LAUNCH'
+#!/bin/sh
+# 從 Finder 啟動時 cwd 是 `/` —— 先切到 Resources,引擎的相對路徑才對得上。
+HERE="$(cd "$(dirname "$0")" && pwd)"
+cd "$HERE/../Resources" || exit 1
+exec "$HERE/u5cht.bin" "$@"
+LAUNCH
+  chmod 0755 "$APP/Contents/MacOS/u5cht"
+  cat > "$OUT/請勿散布.txt" <<'WARN'
+這一份是完整版:含原版遊戲資料、由商業字庫烘出的中文點陣字,以及從原版媒體
+轉出的配樂。
+
+*** 只供本機自用。請勿上傳、分享或公開散布。 ***
+WARN
+fi
+
+tools/verify-mac-binary.sh "$APP/Contents/MacOS/$BINNAME" "$TARGET"
 
 tools/dev.sh python3 tools/mkreadme.py "${OUT#"$ROOT/"}" "$VERSION" macos
 cp LICENSE "$OUT/LICENSE.txt"
 ( cd "$OUT" && zip -qr "../u5cht-${VERSION}-macos-universal.zip" . )
-echo "→ dist/u5cht-${VERSION}-macos-universal.zip"
+echo "→ $DIST/u5cht-${VERSION}-macos-universal.zip"
+[ "$FULL" = 1 ] && echo "⚠⚠ 完整版 —— 只留本機,不要上傳。"

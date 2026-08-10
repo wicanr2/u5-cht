@@ -32,7 +32,13 @@ DIST="dist"
 [ "$FULL" = 1 ] && DIST="dist-local"
 LDFLAGS="-s -w -X main.version=${VERSION}"
 
-rm -rf "$DIST"
+# ⚠ **只清自己的產物,不要 `rm -rf "$DIST"`。**
+# `--full` 的輸出目錄是 `dist-local/`,而那裡還放著別的東西
+#(`promo/` 的推廣片、之前的成品)—— 整個砍掉會連它們一起吃掉。
+# 這條是實際踩到才加的:一次 `--full` 就把 19 MB 的推廣片刪了,
+# 而腳本一聲不響、退出碼 0。
+for sub in linux windows macos; do rm -rf "$DIST/$sub"; done
+rm -f "$DIST"/u5cht-*.tar.gz "$DIST"/u5cht-*.zip "$DIST"/u5cht-*.AppImage
 mkdir -p "$DIST"
 
 # 1) Linux(需要 CGO:ebiten 要 X11 / GL)

@@ -13,7 +13,12 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# 工作目錄(分鏡圖與抽出的檢查幀)與成品分開放:
+# 成品用帶版號的檔名擺在 `dist-local/` 頂層,與三個平台的包並列 ——
+# 那裡才是「這一版的東西」該找得到的地方(使用者要求 2026-08-10)。
 OUT="dist-local/promo"
+VERSION="${1:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
+FINAL="dist-local/u5cht-${VERSION}-promo.mp4"
 mkdir -p "$OUT"
 
 [ -d docs/screenshots ] || { echo "✗ 沒有截圖 —— 先跑 tools/shots.sh" >&2; exit 1; }
@@ -29,6 +34,8 @@ docker run --rm --cpus=2 --log-opt max-size=10m --log-opt max-file=3 \
   -v "$ROOT/tools/make_promo.sh":/make.sh:ro \
   u5cht/video bash /make.sh
 
+cp "$OUT/u5cht-promo.mp4" "$FINAL"
+echo "→ $FINAL"
 echo
 echo "⚠⚠ 配樂是原版光碟音軌(他人著作權)⇒ **只留本機,不要上傳**。"
 echo "   要公開發布請先換成有授權的配樂。"
