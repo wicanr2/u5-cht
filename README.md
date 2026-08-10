@@ -53,7 +53,7 @@
 | ![開場](docs/screenshots/00-intro.png) | ![世界地圖](docs/screenshots/01-world.png) |
 | **開場動畫** —— 21 頁,插圖與文字的配對照原版的頁表;敘事全繁中 | **不列顛尼亞** —— 64×64 的地圖分塊拼成 256×256 的世界,右欄是時間、業報、隊伍狀態 |
 | ![城鎮](docs/screenshots/02-town.png) | ![對話](docs/screenshots/03-talk.png) |
-| **不列顛城** —— 三十二個地點各有 32×32 的場景地圖與依時刻表走動的 NPC。右欄的隊伍列原版是 `Elwood 60G`(HP 加一個狀態字母),這裡把字母展開成「康健 / 中毒 / 沉睡 / 身亡 / 被惑」 | **交談** —— 原版的關鍵字對話(`name` / `job` / `join`),NPC 名字已中文化 |
+| **不列顛城** —— 三十二個地點各有 32×32 的場景地圖與依時刻表走動的 NPC。右欄的隊伍列原版是 `Elwood 60G`(HP 加一個狀態字母),這裡把字母展開成「健康 / 中毒 / 沉睡 / 身亡 / 被惑」 | **交談** —— 原版的關鍵字對話(`name` / `job` / `join`),NPC 名字已中文化 |
 | ![商店](docs/screenshots/04-shop.png) | ![戰鬥](docs/screenshots/05-combat.png) |
 | **武具店** —— 八種商店的完整交易流程,價格與庫存照原版的表;**194 段店家對白全數中譯**,價格與品名由原版的佔位符帶進來 | **戰鬥** —— 11×11 戰場、敏捷決定的出手順序、原版的命中與傷害公式 |
 | ![地牢](docs/screenshots/06-dungeon.png) | ![全景](docs/screenshots/07-peer.png) |
@@ -81,15 +81,14 @@
 
 ### 推廣短片(78 秒)
 
-[**▶ docs/promo/u5cht-promo-silent.mp4**](docs/promo/u5cht-promo-silent.mp4)
-—— 十四段分鏡,每一格畫面都是引擎跑出來的實際輸出,沒有 mockup。
-重跑:`tools/promo.sh`。
+▶ **[YouTube:youtu.be/cDEtMMKk5vE](https://youtu.be/cDEtMMKk5vE)**(有配樂)
+・[repo 內的靜音版](docs/promo/u5cht-promo-silent.mp4)
 
-⚠ **這一份沒有聲音。** 有配樂的版本用的是**原版光碟的 CD-DA 音軌** ——
-那是 Origin / EA 的著作,而本專案的規則是從原版媒體轉出的音訊一律不入庫
-(見下方「授權與邊界」)。想聽有配樂的版本要自己跑 `tools/promo.sh`,
-它會同時產出兩份,有配樂那份留在本機的 `dist-local/`。
-(GitHub 的內嵌播放器本來就預設靜音起播,所以差別比想像的小。)
+十四段分鏡,每一格畫面都是引擎跑出來的實際輸出,沒有 mockup。重跑:`tools/promo.sh`
+(一次產出有配樂與靜音兩份)。
+
+⚠ 配樂是**原版光碟的 CD-DA 音軌**,著作權屬 Origin / EA —— 所以入庫的那一份
+沒有聲音(本專案的規則是從原版媒體轉出的音訊一律不入庫,見下方「授權與邊界」)。
 
 ## 這是什麼
 

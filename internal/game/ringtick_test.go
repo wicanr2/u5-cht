@@ -70,7 +70,7 @@ func TestRegenerationSkipsOnlyTheDead(t *testing.T) {
 		heals  bool
 		name   string
 	}{
-		{u5data.StatusGood, true, "康健"},
+		{u5data.StatusGood, true, "健康"},
 		{u5data.StatusPoisoned, true, "★ 中毒照樣回血"},
 		{u5data.StatusAsleep, true, "★ 睡著照樣回血"},
 		{u5data.StatusCharmed, true, "★ 被惑照樣回血"},

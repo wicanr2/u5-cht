@@ -295,7 +295,7 @@ func (c *Character) Present() bool { return c.Name != "" || c.Class != 0 }
 func StatusName(status byte) string {
 	switch status {
 	case StatusGood:
-		return "康健"
+		return "健康"
 	case StatusPoisoned:
 		return "中毒"
 	case StatusDead:

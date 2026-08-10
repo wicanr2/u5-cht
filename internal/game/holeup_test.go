@@ -555,7 +555,7 @@ func TestCampSleepUsesTheNotPoisonedRule(t *testing.T) {
 		heals  bool
 		name   string
 	}{
-		{u5data.StatusGood, u5data.StatusGood, true, "康健 —— 睡了又醒,靠恢復判斷"},
+		{u5data.StatusGood, u5data.StatusGood, true, "健康 —— 睡了又醒,靠恢復判斷"},
 		{u5data.StatusCharmed, u5data.StatusGood, true,
 			"★ 被惑 —— 會睡著,而醒來時 'S' 改回 'G' ⇒ 魅惑解除"},
 		{u5data.StatusPoisoned, u5data.StatusPoisoned, false,
