@@ -69,7 +69,8 @@ type Combatant struct {
 	Kind byte
 	// Creature 是生物索引(0..47),用來查屬性與旗標;隊員是 -1。
 	Creature int
-	// Tile 是畫出來的樣子。
+	// Tile 是 tileset 裡可直接交給 render.drawTile 的最終索引。
+	// 生物／隊伍的原始圖號要先加上 u5data.NPCTileBase。
 	Tile int
 	X, Y int
 	// HP 是怪物的血。隊員的血記在名冊裡(原版也是這樣分開放的)。
@@ -295,13 +296,14 @@ func (s *State) placeParty(c *Combat, m *u5data.CombatMap) {
 		*u = Combatant{
 			Roster:   i,
 			Creature: -1,
-			// ⚠ **不加 `NPCTileBase`**:0x1D / 0x1E 是前 256 格(地形與物件那一頁)
-			// 裡的直接 tile 號,不是生物編號。加了 256 會畫成某隻怪物。
-			Tile: int(partyTileFor(ch)),
-			X:        int(m.PartyX[i]),
-			Y:        int(m.PartyY[i]),
-			Dex:      int(ch.Dex),
-			Flags:    UnitParty,
+			// partyTileFor 回的是原版物件記錄裡的圖號(0x40..0x4C,
+			// 睡著／死亡則是 0x1E)。戰鬥繪圖走生物頁,所以要轉成
+			// tileset 的最終索引；漏掉這一步就是 issue1 的花圖原因。
+			Tile:  combatTileIndex(int(partyTileFor(ch))),
+			X:     int(m.PartyX[i]),
+			Y:     int(m.PartyY[i]),
+			Dex:   int(ch.Dex),
+			Flags: UnitParty,
 		}
 		u.Init = u.resetInit()
 		if ch.Status == u5data.StatusDead {
@@ -311,6 +313,15 @@ func (s *State) placeParty(c *Combat, m *u5data.CombatMap) {
 			u.Flags |= UnitSideFlip
 		}
 	}
+}
+
+// combatTileIndex 把原版戰鬥物件記錄裡的生物圖號轉成 tileset 的最終索引。
+//
+// 原版的戰鬥單位記錄與地圖物件記錄都存 0x40 起的生物編號；算繪時才
+// 進入 0x100 起的生物頁。Combatant.Tile 已經是後者，避免同一場戰鬥
+// 混用 raw kind 與 render index。
+func combatTileIndex(raw int) int {
+	return u5data.NPCTileBase + raw
 }
 
 // wieldsSwordOfChaos 回報這名角色是不是握著混沌之劍。

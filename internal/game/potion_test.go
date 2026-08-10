@@ -154,7 +154,7 @@ func TestPurplePotionOnlyChangesTheSprite(t *testing.T) {
 	who := s.Combat.Units[slot].Roster
 	hp, dex := s.Roster[who].HP, s.Roster[who].Dex
 	drinkUntil(t, s, PotionPoof, MsgPotionPoof, func() bool {
-		return s.Combat.Units[slot].Tile == PotionRatTile
+		return s.Combat.Units[slot].Tile == PotionRatCombatTile
 	})
 	if s.Roster[who].HP != hp || s.Roster[who].Dex != dex {
 		t.Error("紫藥水動到了屬性 —— 原版只寫 tile")
@@ -181,8 +181,9 @@ func TestBlackPotionSetsTheHiddenBit(t *testing.T) {
 	drinkUntil(t, s, PotionInvisible, MsgPotionInvisible, func() bool {
 		return s.Combat.Units[slot].Flags&UnitHidden != 0
 	})
-	if got := s.Combat.Units[slot].Tile; got != PartyTileStanding {
-		t.Errorf("黑藥水該把圖寫成站著的 0x%02X,結果是 0x%02X", PartyTileStanding, got)
+	if got := s.Combat.Units[slot].Tile; got != combatTileIndex(PartyTileStanding) {
+		t.Errorf("黑藥水該把圖寫成站著的最終索引 0x%03X,結果是 0x%03X",
+			combatTileIndex(PartyTileStanding), got)
 	}
 }
 

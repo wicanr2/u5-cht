@@ -65,8 +65,11 @@ const (
 	PotionMisfireRandom  = 1  // → 效果重骰成 0..7
 )
 
-// PotionRatTile 是紫藥水寫進物件 tile 的值(= 老鼠)。
+// PotionRatTile 是紫藥水寫進原版物件記錄的 raw 圖號(= 老鼠)。
 const PotionRatTile = u5data.CreatureBase + summonRat*4
+
+// PotionRatCombatTile 是紫藥水在 Combatant.Tile 裡的最終 tileset 索引。
+const PotionRatCombatTile = u5data.NPCTileBase + PotionRatTile
 
 // PotionInvisibleTile 是黑藥水寫進物件 tile 的值 —— 就是站著的隊員圖。
 const PotionInvisibleTile = PartyTileStanding
@@ -122,7 +125,7 @@ func (s *State) DrinkPotion(i int) bool {
 			if slot >= 0 && slot == s.Combat.Turn &&
 				s.Combat.Units[slot].Flags&(UnitParty|UnitMonster|UnitAsleep|UnitDead) == UnitParty|UnitAsleep {
 				s.Combat.Units[slot].Flags &^= UnitAsleep
-				s.Combat.Units[slot].Tile = PartyTileStanding
+				s.Combat.Units[slot].Tile = combatTileIndex(PartyTileStanding)
 			}
 		}
 		return true
@@ -162,7 +165,7 @@ func (s *State) DrinkPotion(i int) bool {
 		if s.InCombat() {
 			if slot := s.combatSlotOfRoster(who); slot >= 0 {
 				s.Combat.Units[slot].Flags |= UnitAsleep
-				s.Combat.Units[slot].Tile = PartyTileLying
+				s.Combat.Units[slot].Tile = combatTileIndex(PartyTileLying)
 			}
 		}
 		s.Log(MsgPotionSlept)
@@ -221,6 +224,8 @@ func (s *State) retileDrinker(who, tile int) bool {
 	if slot < 0 {
 		return false
 	}
-	s.Combat.Units[slot].Tile = tile
+	// 呼叫端傳的是原版物件記錄裡的 raw 圖號；Combatant.Tile 維持
+	// 「可直接繪製」的最終索引契約。
+	s.Combat.Units[slot].Tile = combatTileIndex(tile)
 	return true
 }

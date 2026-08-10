@@ -132,6 +132,43 @@ func TestBumpingMonsterStartsCombat(t *testing.T) {
 	}
 }
 
+// TestCombatPartyTilesUseFinalRenderIndices 鎖住 issue1 的垂直契約:
+// 佈陣先查職業 raw 圖號,再把它轉成生物頁的最終 tileset 索引。
+// 若漏掉 0x100,第一場戰鬥會把 0x40/0x44/0x48 當成地形／物件圖來畫。
+func TestCombatPartyTilesUseFinalRenderIndices(t *testing.T) {
+	s := &State{
+		Roster: []u5data.Character{
+			{Class: 'A', Status: u5data.StatusGood, Dex: 10},
+			{Class: 'F', Status: u5data.StatusGood, Dex: 11},
+			{Class: 'B', Status: u5data.StatusGood, Dex: 12},
+			{Class: 'M', Status: u5data.StatusAsleep, Dex: 13},
+		},
+		PartySize: 4,
+	}
+	m := &u5data.CombatMap{}
+	for i := range m.PartyX {
+		m.PartyX[i], m.PartyY[i] = byte(i), byte(i)
+	}
+	c := &Combat{Map: m, Turn: -1}
+	s.placeParty(c, m)
+
+	want := []int{
+		combatTileIndex(0x4C),
+		combatTileIndex(0x48),
+		combatTileIndex(0x44),
+		combatTileIndex(PartyTileLying),
+	}
+	for i, expected := range want {
+		if got := c.Units[i].Tile; got != expected {
+			t.Errorf("隊員 %d 的 Combatant.Tile = 0x%03X,預期最終索引 0x%03X",
+				i, got, expected)
+		}
+		if got := c.Units[i].Tile; got < u5data.NPCTileBase {
+			t.Errorf("隊員 %d 仍使用 raw 圖號 0x%02X,沒有進入生物頁", i, got)
+		}
+	}
+}
+
 // TestEnemyGroupSizeComesFromTheTable:出現幾隻要落在生物屬性表的上限裡。
 //
 // 法師(索引 0)的上限是 3,所以擲出來一定是 1..3;史萊姆(24)的 16

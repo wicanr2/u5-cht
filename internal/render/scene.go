@@ -24,7 +24,8 @@ const (
 	ViewPixels = ViewTiles * TilePixels // 352
 
 	MapOriginX = 8
-	MapOriginY = 8
+	// 頂端保留原版日月時間帶的 16 px 高度；地圖仍維持 11×11、32 px tile。
+	MapOriginY = 16
 
 	// 右側直欄:狀態在上、對話與訊息在下。
 	//
@@ -68,6 +69,8 @@ type Scene struct {
 	State *game.State
 	Tiles []u5data.Tile
 	Text  *TextRenderer
+	// RuneCharset 是 RUNES.CH；原版日月時間帶的 glyph 不在 IBM.CH。
+	RuneCharset *u5data.Charset
 	// DungeonViews 是 DNG1/2/3.16 的透視切片。空的話地牢退回俯視圖。
 	DungeonViews []u5data.PictureSet
 	// DungeonItems 是 ITEMS.16 —— 走廊裡的梯子、寶箱、噴泉、陷阱。
@@ -146,10 +149,12 @@ func (s *Scene) render() *image.NRGBA {
 		s.drawHints(dst)
 		return dst
 	}
+	s.drawClassicChrome(dst)
 	s.drawMapView(dst)
 	s.drawPanel(dst)
 	s.drawMessages(dst)
 	s.drawHints(dst)
+	s.drawTimeBand(dst)
 	return dst
 }
 
@@ -385,6 +390,8 @@ func (s *Scene) drawHints(dst *image.NRGBA) {
 		return
 	}
 	switch s.State.Prompt {
+	case game.PromptCombat:
+		hint = "方向鍵移動  A 攻擊  C 施法  空白待命  ESC 撤離"
 	case game.PromptLeave:
 		hint = "Y 是 / N 否"
 	case game.PromptTalk:

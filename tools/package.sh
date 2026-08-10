@@ -3,6 +3,7 @@
 #
 #   tools/package.sh [版本]            交付版(**不含**原版資料與中文字庫)
 #   tools/package.sh [版本] --full     完整版(**含**資料,只留本機)
+#   tools/package.sh [版本] --patch    程式修正包(不含資料,可覆蓋既有完整版)
 #
 # 產出在 dist/。⚠ **不含原版資料,也不含烘好的中文字庫** ——
 # 前者是玩家自備的合法副本,後者衍生自 1993 年的商業字型。兩者都不散布。
@@ -27,10 +28,37 @@ VERSION="${1:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 # 從原版媒體轉出的 ogg —— 三者都不是我們能散布的東西(`CLAUDE.md §3.0` / §7.3)。
 # 所以它寫到 `dist-local/`(已 gitignore),而且每個包裡放一張「不要散布」的字條。
 FULL=0
-for a in "$@"; do [ "$a" = "--full" ] && FULL=1; done
+PATCH=0
+for a in "$@"; do
+  [ "$a" = "--full" ] && FULL=1
+  [ "$a" = "--patch" ] && PATCH=1
+done
+[ "$FULL" = 1 ] && [ "$PATCH" = 1 ] && { echo "✗ --full 與 --patch 不能同時使用" >&2; exit 2; }
 DIST="dist"
 [ "$FULL" = 1 ] && DIST="dist-local"
 LDFLAGS="-s -w -X main.version=${VERSION}"
+
+if [ "$PATCH" = 1 ]; then
+  STAGE="$DIST/patch"
+  for sub in linux windows; do rm -rf "$STAGE/$sub"; done
+  rm -f "$DIST"/u5cht-*-patch.tar.gz "$DIST"/u5cht-*-patch.zip
+  mkdir -p "$STAGE/linux" "$STAGE/windows"
+  echo "→ 編譯 linux/amd64 patch"
+  tools/dev.sh env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags "$LDFLAGS" -o "$STAGE/linux/u5cht" ./cmd/u5cht
+  echo "→ 編譯 windows/amd64 patch"
+  tools/dev.sh env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
+    go build -trimpath -ldflags "$LDFLAGS" -o "$STAGE/windows/u5cht.exe" ./cmd/u5cht
+  cp LICENSE "$STAGE/linux/LICENSE.txt"
+  cp LICENSE "$STAGE/windows/LICENSE.txt"
+  tools/dev.sh python3 tools/mkpatch.py "$STAGE/linux" "$VERSION" linux
+  tools/dev.sh python3 tools/mkpatch.py "$STAGE/windows" "$VERSION" windows
+  tar -C "$STAGE/linux" -czf "$DIST/u5cht-${VERSION}-linux-amd64-patch.tar.gz" .
+  tools/dev.sh python3 tools/mkzip.py \
+    "$DIST/u5cht-${VERSION}-windows-amd64-patch.zip" "$STAGE/windows"
+  echo "✓ Linux／Windows patch 已產生；macOS 請用 build-mac-osxcross.sh --patch"
+  exit 0
+fi
 
 # ⚠ **只清自己的產物,不要 `rm -rf "$DIST"`。**
 # `--full` 的輸出目錄是 `dist-local/`,而那裡還放著別的東西
@@ -90,7 +118,8 @@ text = (
     "(tools/package.sh 不加 --full)。\r\n"
 )
 enc = "cp950" if d.name == "windows" else "utf-8-sig"
-(d / "請勿散布.txt").write_text(text, encoding=enc, errors="replace")
+    # 檔名維持 ASCII；中文放在內容裡，才能通過繁中 Windows 的 zip 規則。
+    (d / "DO-NOT-REDISTRIBUTE-CHT.txt").write_text(text, encoding=enc, errors="replace")
 PYW
   done
 fi
@@ -99,6 +128,7 @@ fi
 #    tar.gz 沒有檔名編碼問題(tar 的檔名就是一串 bytes,原樣還原);
 #    zip 有,所以走 mkzip.py 檢查檔名全為 ASCII 並確認 UTF-8 旗標。
 NAME="u5cht-${VERSION}"
+[ "$FULL" = 1 ] && NAME="${NAME}-full"
 tar -C "$DIST/linux" -czf "$DIST/${NAME}-linux-amd64.tar.gz" .
 # AppImage:單檔、不必解壓。⚠ 它的 cwd 是**唯讀的 squashfs** ——
 # 存檔寫 `os.UserConfigDir()` 這條在這裡才真的被考到(`retro-game-playtest` 第 2 類雷)。

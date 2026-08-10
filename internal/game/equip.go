@@ -163,7 +163,7 @@ func (s *State) Ready(member int, item byte) bool {
 	// 戰鬥中戴上隱形戒指 → 圖換成通用的站姿(原版 `mov al, 1Dh`)。
 	if item == u5data.ItemRingInvisibility && s.InCombat() {
 		if slot := s.combatSlotOfRoster(member); slot >= 0 {
-			s.Combat.Units[slot].Tile = PartyTileStanding
+			s.Combat.Units[slot].Tile = combatTileIndex(PartyTileStanding)
 		}
 	}
 	return true
@@ -204,7 +204,7 @@ func (s *State) takeOff(member int, slot EquipSlot, item byte) bool {
 func (s *State) unhideAfterRing(member int) {
 	if slot := s.combatSlotOfRoster(member); slot >= 0 {
 		s.Combat.Units[slot].Flags &^= UnitHidden
-		s.Combat.Units[slot].Tile = int(u5data.PartyCombatTile(&s.Roster[member]))
+		s.Combat.Units[slot].Tile = combatTileIndex(int(u5data.PartyCombatTile(&s.Roster[member])))
 	}
 	// ⚠ 原版這裡還有一行 `byte_3E0B2 &= ~0x10`。引擎**還沒有**這個位元組的欄位
 	// (`docs/re/67` §五把它定成「這一擊的結果,已經報過了」的一次性旗標,

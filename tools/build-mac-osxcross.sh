@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # 在 Linux 上交叉編 macOS 版(arm64 + x86_64 → universal),組成 `.app` 再壓成 zip。
 #
-#   tools/build-mac-osxcross.sh [版本] [--full]
+#   tools/build-mac-osxcross.sh [版本] [--full|--patch]
 #
 # `--full` 把原版資料 / 中文字庫 / 配樂放進 `Contents/Resources/`,解壓即玩,
 # 輸出到 `dist-local/`(**只留本機**,與 `tools/package.sh --full` 同一條規矩)。
+# `--patch` 只放更新後的 `u5cht.bin` 與版本資訊，輸出到 `dist/`，供覆蓋
+# 既有完整版 App 使用，不含任何遊戲資料。
 #
 # ⚠⚠ **這條路只能做靜態驗收。** Linux 執行不了 macOS binary ——
 # `tools/verify-mac-binary.sh` 全過只代表**不會因結構問題開不起來**
@@ -24,10 +26,16 @@ cd "$ROOT"
 VERSION="${1:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}"
 IMAGE="${U5_OSXCROSS_IMAGE:-u5cht/osxcross}"
 FULL=0
-for a in "$@"; do [ "$a" = "--full" ] && FULL=1; done
+PATCH=0
+for a in "$@"; do
+  [ "$a" = "--full" ] && FULL=1
+  [ "$a" = "--patch" ] && PATCH=1
+done
+[ "$FULL" = 1 ] && [ "$PATCH" = 1 ] && { echo "✗ --full 與 --patch 不能同時使用" >&2; exit 2; }
 DIST="dist"
 [ "$FULL" = 1 ] && DIST="dist-local"
 OUT="$DIST/macos"
+[ "$PATCH" = 1 ] && OUT="$DIST/patch/macos"
 APP="$OUT/Ultima V CHT.app"
 # ★ 完整版把真正的執行檔改名 `u5cht.bin`,`Contents/MacOS/u5cht` 換成一支
 # 先 `cd` 進 `Resources` 再 exec 的小腳本 —— 因為從 Finder 啟動時 cwd 是 `/`,
@@ -37,7 +45,7 @@ APP="$OUT/Ultima V CHT.app"
 # 會回「can't figure out the architecture type」,看起來像交叉編壞了
 #(`osxcross-macos-cross-build` skill §4 的第四列就是這個坑)。
 BINNAME=u5cht
-[ "$FULL" = 1 ] && BINNAME=u5cht.bin
+if [ "$FULL" = 1 ] || [ "$PATCH" = 1 ]; then BINNAME=u5cht.bin; fi
 
 dr() {
   docker run --rm --log-opt max-size=10m --log-opt max-file=3 \
@@ -78,8 +86,10 @@ dr "x86_64-apple-${TARGET}-lipo" -create \
   "$OUT/u5cht-arm64" "$OUT/u5cht-x86_64" -output "$APP/Contents/MacOS/$BINNAME"
 rm -f "$OUT/u5cht-arm64" "$OUT/u5cht-x86_64"
 
-# 圖示:程式畫的 ankh,**不是原版美術**(圖示一定會進交付包)。
-tools/dev.sh python3 tools/mkicon.py "${APP#"$ROOT/"}/Contents/Resources/u5cht.png" 512 >/dev/null
+# 圖示:程式畫的 ankh,**不是原版美術**(完整版／一般交付包才需要；patch 只替換程式)。
+if [ "$PATCH" = 0 ]; then
+  tools/dev.sh python3 tools/mkicon.py "${APP#"$ROOT/"}/Contents/Resources/u5cht.png" 512 >/dev/null
+fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -112,7 +122,7 @@ cd "$HERE/../Resources" || exit 1
 exec "$HERE/u5cht.bin" "$@"
 LAUNCH
   chmod 0755 "$APP/Contents/MacOS/u5cht"
-  cat > "$OUT/請勿散布.txt" <<'WARN'
+  cat > "$OUT/DO-NOT-REDISTRIBUTE-CHT.txt" <<'WARN'
 這一份是完整版:含原版遊戲資料、由商業字庫烘出的中文點陣字,以及從原版媒體
 轉出的配樂。
 
@@ -122,8 +132,16 @@ fi
 
 tools/verify-mac-binary.sh "$APP/Contents/MacOS/$BINNAME" "$TARGET"
 
-tools/dev.sh python3 tools/mkreadme.py "${OUT#"$ROOT/"}" "$VERSION" macos
 cp LICENSE "$OUT/LICENSE.txt"
-( cd "$OUT" && zip -qr "../u5cht-${VERSION}-macos-universal.zip" . )
-echo "→ $DIST/u5cht-${VERSION}-macos-universal.zip"
+if [ "$PATCH" = 1 ]; then
+  tools/dev.sh python3 tools/mkpatch.py "${OUT#"$ROOT/"}" "$VERSION" macos
+  ( cd "$OUT" && zip -qr "../../u5cht-${VERSION}-macos-universal-patch.zip" . )
+  echo "→ $DIST/u5cht-${VERSION}-macos-universal-patch.zip"
+else
+  tools/dev.sh python3 tools/mkreadme.py "${OUT#"$ROOT/"}" "$VERSION" macos
+  SUFFIX=""
+  [ "$FULL" = 1 ] && SUFFIX="-full"
+  ( cd "$OUT" && zip -qr "../u5cht-${VERSION}-macos-universal${SUFFIX}.zip" . )
+  echo "→ $DIST/u5cht-${VERSION}-macos-universal${SUFFIX}.zip"
+fi
 [ "$FULL" = 1 ] && echo "⚠⚠ 完整版 —— 只留本機,不要上傳。"

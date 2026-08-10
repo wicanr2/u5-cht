@@ -634,6 +634,7 @@ func cmdScene(args []string) error {
 		State:        st,
 		Tiles:        bundle.Tiles,
 		Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+		RuneCharset:  bundle.RuneCharset,
 		DungeonViews: bundle.DungeonViews,
 		DungeonItems: bundle.DungeonItems,
 		IntroArt:     bundle.IntroArt,

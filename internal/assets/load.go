@@ -59,6 +59,8 @@ type Bundle struct {
 	SpecialItems *u5data.SpecialItemTable
 	Creatures *u5data.CreatureTable // 生物名
 	Charset   *u5data.Charset
+	// RuneCharset 是 RUNES.CH —— 原版日月時間帶與其他符文 glyph 使用的 8×8 字型。
+	RuneCharset *u5data.Charset
 	// DungeonViews 是 DNG1/2/3.16 的透視切片,索引 0..2 對應三種外觀。
 	DungeonViews []u5data.PictureSet
 	// DungeonItems 是 ITEMS.16(走廊裡的梯子、寶箱、噴泉、陷阱)。
@@ -88,6 +90,11 @@ func Load(opts Options) (*Bundle, []string) {
 		warn = append(warn, fmt.Sprintf("原版 8×8 字型:%v", err))
 	} else {
 		b.Charset = cs
+	}
+	if cs, err := u5data.LoadCharset(filepath.Join(opts.GameData, "RUNES.CH")); err != nil {
+		warn = append(warn, fmt.Sprintf("日月／符文 glyph 字型:%v", err))
+	} else {
+		b.RuneCharset = cs
 	}
 
 	// tileset:**DOS 的 `TILES.16` 優先**。

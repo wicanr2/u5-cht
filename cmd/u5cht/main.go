@@ -1181,6 +1181,7 @@ DOS 版《Ultima V》,把資料檔複製到那個目錄裡,或用 -gamedata 指�
 			ShowDebug:    *debugPanel,
 			Tiles:        bundle.Tiles,
 			Text:         render.NewTextRenderer(bundle.Charset, bundle.CJK, render.ColorText),
+			RuneCharset:  bundle.RuneCharset,
 			DungeonViews: bundle.DungeonViews,
 			DungeonItems: bundle.DungeonItems,
 			IntroArt:     bundle.IntroArt,
