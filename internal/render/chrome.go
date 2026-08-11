@@ -13,15 +13,11 @@ const (
 	classicChromeHeight = HintY - classicChromeTop - classicFooterGap
 )
 
-// drawClassicChrome 畫 UIOriginal 的原版藍白框線。
+// drawClassicChrome 畫兩種版面共用的原版藍白框線。
 //
 // 這裡只畫外框，不重排右欄內容：中文狀態與 remake 擴充訊息仍由既有
-// adaptive layout 決定，避免為了像素框線退回原版狹窄的英文欄位。
+// adaptive layout 決定；F2 只切換欄位排版，不切換框線。
 func (s *Scene) drawClassicChrome(dst *image.NRGBA) {
-	if s.UI != UIOriginal {
-		return
-	}
-
 	// MapOriginY=16 正好把頂端 16 px 留給日月帶，框線不會蓋住第一列地形。
 	// 古典框在命令提示前收邊，下面的 footer 留給繁中提示列，避免底框穿過字形。
 	drawClassicFrame(dst, 0, classicChromeTop, PanelX, classicChromeHeight)

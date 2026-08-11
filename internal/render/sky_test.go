@@ -69,17 +69,13 @@ func TestBothUIModesKeepTheSunMoonIndicator(t *testing.T) {
 	}
 }
 
-func TestOriginalModeDrawsClassicChrome(t *testing.T) {
-	modern := testScene()
-	modern.UI = UIModern
-	classic := testScene()
-	classic.UI = UIOriginal
-	modernPixel := modern.Render().NRGBAAt(0, 8)
-	classicPixel := classic.Render().NRGBAAt(0, 8)
-	if modernPixel == classicPixel {
-		t.Fatalf("原版框線沒有與現代版分開:兩者 (0,8) 都是 %v", classicPixel)
-	}
-	if classicPixel != u5data.EGAPalette[1] {
-		t.Errorf("原版框線外層是 %v,預期 EGA 深藍=%v", classicPixel, u5data.EGAPalette[1])
+func TestBothUIModesDrawClassicChrome(t *testing.T) {
+	for _, mode := range []UIMode{UIModern, UIOriginal} {
+		s := testScene()
+		s.UI = mode
+		pixel := s.Render().NRGBAAt(0, 8)
+		if pixel != u5data.EGAPalette[1] {
+			t.Errorf("%s 框線外層是 %v,預期 EGA 深藍=%v", UIModeNames[mode], pixel, u5data.EGAPalette[1])
+		}
 	}
 }

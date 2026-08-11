@@ -59,7 +59,7 @@ func skyBandSlot(pos int, wrapNegative bool) int {
 }
 
 // drawTimeBand 畫大地圖／場景的日月指示；地牢與戰鬥依原版位置碼不畫。
-// 現代版與 UIOriginal 都保留，差別只在 UIOriginal 另外有藍白框線。
+// 現代版與 UIOriginal 都保留日月圖；兩種版面共用藍白框線。
 func (s *Scene) drawTimeBand(dst *image.NRGBA) {
 	if s.State == nil || s.RuneCharset == nil || !s.State.SceneOrOverworld() {
 		return
