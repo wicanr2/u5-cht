@@ -498,7 +498,8 @@ func (s *Scene) drawMessages(dst *image.NRGBA) {
 		lines = append(lines, Wrap(m, PanelWidth)...)
 	}
 	top := s.messageTop()
-	avail := (CanvasHeight - 8 - top) / LineHeight
+	// HintY 以下是兩種版面共用的命令提示 footer；訊息與輸入列不能畫進去。
+	avail := (HintY - top) / LineHeight
 	switch s.State.Prompt {
 	case game.PromptTalk, game.PromptAnswer, game.PromptSpell, game.PromptShrine, game.PromptYell, game.PromptBlackthorn, game.PromptText:
 		avail-- // 留一行給輸入列

@@ -7,6 +7,12 @@ import (
 	"github.com/wicanr2/u5-cht/internal/u5data"
 )
 
+const (
+	classicChromeTop    = 8
+	classicFooterGap    = 2
+	classicChromeHeight = HintY - classicChromeTop - classicFooterGap
+)
+
 // drawClassicChrome 畫 UIOriginal 的原版藍白框線。
 //
 // 這裡只畫外框，不重排右欄內容：中文狀態與 remake 擴充訊息仍由既有
@@ -16,11 +22,11 @@ func (s *Scene) drawClassicChrome(dst *image.NRGBA) {
 		return
 	}
 
-	// 地圖外框的內緣落在地圖外側：MapOriginY=16 正好把頂端 16 px
-	// 留給日月帶，框線不會蓋住第一列地形。
-	drawClassicFrame(dst, 0, 8, PanelX, ViewPixels+12)
-	// 右欄從地圖右側延伸到底部，訊息多時仍可在框內捲動。
-	drawClassicFrame(dst, PanelX-8, 8, CanvasWidth-PanelX+8, CanvasHeight-16)
+	// MapOriginY=16 正好把頂端 16 px 留給日月帶，框線不會蓋住第一列地形。
+	// 古典框在命令提示前收邊，下面的 footer 留給繁中提示列，避免底框穿過字形。
+	drawClassicFrame(dst, 0, classicChromeTop, PanelX, classicChromeHeight)
+	drawClassicFrame(dst, PanelX-8, classicChromeTop,
+		CanvasWidth-PanelX+8, classicChromeHeight)
 }
 
 // drawClassicFrame 是原版 EGA 藍／亮藍／白三層框線的 2× 畫布版本。
